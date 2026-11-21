@@ -1810,3 +1810,20 @@ existentes (com o mesmo efeito), só deixaram de declarar atalho para não recri
 
 Consequência de desenho, igual ao original: `Ctrl+A` e as setas têm significados **por
 janela/foco** — no player, sempre no topo e volume; na lista, selecionar tudo e rolar.
+
+### Correção: abrir com a playlist ligada (21/11)
+
+Três defeitos somados, todos no caminho "abrir com o painel ligado":
+
+1. **`showEvent` não era confiável para agendar.** Em alguns ambientes a janela é mapeada
+   durante a construção, então o `showEvent` acontecia **antes** de `loadSettings()` ler
+   `playlist/visible` — o agendamento nunca era feito e a lista não abria. O agendamento
+   virou `schedulePendingPlaylistOpen()`, idempotente, chamado do `loadSettings()` **e** do
+   `showEvent`.
+2. **Altura do painel com dois nomes.** `saveSettings()` gravava `window/panelHeight`, mas
+   `loadSettings()` lia `window/integratedHeight`: o painel voltava sempre com o padrão (300)
+   ou com um valor velho (160), e daí a janela abria com 160 px a menos.
+3. **Altura compacta derivada do tamanho total.** `compactHeight = size - panelHeight` e
+   `panelHeight = height - compactHeight` se realimentavam: cada fechamento com o painel
+   aberto empurrava os dois valores. Agora `window/compactHeight` é gravado explicitamente e
+   a derivação só serve de migração para INIs antigas.

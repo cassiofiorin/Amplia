@@ -90,6 +90,8 @@ class MainWindow final : public QMainWindow {
   void dropEvent(QDropEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void showEvent(QShowEvent* event) override;
+  /// Agenda a abertura da playlist pedida pela INI (idempotente).
+  void schedulePendingPlaylistOpen();
   bool eventFilter(QObject* watched, QEvent* event) override;
 
  private:

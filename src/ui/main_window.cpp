@@ -363,6 +363,7 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   compactHeight_ = std::max(kCompactFloor, sizeHint().height());
   setMinimumSize(400, compactHeight_);
   loadSettings();
+  schedulePendingPlaylistOpen();
   loadEqualizer();
 
   // Escape de depuração: salva a própria janela em PNG (sem capturar a tela do usuário).
@@ -2747,12 +2748,12 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
   return QMainWindow::eventFilter(watched, event);
 }
 
-void MainWindow::showEvent(QShowEvent* event) {
-  QMainWindow::showEvent(event);
+void MainWindow::schedulePendingPlaylistOpen() {
+  // O showEvent pode acontecer antes de loadSettings() (a janela é mapeada durante a
+  // construção, dependendo do ambiente), então o agendamento é idempotente e chamado dos
+  // dois lados. Sem isso, abrir com a playlist ligada não abria a playlist.
   if (!pendingPlaylistVisible_ || playlistShowScheduled_) return;
   playlistShowScheduled_ = true;
-  // 200 ms depois de a principal aparecer: no Wayland o parentesco das janelas
-  // auxiliares só é enviado quando a mãe já está mapeada (D-081).
   const int delay = qEnvironmentVariableIsSet("AMPLIA_PLAYLIST_DELAY_MS")
                         ? qEnvironmentVariableIntValue("AMPLIA_PLAYLIST_DELAY_MS")
                         : 200;
@@ -2760,6 +2761,11 @@ void MainWindow::showEvent(QShowEvent* event) {
     pendingPlaylistVisible_ = false;
     setPlaylistVisible(true);
   });
+}
+
+void MainWindow::showEvent(QShowEvent* event) {
+  QMainWindow::showEvent(event);
+  schedulePendingPlaylistOpen();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -2849,12 +2855,21 @@ void MainWindow::loadSettings() {
   // Guardamos o tamanho TOTAL e a altura do painel e derivamos a altura compacta — assim
   // abrir/fechar a lista não inventa um vão nem encolhe a janela.
   const QSize savedSize = settings.value(QStringLiteral("window/size")).toSize();
+  const int savedCompact = settings.value(QStringLiteral("window/compactHeight"), 0).toInt();
   int width = std::clamp(settings.value(QStringLiteral("window/width"), 460).toInt(), 400, 4000);
   compactHeight_ = std::clamp(
       std::max(settings.value(QStringLiteral("window/collapsedHeight"), compactHeight_).toInt(),
                compactHeight_),
       kCompactFloor, 1200);
-  if (savedSize.isValid() && savedSize.width() >= 400 && savedSize.height() >= kCompactFloor) {
+  if (savedCompact >= kCompactFloor) {
+    // Caminho normal: a altura compacta é guardada explicitamente. Derivar do tamanho total
+    // a cada abertura fazia o valor derivar com o tempo (painel e janela se realimentavam).
+    compactHeight_ = std::clamp(savedCompact, kCompactFloor, 1200);
+    if (savedSize.isValid() && savedSize.width() >= 400) {
+      width = std::clamp(savedSize.width(), 400, 4000);
+    }
+  } else if (savedSize.isValid() && savedSize.width() >= 400 && savedSize.height() >= kCompactFloor) {
+    // Versões anteriores: deriva do total e da altura do painel.
     width = std::clamp(savedSize.width(), 400, 4000);
     const bool panelOpen = settings.value(QStringLiteral("playlist/visible"), false).toBool();
     const int panelHeight = settings.value(QStringLiteral("window/panelHeight"), 300).toInt();
@@ -2889,8 +2904,12 @@ void MainWindow::loadSettings() {
 
   playlistMode_ = settings.value(QStringLiteral("playlist/mode"), QStringLiteral("integrada"))
                       .toString();
-  integratedHeight_ =
-      std::clamp(settings.value(QStringLiteral("window/integratedHeight"), 300).toInt(), 160, 900);
+  // A chave é window/panelHeight (é o que saveSettings grava); integratedHeight é o nome
+  // antigo e fica como leitura de migração.
+  const int savedPanel = settings.value(
+      QStringLiteral("window/panelHeight"),
+      settings.value(QStringLiteral("window/integratedHeight"), 300).toInt()).toInt();
+  integratedHeight_ = std::clamp(savedPanel, 160, 900);
   applyPlaylistMode();
 
   const int playlistW = settings.value(QStringLiteral("window/playlistWidth"), 440).toInt();
@@ -2978,7 +2997,12 @@ void MainWindow::saveSettings() {
     qInfo("saveSettings: tamanho=%dx%d", width(), height());
   }
   if (!isMaximized() && !isFullScreen()) {
+    // Com o painel aberto, a diferença para a altura compacta é a altura real do painel.
+    if (playlistIntegrated() && playlistOpen_ && height() > compactHeight_) {
+      integratedHeight_ = std::clamp(height() - compactHeight_, 160, 900);
+    }
     // Tamanho vale em qualquer plataforma; só a posição depende do X11.
+    settings.setValue(QStringLiteral("window/compactHeight"), compactHeight_);
     settings.setValue(QStringLiteral("window/size"), size());
     settings.setValue(QStringLiteral("window/panelHeight"), integratedHeight_);
   }
