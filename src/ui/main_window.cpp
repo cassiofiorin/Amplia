@@ -1401,6 +1401,13 @@ void MainWindow::addFiles(const QStringList& paths) { addPaths(paths); }
 
 bool MainWindow::openPath(const QString& path, bool autoplay) {
   refresh();
+  // "Missing file" do original: só descobrimos ao tocar. Não abre, marca e devolve false
+  // para quem chamou pular adiante.
+  if (!QFileInfo::exists(path)) {
+    setMissing(path.toStdString(), true);
+    showError(tr("Arquivo não encontrado: ") + QFileInfo(path).fileName());
+    return false;
+  }
   if (!engine_->load(path.toStdString())) {
     showError(QString::fromStdString(engine_->lastError()));
     return false;
@@ -1427,6 +1434,8 @@ bool MainWindow::openPath(const QString& path, bool autoplay) {
     // A faixa que toca já tem tags do decoder: semeia o cache para a linha aparecer
     // completa na hora, sem esperar a fila.
     metadata_[track.path] = track;
+    setMissing(track.path, false);
+    if (cache_) cache_->store(track);
     updateArtwork(track);
     if (QListWidgetItem* item = list_->item(static_cast<int>(index))) {
       item->setText(rowLabel(track.path, true));
@@ -1810,10 +1819,18 @@ void MainWindow::shuffleList() {
 }
 
 void MainWindow::playIndex(std::size_t index) {
-  if (index >= playlist_->size()) return;
-  playlist_->setCurrent(index);
-  openPath(QString::fromStdString(playlist_->at(index)));
-  list_->setCurrentRow(static_cast<int>(index));
+  const std::size_t total = playlist_->size();
+  if (index >= total) return;
+  // Pula as que não existem: no máximo uma volta na lista, para não girar para sempre.
+  for (std::size_t tentativa = 0; tentativa < total; ++tentativa) {
+    const std::size_t atual = (index + tentativa) % total;
+    playlist_->setCurrent(atual);
+    if (openPath(QString::fromStdString(playlist_->at(atual)))) {
+      list_->setCurrentRow(static_cast<int>(atual));
+      return;
+    }
+  }
+  statusBar()->showMessage(tr("Nenhuma faixa desta lista pôde ser aberta"), 6000);
 }
 
 void MainWindow::playNext() {
@@ -1824,7 +1841,10 @@ void MainWindow::playNext() {
       playlist_->dequeue();
       refreshQueue();
     }
-    openPath(next);
+    if (!openPath(next)) {
+      // Faixa da fila/nova não abriu (arquivo ausente): segue adiante pela lista.
+      playIndex(nextTrackIndex());
+    }
     return;
   }
   if (!shuffle_ && playlist_->hasCurrent() && playlist_->isLast(playlist_->currentIndex())) {
@@ -1893,6 +1913,8 @@ void MainWindow::applyGaplessTrackChange(const QString& path) {
   const wamp::TrackInfo track = engine_->track();
   if (!track.path.empty()) {
     metadata_[track.path] = track;
+    setMissing(track.path, false);
+    if (cache_) cache_->store(track);
     updateArtwork(track);
     beginScrobble(track);
   }
@@ -2519,7 +2541,10 @@ void MainWindow::onTrackEnded() {
       playlist_->dequeue();
       refreshQueue();
     }
-    openPath(next);
+    if (!openPath(next)) {
+      // Faixa da fila/nova não abriu (arquivo ausente): segue adiante pela lista.
+      playIndex(nextTrackIndex());
+    }
     return;
   }
   statusBar()->showMessage(tr("Fim da playlist"), 3000);
@@ -2822,11 +2847,14 @@ void MainWindow::loadSettings() {
       std::vector<std::string> paths;
       paths.reserve(static_cast<std::size_t>(items.size()));
       for (const QString& item : items) paths.push_back(item.toStdString());
-      const std::vector<std::string> missing = missesFor(paths);
+      // Abertura instantânea: a lista vem da INI e as tags do cache, **sem** stat nem
+      // sondagem. Tag só é atualizada ao tocar ou ao salvar no editor (D-082).
+      for (const std::string& path : paths) {
+        wamp::TrackInfo cached;
+        cachedInfoFast(path, &cached);
+      }
       playlist_->addAll(paths);
       rebuildPlaylist();
-      scanner_->enqueueAll(missing);
-      startReading();
 
       const int current = settings.value(QStringLiteral("playlist/current"), -1).toInt();
       if (current >= 0 && current < static_cast<int>(playlist_->size())) {
@@ -3049,6 +3077,7 @@ void MainWindow::rebuildPlaylist() {
   for (std::size_t i = 0; i < playlist_->size(); ++i) {
     const std::string& path = playlist_->at(i);
     auto* item = new QListWidgetItem(rowLabel(path, i == current), list_);
+    item->setData(kMissingRole, missingFiles_.count(path) != 0);
     item->setData(Qt::UserRole, QString::fromStdString(path));
     item->setData(kDurationRole, durationText(path));
     item->setToolTip(QString::fromStdString(path));
@@ -3088,6 +3117,7 @@ QString MainWindow::rowLabel(const std::string& path, bool current) const {
     }
   }
   if (current) text.prepend(tr("\u25b6 "));
+  if (missingFiles_.count(path) != 0) text.prepend(QStringLiteral("\u26a0 "));
   return text;
 }
 
@@ -3127,6 +3157,31 @@ bool MainWindow::cachedInfo(const std::string& path, wamp::TrackInfo* info) {
   if (!cache_->lookup(path, info)) return false;
   metadata_[path] = *info;
   return true;
+}
+
+bool MainWindow::cachedInfoFast(const std::string& path, wamp::TrackInfo* info) {
+  if (!cache_ || info == nullptr) return false;
+  if (!cache_->lookupFast(path, info)) return false;
+  metadata_[path] = *info;
+  return true;
+}
+
+void MainWindow::setMissing(const std::string& path, bool missing) {
+  if (missing) {
+    if (!missingFiles_.insert(path).second) return;
+  } else if (missingFiles_.erase(path) == 0) {
+    return;
+  }
+  const QString qpath = QString::fromStdString(path);
+  for (int row = 0; row < list_->count(); ++row) {
+    QListWidgetItem* item = list_->item(row);
+    if (item->data(Qt::UserRole).toString() != qpath) continue;
+    item->setData(kMissingRole, missing);
+    const bool current =
+        playlist_->hasCurrent() && playlist_->at(playlist_->currentIndex()) == path;
+    item->setText(rowLabel(path, current));
+    item->setToolTip(missing ? tr("Arquivo não encontrado") : qpath);
+  }
 }
 
 std::vector<std::string> MainWindow::missesFor(const std::vector<std::string>& paths) {

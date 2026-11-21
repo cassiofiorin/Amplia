@@ -29,6 +29,10 @@ class TagCache final {
   /// Metadados guardados para `path`, se o arquivo não mudou desde a última leitura.
   bool lookup(const std::string& path, TrackInfo* info);
 
+  /// Igual a lookup(), mas **sem** conferir tamanho e mtime: devolve o que estiver gravado.
+  /// Usado na abertura, quando validar 400 caminhos de rede custaria segundos.
+  bool lookupFast(const std::string& path, TrackInfo* info);
+
   /// Guarda/atualiza os metadados de uma faixa (usa `path`, `fileSize`, `modifiedMs`).
   void store(const TrackInfo& info);
 

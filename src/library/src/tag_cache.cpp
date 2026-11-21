@@ -73,28 +73,30 @@ bool TagCache::ensureSchema(std::string* error) {
   return true;
 }
 
-bool TagCache::lookup(const std::string& path, TrackInfo* info) {
-  if (db_ == nullptr || info == nullptr) return false;
+namespace {
 
-  const std::int64_t size = fileSizeBytes(path);
-  const std::int64_t mtime = fileModifiedMs(path);
-  if (size <= 0 || mtime <= 0) return false;  // arquivo sumiu ou não dá para verificar
+/// Lê a linha de `tracks` para o caminho. Com validate=true, exige que tamanho e mtime
+/// batam com o arquivo em disco.
+bool readRow(sqlite3* db, const std::string& path, TrackInfo* info, bool validate) {
+  const std::int64_t size = validate ? fileSizeBytes(path) : 0;
+  const std::int64_t mtime = validate ? fileModifiedMs(path) : 0;
+  if (validate && (size <= 0 || mtime <= 0)) return false;  // sumiu
 
   const char* sql =
       "SELECT size, mtime, title, artist, album, album_artist, genre, track_no, year,"
       " duration_ms, sample_rate, channels, bitrate FROM tracks WHERE path = ?;";
   sqlite3_stmt* statement = nullptr;
-  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return false;
+  if (sqlite3_prepare_v2(db, sql, -1, &statement, nullptr) != SQLITE_OK) return false;
   bindText(statement, 1, path);
-
   const bool row = sqlite3_step(statement) == SQLITE_ROW;
-  const bool valid = row && sqlite3_column_int64(statement, 0) == size &&
-                     sqlite3_column_int64(statement, 1) == mtime;
+  const bool valid = row && (!validate || (sqlite3_column_int64(statement, 0) == size &&
+                                            sqlite3_column_int64(statement, 1) == mtime));
+  bool filled = false;
   if (valid) {
     TrackInfo cached;
     cached.path = path;
-    cached.fileSize = size;
-    cached.modifiedMs = mtime;
+    cached.fileSize = sqlite3_column_int64(statement, 0);
+    cached.modifiedMs = sqlite3_column_int64(statement, 1);
     cached.title = columnText(statement, 2);
     cached.artist = columnText(statement, 3);
     cached.album = columnText(statement, 4);
@@ -107,9 +109,22 @@ bool TagCache::lookup(const std::string& path, TrackInfo* info) {
     cached.channels = sqlite3_column_int(statement, 11);
     cached.bitrate = sqlite3_column_int(statement, 12);
     *info = std::move(cached);
+    filled = true;
   }
   sqlite3_finalize(statement);
-  return valid;
+  return filled;
+}
+
+}  // namespace
+
+bool TagCache::lookup(const std::string& path, TrackInfo* info) {
+  if (db_ == nullptr || info == nullptr) return false;
+  return readRow(db_, path, info, true);
+}
+
+bool TagCache::lookupFast(const std::string& path, TrackInfo* info) {
+  if (db_ == nullptr || info == nullptr) return false;
+  return readRow(db_, path, info, false);
 }
 
 void TagCache::store(const TrackInfo& info) {

@@ -8,6 +8,9 @@ inline constexpr int kQueueRole = Qt::UserRole + 1;
 /// Role com a duração já formatada ("4:11"), desenhada em coluna própria à direita.
 inline constexpr int kDurationRole = Qt::UserRole + 2;
 
+/// Role com 1 quando o arquivo não abriu ("missing file"): o rótulo sai em âmbar.
+inline constexpr int kMissingRole = Qt::UserRole + 4;
+
 /// Desenha a linha da playlist em colunas: número da faixa num gutter à esquerda,
 /// título no meio (elidido), duração alinhada à direita e, colado na borda, o número
 /// da posição na fila quando a faixa está enfileirada.

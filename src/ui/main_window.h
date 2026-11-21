@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <map>
+#include <set>
 #include <functional>
 #include <memory>
 
@@ -209,8 +210,10 @@ class MainWindow final : public QMainWindow {
   void startReading();
   /// Metadados do cache em disco, se o arquivo não mudou desde a última leitura.
   bool cachedInfo(const std::string& path, wamp::TrackInfo* info);
+  bool cachedInfoFast(const std::string& path, wamp::TrackInfo* info);
   /// Só as faixas que o cache não tem — são essas que a fila precisa ler.
   std::vector<std::string> missesFor(const std::vector<std::string>& paths);
+  void setMissing(const std::string& path, bool missing);
   void setPlaylistVisible(bool visible);
   void showError(const QString& message);
 
@@ -243,6 +246,8 @@ class MainWindow final : public QMainWindow {
 
   /// Tags já lidas, por caminho: `rebuildPlaylist()` desenha a lista sem esperar a fila.
   std::map<std::string, wamp::TrackInfo> metadata_;
+  /// Caminhos que não abriram ao tocar: linha ganha o aviso e é pulada.
+  std::set<std::string> missingFiles_;
 
   wamp::ui::DisplayPanel* display_ = nullptr;
   wamp::ui::RoundButton* playButton_ = nullptr;

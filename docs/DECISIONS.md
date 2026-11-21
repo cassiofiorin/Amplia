@@ -1688,3 +1688,32 @@ mesma janela. Decisão pendente com o usuário.
 eram os mesmos em memória, então não corrompia nada, mas gravava quatro chaves fora de
 propósito a cada troca de modo. Agora grava só a sua, e o nome exibido na barra de status
 passou a vir de `tr()`.
+
+## D-082 — Lista instantânea, tag sob demanda e "missing file"
+
+Problema: a abertura restaurava a sessão validando o cache com `stat` de **cada** arquivo e
+sondando com FFmpeg o que não batia. Com 406 faixas num share CIFS, isso era o custo inteiro
+do startup (2,5–7,3 s medidos) — e não tinha nada a ver com a separação em janelas.
+
+Agora, como no original:
+
+| Quando | O que acontece |
+|---|---|
+| Abrir o app | a lista vem da INI; a tag vem do cache **sem** `stat` (`TagCache::lookupFast`); nada de sondagem |
+| Adicionar arquivos/pasta/playlist | fila de metadados como antes (ação explícita, o usuário está olhando) |
+| Tocar uma faixa | o decoder entrega as tags; a linha e o cache são atualizados |
+| Salvar no editor de tags | reprobe + atualização da linha e do cache |
+| Arquivo ausente ao tocar | linha ganha `⚠` e é **pulada** (`playIndex` percorre a lista uma vez) |
+
+Consequências assumidas:
+
+- Um arquivo editado por ferramenta externa mostra tag velha até ser tocado ou editado aqui.
+  O cache não é revalidado em massa no startup — é o preço de abrir instantâneo.
+- Faixa sem cache aparece com o **nome do arquivo** até ser tocada. A coluna de duração fica
+  vazia nesse meio-tempo.
+- Nada é removido da lista automaticamente: share desmontado volta ao normal quando voltar.
+  "Remover inexistentes" continua sendo ação manual do menu.
+
+O aviso `⚠` só é descoberto na hora de tocar — que é exatamente o comportamento pedido. Por
+isso ele não substitui uma verificação em massa; se um dia isso for desejado, o caminho é
+uma ação explícita de "verificar a lista", não um custo escondido na abertura.

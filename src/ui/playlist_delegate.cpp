@@ -60,7 +60,9 @@ void PlaylistDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
   const QRect labelRect = opt.rect.adjusted(gutter, 0, -(queueWidth + durationWidth + 6), 0);
   // Texto da linha selecionada na cor do estilo: com stylesheet a paleta não acompanha
   // o fundo desenhado, e HighlightedText sairia escuro sobre o destaque.
-  const QColor labelColor = selected ? th.listSelectedText : th.listText;
+  // "Missing file": o aviso já vem no texto (⚠), aqui só damos a cor de alerta.
+  const bool missing = index.data(kMissingRole).toInt() != 0;
+  const QColor labelColor = selected ? th.listSelectedText : (missing ? th.accent : th.listText);
   painter->setPen(labelColor);
   painter->drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
                     fm.elidedText(label, Qt::ElideMiddle, labelRect.width()));

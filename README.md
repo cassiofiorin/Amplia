@@ -275,6 +275,16 @@ estourar. Sem as tags, nada muda.
 relativos são resolvidos contra a pasta da playlist, então uma pasta de álbum com `lista.m3u`
 funciona em qualquer lugar. Salvar usa o formato da extensão escolhida.
 
+### Sessão e arquivos ausentes
+
+A lista volta na hora: a abertura lê a INI e as tags já guardadas em cache, **sem varrer os
+arquivos**. Tags novas aparecem quando a faixa é tocada (o decoder entrega) ou quando você
+salva pelo editor de tags.
+
+Se um arquivo não existe mais, a linha ganha um `⚠` na hora em que você tenta tocá-la — e o
+player pula para a próxima. Nada é removido da lista sozinho: um share de rede desmontado
+volta ao normal quando voltar.
+
 ### Sessão
 
 Ao abrir sem arquivos, o Amplia devolve a playlist da última vez e deixa a faixa que estava
