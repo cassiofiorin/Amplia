@@ -1899,3 +1899,26 @@ e apontar pastas-raiz.
   banco guarda só o inteiro. "Top Rated" segue o original: `rating >= 3`.
 - **`dateadded`**: preenchido no `INSERT` e **preservado** no `ON CONFLICT DO UPDATE`, então
   reindexar não move a faixa para o topo de "Adicionados recentemente".
+
+## D-091 — Biblioteca com a árvore de visões do ML
+
+O Media Library original é uma árvore de **consultas** sobre o banco (Most Played
+`playcount > 0`, Recently Added `dateadded > [3 days ago]`, Recently Modified
+`lastupd > [3 days ago]`, Recently Played `lastplay > [2 weeks ago]`, Never Played
+`playcount = 0`, Top Rated `rating >= 3` — `Src/Plugins/Library/ml_local/queries.cpp`).
+Copiamos as consultas, não a tela: `TagCache::queryLibrary(view, filter, days)` devolve as
+linhas já ordenadas por visão, e a janela só desenha.
+
+- **Janela** 1120×620, `Qt::Tool`: árvore à esquerda (220 px) com as oito visões, busca no
+  topo com debounce de 250 ms, tabela de oito colunas e rodapé com resumo
+  ("135 faixa(s) — 8h 30min — 1177 MB") e ações Tocar/Enfileirar.
+- **Rótulos curtos na árvore** ("Adicionadas (3 dias)"): os nomes do original não cabem em
+  220 px e o parêntese diz a janela de tempo, que é a informação que o nome longo carrega.
+- **Ordenação numérica**: `NumericItem` compara `Qt::UserRole`, senão a duração ordenaria
+  como texto ("10:02" antes de "3:05") e as estrelas por quantidade de caracteres.
+- **Nota por clique** na coluna Nota: a estrela sai da posição do clique (largura/5), clicar
+  na nota atual limpa; o banco guarda o inteiro, a tela guarda as estrelas.
+- **Recarga no fim do lote**: enquanto o scanner trabalha, a tabela **não** recarrega a cada
+  tag (as linhas pulariam); recarrega quando `scanner_->pending() == 0`.
+- A consulta é sobre o banco inteiro e a janela filtra pelas raízes: um arquivo tocado da
+  playlist entra no cache, mas só aparece na Biblioteca se estiver sob uma pasta indexada.

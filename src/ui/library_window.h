@@ -2,44 +2,62 @@
 
 #include <vector>
 
+#include <QStringList>
 #include <QWidget>
 
+#include "wamp/tag_cache.h"
 #include "wamp/types.h"
 
 class QLabel;
-class QListWidget;
+class QLineEdit;
+class QTableWidget;
+class QTreeWidget;
+class QTreeWidgetItem;
 class QPushButton;
 
 namespace wamp::ui {
 
-/// Janela da Biblioteca (F3): lista o que já está indexado no banco e permite apontar
-/// pastas-raiz. Não lê arquivos sozinha — quem enfileira as tags é a MainWindow, dona da
-/// fila de leitura e do contador de metadados; aqui só se mostra o estado dessa fila.
+/// Janela da Biblioteca: árvore de visões à esquerda (como o ML original), tabela de
+/// faixas à direita e busca no topo. Não lê arquivos nem toca nada sozinha — pede à
+/// MainWindow, que é dona do banco, da fila de metadados e do player.
 class LibraryWindow final : public QWidget {
   Q_OBJECT
 
  public:
   explicit LibraryWindow(QWidget* parent = nullptr);
 
-  /// Recoloca as faixas na lista, preservando a seleção pelo caminho quando possível.
-  void setTracks(const std::vector<wamp::TrackInfo>& tracks);
-
-  /// Texto do andamento da leitura de tags; vazio esconde o rótulo.
+  /// Recoloca as faixas na tabela, preservando a seleção pelo caminho.
+  void setRows(const std::vector<wamp::LibraryEntry>& rows);
   void setStatus(const QString& text);
+  void setSummary(const QString& text);
 
-  /// Atualiza uma linha já visível (as tags chegam depois, uma a uma).
-  void updateTrack(const wamp::TrackInfo& info);
+  wamp::LibraryView view() const;
+  QString filter() const;
+  /// Seleciona uma visão pelo índice da árvore (0 = todas). Usado também pelos testes.
+  void selectView(int row);
 
  signals:
+  /// Mudou a visão ou o texto de busca: a MainWindow refaz a consulta.
+  void queryChanged();
   void addFolderRequested();
   void refreshRequested();
   void playRequested(const QString& path);
+  void playSelectionRequested(const QStringList& paths);
+  void enqueueSelectionRequested(const QStringList& paths);
+  /// Clique na coluna de nota: 0 limpa, 1–5 grava.
+  void ratingRequested(const QString& path, int rating);
 
  private:
-  QListWidget* list_ = nullptr;
-  QLabel* statusLabel_ = nullptr;
-  QLabel* emptyLabel_ = nullptr;
-  QPushButton* addButton_ = nullptr;
+  void updateButtons();
+  QStringList selectedPaths() const;
+
+  QTreeWidget* tree_ = nullptr;
+  QTableWidget* table_ = nullptr;
+  QLineEdit* search_ = nullptr;
+  QLabel* summary_ = nullptr;
+  QLabel* status_ = nullptr;
+  QPushButton* playButton_ = nullptr;
+  QPushButton* queueButton_ = nullptr;
 };
 
 }  // namespace wamp::ui

@@ -63,7 +63,8 @@ bool TagCache::ensureSchema(std::string* error) {
       " track_no INTEGER, year INTEGER,"
       " duration_ms INTEGER, sample_rate INTEGER, channels INTEGER, bitrate INTEGER,"
       " dateadded INTEGER, playcount INTEGER NOT NULL DEFAULT 0,"
-      " rating INTEGER NOT NULL DEFAULT 0, lastplay INTEGER NOT NULL DEFAULT 0"
+      " rating INTEGER NOT NULL DEFAULT 0, lastplay INTEGER NOT NULL DEFAULT 0,"
+      " lastupd INTEGER NOT NULL DEFAULT 0"
       ");"
       "CREATE TABLE IF NOT EXISTS roots (path TEXT PRIMARY KEY);"
       "CREATE TABLE IF NOT EXISTS scan_queue ("
@@ -84,6 +85,7 @@ bool TagCache::ensureSchema(std::string* error) {
       "ALTER TABLE tracks ADD COLUMN playcount INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN rating INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN lastplay INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN lastupd INTEGER NOT NULL DEFAULT 0;",
   };
   for (const char* alter : columns) {
     sqlite3_exec(db_, alter, nullptr, nullptr, nullptr);  // erro = coluna já existe
@@ -220,6 +222,110 @@ std::vector<std::string> TagCache::roots(std::string* error) {
   return out;
 }
 
+std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::string& filter,
+                                                int days, std::string* error) {
+  std::vector<LibraryEntry> out;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco fechado";
+    return out;
+  }
+
+  const int window = days > 0 ? days : 3;
+  std::string where;
+  switch (view) {
+    case LibraryView::RecentlyAdded:
+      where = "dateadded > CAST(strftime('%s','now') AS INTEGER) - " +
+              std::to_string(window * 86400);
+      break;
+    case LibraryView::RecentlyModified:
+      where = "lastupd > CAST(strftime('%s','now') AS INTEGER) - " +
+              std::to_string(window * 86400);
+      break;
+    case LibraryView::RecentlyPlayed:
+      // Duas semanas, como no ML original ("lastplay > [2 weeks ago]").
+      where = "lastplay > CAST(strftime('%s','now') AS INTEGER) - 1209600";
+      break;
+    case LibraryView::NeverPlayed:
+      where = "playcount = 0";
+      break;
+    case LibraryView::MostPlayed:
+      where = "playcount > 0";
+      break;
+    case LibraryView::TopRated:
+      where = "rating >= 3";
+      break;
+    case LibraryView::All:
+    case LibraryView::Audio:
+      break;
+  }
+
+  std::string text = filter;
+  const bool hasFilter = !text.empty();
+  if (hasFilter) {
+    std::string like = "%";
+    for (char c : text) {
+      if (c == '%' || c == '_') like.push_back('\\');
+      like.push_back(c);
+    }
+    like.push_back('%');
+    text = like;
+    const std::string clause =
+        "(title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1 OR album_artist LIKE ?1)";
+    where = where.empty() ? clause : "(" + where + ") AND " + clause;
+  }
+
+  std::string order = "artist COLLATE NOCASE, album COLLATE NOCASE, track_no, title";
+  if (view == LibraryView::MostPlayed) order = "playcount DESC, artist COLLATE NOCASE, title";
+  if (view == LibraryView::TopRated) order = "rating DESC, artist COLLATE NOCASE, title";
+  if (view == LibraryView::RecentlyAdded) order = "dateadded DESC, artist COLLATE NOCASE";
+  if (view == LibraryView::RecentlyModified) order = "lastupd DESC, artist COLLATE NOCASE";
+  if (view == LibraryView::RecentlyPlayed) order = "lastplay DESC, artist COLLATE NOCASE";
+
+  std::string sql =
+      "SELECT path, title, artist, album, album_artist, genre, track_no, year,"
+      " duration_ms, sample_rate, channels, bitrate, size, mtime, dateadded, playcount,"
+      " rating, lastplay FROM tracks";
+  if (!where.empty()) sql += " WHERE " + where;
+  sql += " ORDER BY " + order + ";";
+
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = sqlite3_errmsg(db_);
+    return out;
+  }
+  if (hasFilter) bindText(statement, 1, text);
+
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    LibraryEntry entry;
+    const unsigned char* path = sqlite3_column_text(statement, 0);
+    if (path != nullptr) entry.info.path = reinterpret_cast<const char*>(path);
+    auto textAt = [statement](int column) {
+      const unsigned char* value = sqlite3_column_text(statement, column);
+      return value != nullptr ? reinterpret_cast<const char*>(value) : "";
+    };
+    entry.info.title = textAt(1);
+    entry.info.artist = textAt(2);
+    entry.info.album = textAt(3);
+    entry.info.albumArtist = textAt(4);
+    entry.info.genre = textAt(5);
+    entry.info.trackNo = sqlite3_column_int(statement, 6);
+    entry.info.year = sqlite3_column_int(statement, 7);
+    entry.info.durationMs = sqlite3_column_int64(statement, 8);
+    entry.info.sampleRate = sqlite3_column_int(statement, 9);
+    entry.info.channels = sqlite3_column_int(statement, 10);
+    entry.info.bitrate = sqlite3_column_int(statement, 11);
+    entry.info.fileSize = sqlite3_column_int64(statement, 12);
+    entry.info.modifiedMs = sqlite3_column_int64(statement, 13) * 1000;
+    entry.dateadded = sqlite3_column_int64(statement, 14);
+    entry.playcount = sqlite3_column_int(statement, 15);
+    entry.rating = sqlite3_column_int(statement, 16);
+    entry.lastplay = sqlite3_column_int64(statement, 17);
+    out.push_back(std::move(entry));
+  }
+  sqlite3_finalize(statement);
+  return out;
+}
+
 std::vector<std::string> TagCache::allPaths(std::string* error) {
   std::vector<std::string> out;
   if (db_ == nullptr) { if (error) *error = "banco fechado"; return out; }
@@ -301,15 +407,16 @@ void TagCache::store(const TrackInfo& info) {
 
   const char* sql =
       "INSERT INTO tracks (path, size, mtime, title, artist, album, album_artist, genre,"
-      " track_no, year, duration_ms, sample_rate, channels, bitrate, dateadded)"
-      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(strftime('%s','now') AS INTEGER))"
+      " track_no, year, duration_ms, sample_rate, channels, bitrate, dateadded, lastupd)"
+      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(strftime('%s','now') AS INTEGER), ?)"
       " ON CONFLICT(path) DO UPDATE SET"
       " size = excluded.size, mtime = excluded.mtime, title = excluded.title,"
       " artist = excluded.artist, album = excluded.album,"
       " album_artist = excluded.album_artist, genre = excluded.genre,"
       " track_no = excluded.track_no, year = excluded.year,"
       " duration_ms = excluded.duration_ms, sample_rate = excluded.sample_rate,"
-      " channels = excluded.channels, bitrate = excluded.bitrate;";
+      " channels = excluded.channels, bitrate = excluded.bitrate,"
+      " lastupd = excluded.lastupd;";
   sqlite3_stmt* statement = nullptr;
   if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return;
 
@@ -328,6 +435,9 @@ void TagCache::store(const TrackInfo& info) {
   sqlite3_bind_int(statement, 12, info.sampleRate);
   sqlite3_bind_int(statement, 13, info.channels);
   sqlite3_bind_int(statement, 14, info.bitrate);
+  const std::int64_t modified =
+      (info.modifiedMs > 0 ? info.modifiedMs : fileModifiedMs(info.path)) / 1000;
+  sqlite3_bind_int64(statement, 15, modified);
   sqlite3_step(statement);
   sqlite3_finalize(statement);
 

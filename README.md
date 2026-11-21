@@ -290,8 +290,17 @@ Each mode keeps its own geometry, so switching back and forth does not lose size
 the same database the tags live in. The scan runs in the background and progress shows **in
 the Library window itself** — the same `Reading metadata… N/M — do not close` message from
 the status bar, because closing the app mid-index would leave half the tags in the database.
-Double-click plays the track (it joins the playlist; the Library is not a second player) and
-**Add folder…** remembers the chosen root.
+The window follows the original Media Library layout: a **view tree** on the left (all,
+audio, added in the last 3 days, modified in the last 3 days, played in the last 2 weeks,
+never played, most played, top rated), text search on top and a table with artist, album,
+track, title, length, genre, **rating** and **play count**. Those time windows are Winamp's
+own (`queries.cpp`), not numbers picked at random.
+
+Rating is set by **clicking a star** in the Rating column (clicking the same one clears it);
+the database stores only the 0–5 integer and the stars are drawn. Play count increments once
+a track has played for 350 ms — the same window the original ML uses. Double-click plays the
+track (it joins the playlist; the Library is not a second player) and **Add folder…** remembers
+the chosen root.
 
 If you close mid-index, Amplia asks: **Keep reading** or **Close anyway**. The pending queue
 is already in the database from the start of the scan, so "close anyway" loses nothing — the
@@ -323,8 +332,17 @@ Cada modo guarda a sua geometria, então trocar e voltar não perde tamanho.
 guardado no mesmo banco das tags. A varredura roda em segundo plano e o andamento aparece
 **na própria janela da Biblioteca** — a mesma mensagem `Lendo metadados… N/M — não feche` da
 barra de status, porque fechar o app no meio da indexação deixaria metade das tags no banco.
-Duplo clique toca a faixa (ela entra na playlist, a Biblioteca não é um player paralelo) e
-**Adicionar pasta…** guarda a raiz escolhida.
+A janela segue o desenho do Media Library original: **árvore de visões** à esquerda (todas,
+áudio, adicionadas nos últimos 3 dias, modificadas nos últimos 3 dias, tocadas nas últimas 2
+semanas, nunca tocadas, mais tocadas, melhor avaliadas), busca por texto no topo e a tabela
+com artista, álbum, faixa, título, duração, gênero, **nota** e **quantas vezes tocou**. As
+janelas de tempo são as do Winamp (`queries.cpp`), não um número escolhido a esmo.
+
+A nota é dada **clicando na estrela** na coluna Nota (clicar de novo limpa); o banco guarda
+só o número de 0 a 5, as estrelas são desenho. O contador de execuções soma quando a faixa
+passa de 350 ms tocando — a mesma janela do ML original. Duplo clique toca a faixa (ela entra
+na playlist, a Biblioteca não é um player paralelo) e **Adicionar pasta…** guarda a raiz
+escolhida.
 
 Se você fechar no meio da indexação, o Amplia pergunta: **Continuar lendo** ou **Fechar
 mesmo assim**. A fila de pendentes já está no banco desde o começo da varredura, então

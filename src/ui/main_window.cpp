@@ -3400,11 +3400,54 @@ void MainWindow::openLibrary() {
             &MainWindow::rescanLibrary);
     connect(library_.get(), &wamp::ui::LibraryWindow::playRequested, this,
             &MainWindow::playFromLibrary);
+    // Trocou de visão ou digitou na busca: refaz a consulta (barato, é só banco).
+    connect(library_.get(), &wamp::ui::LibraryWindow::queryChanged, this,
+            &MainWindow::refreshLibrary);
+    connect(library_.get(), &wamp::ui::LibraryWindow::playSelectionRequested, this,
+            [this](const QStringList& paths) {
+              if (paths.isEmpty()) return;
+              addPaths(paths);
+              playIndex(list_->count() - 1);
+            });
+    connect(library_.get(), &wamp::ui::LibraryWindow::ratingRequested, this,
+            [this](const QString& path, int rating) {
+              if (cache_ == nullptr) return;
+              cache_->setRating(path.toStdString(), rating);
+              cache_->flush();
+              refreshLibrary();
+            });
+    connect(library_.get(), &wamp::ui::LibraryWindow::enqueueSelectionRequested, this,
+            [this](const QStringList& paths) {
+              if (paths.isEmpty()) return;
+              addPaths(paths);
+              statusBar()->showMessage(
+                  tr("%1 faixa(s) enfileirada(s)").arg(paths.size()), 2500);
+            });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_VIEW")) {
+    library_->selectView(qEnvironmentVariableIntValue("AMPLIA_LIBRARY_VIEW"));
   }
   refreshLibrary();
   library_->show();
   library_->raise();
   library_->activateWindow();
+}
+
+QString MainWindow::librarySummary(const std::vector<wamp::LibraryEntry>& rows) const {
+  qint64 totalMs = 0;
+  qint64 totalBytes = 0;
+  for (const wamp::LibraryEntry& entry : rows) {
+    totalMs += entry.info.durationMs;
+    totalBytes += entry.info.fileSize;
+  }
+  const qint64 seconds = totalMs / 1000;
+  const QString time = QStringLiteral("%1h %2min").arg(seconds / 3600).arg((seconds % 3600) / 60);
+  const double megabytes = static_cast<double>(totalBytes) / (1024.0 * 1024.0);
+  // Mesmo espírito do rodapé do ML: quantidade, tempo total e tamanho em disco.
+  return tr("%1 faixa(s) — %2 — %3 MB")
+      .arg(rows.size())
+      .arg(time)
+      .arg(QString::number(megabytes, 'f', megabytes >= 1024 ? 0 : 1));
 }
 
 void MainWindow::refreshLibrary() {
@@ -3414,29 +3457,29 @@ void MainWindow::refreshLibrary() {
   // fica no rescanLibrary(), que o usuário dispara (ou que roda ao adicionar uma pasta).
   std::string error;
   libraryRoots_ = cache_->roots(&error);
-
-  std::vector<wamp::TrackInfo> tracks;
-  for (const auto& path : cache_->allPaths(&error)) {
-    const bool insideRoot = std::any_of(
-        libraryRoots_.begin(), libraryRoots_.end(), [&path](const std::string& root) {
-          return path.compare(0, root.size(), root) == 0;
-        });
-    if (!insideRoot) continue;
-    wamp::TrackInfo info;
-    if (!cache_->lookupFast(path, &info)) {
-      info = wamp::TrackInfo{};
-      info.path = path;
-    }
-    tracks.push_back(info);
+  if (libraryRoots_.empty()) {
+    library_->setRows({});
+    library_->setSummary(tr("Nenhuma pasta na biblioteca. Use “Adicionar pasta…”."));
+    updateMetadataStatus();
+    return;
   }
 
-  std::sort(tracks.begin(), tracks.end(), [](const wamp::TrackInfo& a, const wamp::TrackInfo& b) {
-    const std::string left = a.artist + '\x1f' + a.album + '\x1f' + a.title + a.path;
-    const std::string right = b.artist + '\x1f' + b.album + '\x1f' + b.title + b.path;
-    return left < right;
-  });
+  std::vector<wamp::LibraryEntry> rows =
+      cache_->queryLibrary(library_->view(), library_->filter().toStdString(), 3, &error);
 
-  library_->setTracks(tracks);
+  // A consulta é sobre o banco inteiro; a Biblioteca mostra só o que está sob as raízes.
+  rows.erase(std::remove_if(rows.begin(), rows.end(),
+                            [this](const wamp::LibraryEntry& entry) {
+                              const std::string& path = entry.info.path;
+                              return !std::any_of(libraryRoots_.begin(), libraryRoots_.end(),
+                                                  [&path](const std::string& root) {
+                                                    return path.compare(0, root.size(), root) == 0;
+                                                  });
+                            }),
+             rows.end());
+
+  library_->setRows(rows);
+  library_->setSummary(librarySummary(rows));
   updateMetadataStatus();
 }
 
@@ -3540,7 +3583,12 @@ void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info
   if (ok) {
     metadata_[path] = info;
     if (cache_) cache_->store(info);
-    if (library_ != nullptr && library_->isVisible()) library_->updateTrack(info);
+    // A tabela da Biblioteca é recarregada no fim do lote (ver abaixo), não a cada faixa:
+    // reordenar a tabela a cada tag faria as linhas pularem enquanto o usuário lê.
+    if (library_ != nullptr && library_->isVisible() && scanner_ != nullptr &&
+        scanner_->pending() == 0) {
+      refreshLibrary();
+    }
   }
 
   if (ok && library_ != nullptr && library_->isVisible()) refreshLibrary();

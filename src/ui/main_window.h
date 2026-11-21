@@ -19,6 +19,7 @@
 #include <string>
 
 #include "wamp/audio_analyzer.h"
+#include "wamp/tag_cache.h"
 #include "wamp/types.h"
 
 class PlaylistDelegate;
@@ -215,6 +216,7 @@ class MainWindow final : public QMainWindow {
   void resumePendingScan();
   void openLibrary();
   void refreshLibrary();
+  QString librarySummary(const std::vector<wamp::LibraryEntry>& rows) const;
   void rescanLibrary();
   void addLibraryFolder();
   void playFromLibrary(const QString& path);

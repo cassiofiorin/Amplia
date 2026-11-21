@@ -11,6 +11,27 @@ struct sqlite3;
 
 namespace wamp {
 
+/// Visões da Biblioteca, como no ML original: cada uma é uma consulta fixa.
+enum class LibraryView {
+  All = 0,
+  Audio = 1,
+  RecentlyAdded = 2,
+  RecentlyModified = 3,
+  RecentlyPlayed = 4,
+  NeverPlayed = 5,
+  MostPlayed = 6,
+  TopRated = 7,
+};
+
+/// Faixa da Biblioteca com os campos que só o banco guarda (nota, contagem, datas).
+struct LibraryEntry {
+  TrackInfo info;
+  int rating = 0;
+  int playcount = 0;
+  std::int64_t dateadded = 0;
+  std::int64_t lastplay = 0;
+};
+
 /// Cache em disco dos metadados já lidos, para não reabrir toda a playlist a cada
 /// inicialização. A chave é o caminho; `size` e `mtime` dizem se o registro ainda vale.
 ///
@@ -57,6 +78,11 @@ class TagCache final {
 
   /// Nota de 0 a 5 (0 = sem classificação).
   void setRating(const std::string& path, int rating);
+
+  /// Consulta uma visão da Biblioteca, opcionalmente filtrando por texto em
+  /// título/artista/álbum. `days` vale para "adicionados/modificados há N dias".
+  std::vector<LibraryEntry> queryLibrary(LibraryView view, const std::string& filter,
+                                         int days, std::string* error);
 
   /// Todos os caminhos já indexados, em ordem alfabética.
   std::vector<std::string> allPaths(std::string* error);

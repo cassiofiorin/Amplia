@@ -229,7 +229,9 @@ escolha sobrevive ao restart. *(Atingido em 20/11, com "seguir o sistema" penden
 - [x] Janela com lista, duração e o mesmo contador de metadados do app
 - [x] Adicionar pasta… + Atualizar + tocar direto da lista
 - [ ] Varredura incremental de pastas (mtime), em thread própria
-- [ ] Busca por texto (FTS5) e filtros por artista/álbum/gênero
+- [x] Árvore de visões do ML (todas, áudio, recentes, nunca tocadas, mais tocadas, melhor avaliadas)
+- [x] Busca por texto com `LIKE` (FTS5 fica para quando a coleção passar de ~10 mil)
+- [ ] Filtros combinados por artista/álbum/gênero
 - [x] Fila de indexação persistida (`scan_queue`) + retomada na abertura
 - [x] Playcount e "última reprodução" (regra de 350 ms, como o ML original)
 - [x] Nota 0–5 no banco (estrelas desenhadas na tela)
