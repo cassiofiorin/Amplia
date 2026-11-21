@@ -307,6 +307,13 @@ O que uma skin clássica **é**, na prática: um conjunto de bitmaps com coorden
 `shufrep.bmp`, `monoster.bmp`) mais um `viscolor.txt` com os 24 tons do espectro. O visual
 é a imagem; o comportamento continua sendo o nosso.
 
+**Consequência do Wayland (medida em 20/11, D-081):** o protocolo não permite posicionar
+janela nem esconder uma janela da barra de tarefas — só diálogos **modais** recebem
+`xdg_toplevel.set_parent`. Logo, o modelo original de **três janelas acopladas** (main, PL, EQ
+se movendo juntas) não é reproduzível no Wayland. O caminho é a skin em **janela única**: a
+imagem compõe main + playlist + EQ como painéis internos, arrastáveis *dentro* da janela
+(é o que o Webamp faz no navegador). Multi-janela fica como recurso **só de X11**.
+
 **Consequência de arquitetura:** skin é um **modo de UI alternativo**. Não dá para "vestir"
 widgets Qt com esses sprites — em modo skin a janela inteira passa a ser composta com
 `QPainter` a partir dos recortes, com regiões de clique mapeadas. O layout moderno fica
