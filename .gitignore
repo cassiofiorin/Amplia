@@ -1,0 +1,10 @@
+build/
+build-dir/
+_build/
+.flatpak-builder/
+.flathub/
+compile_commands.json
+*.o
+*.so
+.cache/
+ESTADO.md

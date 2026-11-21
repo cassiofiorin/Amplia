@@ -1,0 +1,28 @@
+app-id: io.github.cassiofiorin.Amplia
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+command: amplia
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=x11
+  - --socket=pulseaudio
+  - --filesystem=xdg-run/pipewire-0
+  - --share=network
+  - --filesystem=home
+  - --device=dri
+  - --own-name=org.mpris.MediaPlayer2.amplia
+  - --talk-name=org.mpris.MediaPlayer2.*
+  - --talk-name=org.kde.StatusNotifierWatcher
+modules:
+  # O fonte fica em wamp/ (diretório pai deste manifest); o fonte do Winamp
+  # em ../Src não entra no build, por decisão de licença (D-007).
+  - name: amplia
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    sources:
+      - type: dir
+        path: ..

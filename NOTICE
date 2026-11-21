@@ -1,0 +1,53 @@
+Amplia — player de áudio nativo para Linux
+Copyright (C) 2026 Cássio Fiorin
+
+Este projeto é licenciado sob a GNU General Public License, versão 3 ou posterior
+(GPL-3.0-or-later). O texto completo está em COPYING.
+
+Licença comercial
+-----------------
+Para incorporar o Amplia em um produto de código fechado, existe licença comercial
+separada, sob consulta ao autor. Isso não afeta o uso sob GPL: quem usa, estuda,
+modifica e redistribui sob GPL continua podendo fazê-lo livremente, inclusive para
+fins comerciais, desde que o derivado permaneça sob GPL.
+
+Contato: https://github.com/cassiofiorin
+
+Não afiliação
+-------------
+O Amplia é um projeto independente. Não tem vínculo com a Nullsoft, com a Winamp,
+com a Llama Group ou com qualquer detentor da marca Winamp. "Winamp" é marca de seus
+respectivos titulares e é citada aqui apenas para descrever compatibilidade de
+formatos e hábitos de uso.
+
+Código de terceiros
+-------------------
+O código deste repositório foi escrito para o projeto. Não há cópia direta de código de
+fontes conhecidas. O fonte do Winamp 5 foi usado como especificação de comportamento e
+formato; não é compilado, linkado nem redistribuído aqui.
+
+Parte do código foi produzida com apoio de um agente de IA, treinado em fontes diversas.
+Trechos podem, sem intenção, reproduzir soluções já publicadas em outro lugar. Se você
+identificar um trecho nessas condições — especialmente de origem incompatível com a
+GPL-3.0 — abra uma issue: o trecho é substituído ou a atribuição é incluída.
+
+Dependências (linkagem dinâmica, cada uma sob sua licença)
+----------------------------------------------------------
+- Qt 6 (Widgets, Network, LinguistTools) — LGPL-3.0 (uso dinâmico) / GPL-3.0
+- FFmpeg 7.1.3 (libavformat, libavcodec, libavutil, libswresample) — vem do runtime
+  org.kde.Platform, sob a licença da build do runtime (não é redistribuído por este projeto)
+- TagLib — LGPL-2.1-or-later / MPL-1.1
+- SQLite — domínio público
+- libsystemd (sd-bus) — LGPL-2.1-or-later
+- PipeWire — MIT
+- Runtime Flatpak org.kde.Platform / org.kde.Sdk — conforme o runtime
+
+Recursos criados para este projeto
+----------------------------------
+- Interface, ícone e esquemas de cor: originais.
+- Nenhum bitmap, texto, som ou ícone do Winamp é distribuído.
+
+Ícones e nomes de formatos
+--------------------------
+Extensões como .pls, .b4s, .wpl, .eqf e .m3u são formatos de arquivo, não marcas deste
+projeto. Os nomes das curvas do equalizador descrevem uso comum (Rock, Pop, Vocal).
