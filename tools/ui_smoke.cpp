@@ -159,18 +159,24 @@ int main(int argc, char** argv) {
   {
     wamp::ScrobbleConfig on;
     on.announceNowPlaying = true;
-    PreferencesDialog dialogWith(true, 60, true, true, true, 15, 0.0, 0.0, on, "sistema");
+    PreferencesDialog dialogWith(true, 60, true, true, true, 15, 0.0, 0.0,
+                                 QStringLiteral("externa"), on, QStringLiteral("sistema"));
     check(dialogWith.scrobbleConfig().announceNowPlaying, "preferências preservam \"ouvindo agora\" ligado");
     check(dialogWith.closeToTray(), "preferências preservam fechar para a bandeja ligado");
     check(dialogWith.restartOnPlay(), "preferências preservam play reiniciando a faixa");
+    check(dialogWith.playlistMode() == QLatin1String("externa"),
+          "preferências preservam a playlist em janela própria");
 
     wamp::ScrobbleConfig off;
     off.announceNowPlaying = false;
-    PreferencesDialog dialogWithout(false, 40, false, false, false, 30, 0.0, 0.0, off, "sistema");
+    PreferencesDialog dialogWithout(false, 40, false, false, false, 30, 0.0, 0.0,
+                                    QStringLiteral("integrada"), off, QStringLiteral("sistema"));
     check(!dialogWithout.scrobbleConfig().announceNowPlaying, "preferências preservam \"ouvindo agora\" desligado");
     check(!dialogWithout.restartOnPlay(), "preferências preservam play sem reiniciar");
     check(dialogWithout.visualFps() == 30, "preferências preservam fps do visualizador");
     check(!dialogWithout.visualEnabled(), "preferências preservam visualizador desligado");
+    check(dialogWithout.playlistMode() == QLatin1String("integrada"),
+          "preferências preservam a playlist integrada");
     dialogWithout.setCalibrationResult(45, 4.0);
     check(dialogWithout.visualFps() == 45, "calibração devolve o fps medido");
     check(dialogWithout.visualCostP95Ms() == 4.0, "calibração devolve o custo medido");

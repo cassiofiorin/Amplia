@@ -1717,3 +1717,32 @@ Consequências assumidas:
 O aviso `⚠` só é descoberto na hora de tocar — que é exatamente o comportamento pedido. Por
 isso ele não substitui uma verificação em massa; se um dia isso for desejado, o caminho é
 uma ação explícita de "verificar a lista", não um custo escondido na abertura.
+
+## D-083 — Dois modos de playlist: integrada (padrão) e janela própria
+
+O modo externo continuou mostrando dois problemas no Wayland — duas entradas na barra de
+tarefas e as duas janelas abertas sobrepostas no centro — porque o Qt só envia
+`xdg_toplevel.set_parent` para diálogos **modais**, e o protocolo não tem "skip taskbar".
+Nenhum ajuste de atraso resolve isso: é capacidade ausente, não corrida de tempo.
+
+Decisão: a lista é **um painel com dois donos**, escolhidos por `playlist/mode`.
+
+| | `integrada` (padrão) | `externa` |
+|---|---|---|
+| Onde vive | `mainLayout_` da janela principal | janela auxiliar `Qt::Tool` |
+| `PL` | cresce/encolhe a principal | abre/fecha a auxiliar |
+| Geometria | `window/integratedHeight` | `window/playlistWidth/Height` + `playlistGeometry` |
+| Barra de tarefas | uma entrada | duas no Wayland, uma no X11 |
+
+- `applyPlaylistMode()` é o único lugar que troca o pai do painel (`setParent`) e o
+  reencaixa no layout certo; `setPlaylistMode()` guarda a altura do painel antes de trocar,
+  aplica e regrava.
+- As teclas do Playlist Editor (`Espaço` = ir para a faixa tocando, `Ctrl+A` = selecionar
+  tudo) passaram a ser `QAction` presas ao **painel** com `Qt::WidgetWithChildrenShortcut`.
+  Presas à janela auxiliar, deixariam de funcionar no modo integrado; presas à principal,
+  brigariam com o `Espaço` do player.
+- `playlistOpen_` virou a fonte da verdade da visibilidade (antes era
+  `playlistWindow_->isVisible()`, que no modo integrado é sempre falso). `closeEvent`,
+  `saveSettings` e o gancho de depuração passaram a usá-la.
+- Por que manter o modo externo: no Windows o posicionamento funciona e o modelo do original
+  é multi-janela. O modo externo é o molde do porte, não um resto do passado.

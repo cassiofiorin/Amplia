@@ -23,7 +23,8 @@ class PreferencesDialog final : public QDialog {
  public:
   PreferencesDialog(bool shuffle, int level, bool closeToTray, bool restartOnPlay,
                     bool visualEnabled, int visualFps, double costP95Ms, double cpuPercent,
-                    const wamp::ScrobbleConfig& scrobble, const QString& language,
+                    const QString& playlistMode, const wamp::ScrobbleConfig& scrobble,
+                    const QString& language,
                     QWidget* parent = nullptr);
   ~PreferencesDialog() override;
 
@@ -39,6 +40,10 @@ class PreferencesDialog final : public QDialog {
   int visualFps() const;
   double visualCostP95Ms() const;
   double visualCpuPercent() const;
+
+  /// Onde a playlist mora: "integrada" (painel da janela principal) ou "externa"
+  /// (janela própria, preparada para o porte de Windows).
+  QString playlistMode() const;
 
   wamp::ScrobbleConfig scrobbleConfig() const;
 
@@ -62,6 +67,7 @@ class PreferencesDialog final : public QDialog {
   void testListenbrainz();
 
   class QComboBox* languageBox_ = nullptr;
+  class QComboBox* playlistModeBox_ = nullptr;
   QCheckBox* shuffleBox_ = nullptr;
   QCheckBox* trayBox_ = nullptr;
   QCheckBox* restartBox_ = nullptr;

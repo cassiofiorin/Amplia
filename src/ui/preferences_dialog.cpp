@@ -27,8 +27,9 @@
 PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
                                      bool restartOnPlay, bool visualEnabled, int visualFps,
                                      double costP95Ms, double cpuPercent,
+                                     const QString& playlistMode,
                                      const wamp::ScrobbleConfig& scrobble, const QString& language,
-                    QWidget* parent)
+                                     QWidget* parent)
     : QDialog(parent), net_(std::make_unique<wamp::Scrobbler>()) {
   // O consumo mostrado é derivado do fps atual (custo por quadro × taxa), não o número
   // medido no dia da calibração — por isso o parâmetro não é guardado.
@@ -74,6 +75,27 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
                      "como o play do player original."));
   playbackLayout->addWidget(restartBox_);
   playbackLayout->addWidget(shuffleGroup);
+
+  {
+    // Onde a lista mora. No Wayland a janela própria ganha uma segunda entrada na barra de
+    // tarefas (o protocolo não sabe marcar subordinação em toplevel não modal), por isso o
+    // padrão é a integrada; a janela própria fica pronta para o porte de Windows.
+    auto* modeRow = new QHBoxLayout();
+    modeRow->addWidget(new QLabel(tr("Playlist:"), this));
+    playlistModeBox_ = new QComboBox(this);
+    playlistModeBox_->addItem(tr("Integrada na janela"), QStringLiteral("integrada"));
+    playlistModeBox_->addItem(tr("Janela própria"), QStringLiteral("externa"));
+    const int index = playlistModeBox_->findData(playlistMode);
+    playlistModeBox_->setCurrentIndex(index >= 0 ? index : 0);
+    modeRow->addWidget(playlistModeBox_, 1);
+    playbackLayout->addLayout(modeRow);
+    auto* modeHint = new QLabel(
+        tr("Integrada mantém uma janela só. A janela própria separa a lista — no Wayland o "
+           "compositor pode mostrá-la na barra de tarefas e abrir sobreposta."),
+        this);
+    modeHint->setWordWrap(true);
+    playbackLayout->addWidget(modeHint);
+  }
 
   levelLabel_ = new QLabel(shuffleGroup);
   shuffleLayout->addWidget(levelLabel_);
@@ -430,6 +452,11 @@ void PreferencesDialog::testListenbrainz() {
   } else {
     listenbrainzStatus_->setText(tr("Token recusado: %1").arg(error));
   }
+}
+
+QString PreferencesDialog::playlistMode() const {
+  if (playlistModeBox_ == nullptr) return QStringLiteral("integrada");
+  return playlistModeBox_->currentData().toString();
 }
 
 QString PreferencesDialog::language() const {

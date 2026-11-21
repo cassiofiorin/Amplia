@@ -205,6 +205,10 @@ descrevem a cor, não a skin de origem (nada de "Bento" ou "Modern" como nome de
 - [ ] **F2D.1 — Acoplamento de janelas (só X11)**, parado por decisão: trilha por delta com
       âncora e seguidoras, encaixe 8 px / desencaixe 40 px. Wayland não permite.
 - [x] **Janelas auxiliares**: playlist e equalizador fora da janela principal (F2D).
+- [x] **F2D.2 — Dois modos de playlist** (`playlist/mode`): **integrada** (padrão; a lista é
+      painel da janela principal e o `PL` cresce/encolhe a janela) e **janela própria**
+      (molde do porte de Windows). Troca na hora, geometria por modo, teclas da lista seguem
+      o painel (D-083).
 - [x] Importar/exportar temas por CSV (teto de 30 por arquivo e na aplicação), "modelo
       CSV" e "Salvar tema atual como…".
 - [ ] Aviso de contraste baixo no editor.

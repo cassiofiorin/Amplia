@@ -215,6 +215,11 @@ class MainWindow final : public QMainWindow {
   std::vector<std::string> missesFor(const std::vector<std::string>& paths);
   void setMissing(const std::string& path, bool missing);
   void setPlaylistVisible(bool visible);
+
+  /// Onde a playlist mora: "integrada" (painel da janela principal, padrão) ou "externa"
+  /// (janela própria). A troca vale na hora e a lista não é recriada.
+  void setPlaylistMode(const QString& mode);
+  bool playlistIntegrated() const;
   void showError(const QString& message);
 
   void refresh();
@@ -275,6 +280,13 @@ class MainWindow final : public QMainWindow {
   PlaylistDelegate* delegate_ = nullptr;
   QWidget* playlistWindow_ = nullptr;
   QWidget* playlistPanel_ = nullptr;
+  class QVBoxLayout* mainLayout_ = nullptr;
+  QString playlistMode_ = QStringLiteral("integrada");
+  int integratedHeight_ = 300;
+  bool playlistOpen_ = false;
+
+  /// Reencaixa o painel da playlist no dono do modo atual (principal ou janela própria).
+  void applyPlaylistMode();
   /// O editor vive em janela própria (como no Winamp): a principal não muda de tamanho.
   QTimer* timer_ = nullptr;
   bool remaining_ = false;

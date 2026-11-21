@@ -271,12 +271,38 @@ o mesmo ponto por onde o gapless passa, então cada faixa entra com o fator dela
 Se o arquivo declara o pico (`REPLAYGAIN_*_PEAK`), o ganho é limitado por ele para não
 estourar. Sem as tags, nada muda.
 
+### Where the playlist lives
+
+The list has **two modes**, chosen in **Preferences ▸ Playback ▸ Playlist** and applied
+immediately:
+
+- **Integrated** (default): the list is a panel of the main window, and `PL` grows/shrinks
+  it. One window, one taskbar entry, nothing overlapping.
+- **Own window**: the list lives in a separate window. This is the shape the Windows port
+  will use, where window placement works; on Wayland the compositor may list that window in
+  the taskbar and open both overlapping — see [Known limits](#known-limits).
+
+Each mode keeps its own geometry, so switching back and forth does not lose sizes.
+
 ### Playlists
 
 `.m3u`/`.m3u8`, `.pls` (rádio), `.b4s` (Winamp 5) e `.wpl` (Windows Media Player) abrem pelo
 **Arquivo ▸ Abrir playlist**, pela linha de comando ou arrastando o arquivo. Caminhos
 relativos são resolvidos contra a pasta da playlist, então uma pasta de álbum com `lista.m3u`
 funciona em qualquer lugar. Salvar usa o formato da extensão escolhida.
+
+### Onde a playlist mora
+
+A lista tem **dois modos**, escolhidos em **Preferências ▸ Reprodução ▸ Playlist** e aplicados
+na hora:
+
+- **Integrada** (padrão): a lista é um painel da janela principal, e o `PL` cresce/encolhe a
+  janela. Uma janela só, uma entrada na barra de tarefas, nada sobreposto.
+- **Janela própria**: a lista vive numa janela separada. É o molde do porte de Windows, onde
+  o posicionamento de janela funciona; no Wayland o compositor pode listar essa janela na
+  barra de tarefas e abrir as duas sobrepostas — ver [Limites conhecidos](#limites-conhecidos).
+
+Cada modo guarda a sua geometria, então trocar e voltar não perde tamanho.
 
 ### Sessão e arquivos ausentes
 

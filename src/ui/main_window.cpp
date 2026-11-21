@@ -379,6 +379,13 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   if (qEnvironmentVariableIsSet("AMPLIA_GRAB_PLAYLIST")) {
     const QString target = qEnvironmentVariable("AMPLIA_GRAB_PLAYLIST");
     QTimer::singleShot(3000, this, [this, target] {
+      if (playlistIntegrated()) {
+        if (playlistPanel_ == nullptr) return;
+        playlistPanel_->grab().save(target);
+        qInfo("amplia: playlist integrada %dx%d visivel=%d", playlistPanel_->width(),
+              playlistPanel_->height(), playlistPanel_->isVisible() ? 1 : 0);
+        return;
+      }
       if (playlistWindow_ == nullptr) return;
       playlistWindow_->grab().save(target);
       qInfo("amplia: playlist %dx%d visivel=%d", playlistWindow_->width(),
@@ -477,6 +484,7 @@ void MainWindow::buildUi() {
   auto* layout = new QVBoxLayout(central);
   layout->setContentsMargins(10, 8, 10, 8);
   layout->setSpacing(6);
+  mainLayout_ = layout;
 
   // O display ocupa o lugar do título e da barra de posição: relógio, informações do
   // arquivo, faixa e a própria barra (que agora é o controle de posição).
@@ -655,30 +663,32 @@ void MainWindow::buildUi() {
   windowLayout->setContentsMargins(8, 8, 8, 8);
   windowLayout->setSpacing(0);
 
+  playlistPanel_ = new QWidget();
+
   {
     // Teclas do Playlist Editor: Espaço mostra a faixa que está tocando; Ctrl+A
-    // seleciona tudo (no player, Ctrl+A é "sempre no topo" — são janelas diferentes).
-    auto* showPlaying = new QAction(playlistWindow_);
+    // seleciona tudo (no player, Ctrl+A é "sempre no topo"). Ficam presas ao painel, não à
+    // janela: assim seguem a lista quando ela muda de dono (integrada ↔ janela própria) e
+    // só valem com o foco dentro da lista.
+    auto* showPlaying = new QAction(playlistPanel_);
     showPlaying->setShortcut(QKeySequence(Qt::Key_Space));
-    showPlaying->setShortcutContext(Qt::WindowShortcut);
+    showPlaying->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     connect(showPlaying, &QAction::triggered, this, [this] {
       if (list_ == nullptr || !playlist_->hasCurrent()) return;
       const int row = static_cast<int>(playlist_->currentIndex());
       if (QListWidgetItem* item = list_->item(row)) list_->scrollToItem(item);
     });
-    playlistWindow_->addAction(showPlaying);
+    playlistPanel_->addAction(showPlaying);
 
-    auto* selectAll = new QAction(playlistWindow_);
+    auto* selectAll = new QAction(playlistPanel_);
     selectAll->setShortcut(QKeySequence(QStringLiteral("Ctrl+A")));
-    selectAll->setShortcutContext(Qt::WindowShortcut);
+    selectAll->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     connect(selectAll, &QAction::triggered, this, [this] {
       if (list_ == nullptr) return;
       list_->selectAll();
     });
-    playlistWindow_->addAction(selectAll);
+    playlistPanel_->addAction(selectAll);
   }
-
-  playlistPanel_ = new QWidget(playlistWindow_);
   auto* panelLayout = new QVBoxLayout(playlistPanel_);
   panelLayout->setContentsMargins(0, 0, 0, 0);
   panelLayout->setSpacing(4);
@@ -821,9 +831,9 @@ void MainWindow::buildUi() {
   // "acoplar" só existe como janela única: a lista entra embaixo, a janela cresce para
   // baixo (o canto superior esquerdo é do compositor e não se mexe) e volta ao tamanho
   // compacto ao fechar.
-  windowLayout->addWidget(playlistPanel_);
   playlistWindow_->installEventFilter(this);
   playlistWindow_->hide();
+  applyPlaylistMode();
 }
 
 void MainWindow::applyThemeFromSettings() {
@@ -1998,7 +2008,9 @@ void MainWindow::focusEqualizer() {
 void MainWindow::cycleWindows() {
   QList<QWidget*> windows;
   windows << this;
-  if (playlistWindow_ != nullptr && playlistWindow_->isVisible()) windows << playlistWindow_;
+  if (!playlistIntegrated() && playlistWindow_ != nullptr && playlistWindow_->isVisible()) {
+    windows << playlistWindow_;
+  }
   if (eqDialog_ != nullptr && eqDialog_->isVisible()) windows << eqDialog_.get();
   if (windows.size() < 2) return;
   QWidget* active = QApplication::activeWindow();
@@ -2440,7 +2452,7 @@ void MainWindow::openPreferences() {
       scrobbler_ ? scrobbler_->config() : wamp::ScrobbleConfig{};
   PreferencesDialog dialog(shuffle_, qRound(shuffleLevel_ * 100), closeToTray_, restartOnPlay_,
                            visualEnabled_, visualFps_, visualCostP95Ms_, visualCpuPercent_,
-                           scrobble, wamp::ui::languageFromSettings(), this);
+                           playlistMode_, scrobble, wamp::ui::languageFromSettings(), this);
   connect(&dialog, &PreferencesDialog::calibrateRequested, this,
           [this, &dialog] { calibrateVisual(&dialog); });
   if (dialog.exec() != QDialog::Accepted) return;
@@ -2473,6 +2485,8 @@ void MainWindow::openPreferences() {
       }
     }
   }
+
+  if (dialog.playlistMode() != playlistMode_) setPlaylistMode(dialog.playlistMode());
 
   visualEnabled_ = dialog.visualEnabled();
   visualFps_ = dialog.visualFps();
@@ -2699,8 +2713,8 @@ void MainWindow::showEvent(QShowEvent* event) {
 void MainWindow::closeEvent(QCloseEvent* event) {
   closing_ = true;
   // Anota antes de fechar: saveSettings() roda depois e a auxiliar já estaria invisível.
-  playlistOpenAtExit_ = playlistWindow_ != nullptr && playlistWindow_->isVisible();
-  if (playlistWindow_ != nullptr) playlistWindow_->close();
+  playlistOpenAtExit_ = playlistOpen_;
+  if (playlistWindow_ != nullptr && !playlistIntegrated()) playlistWindow_->close();
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_CLOSE")) {
     qInfo("close: closeToTray=%d quitting=%d tray=%d visivel=%d", closeToTray_ ? 1 : 0,
           quitting_ ? 1 : 0, tray_ != nullptr ? 1 : 0, isVisible() ? 1 : 0);
@@ -2815,6 +2829,12 @@ void MainWindow::loadSettings() {
     compactHeight_ = std::clamp(height(), kCompactFloor, 1200);
   }
 
+  playlistMode_ = settings.value(QStringLiteral("playlist/mode"), QStringLiteral("integrada"))
+                      .toString();
+  integratedHeight_ =
+      std::clamp(settings.value(QStringLiteral("window/integratedHeight"), 300).toInt(), 160, 900);
+  applyPlaylistMode();
+
   const int playlistW = settings.value(QStringLiteral("window/playlistWidth"), 440).toInt();
   const int playlistH = settings.value(QStringLiteral("window/playlistHeight"), 400).toInt();
   if (playlistWindow_ != nullptr) {
@@ -2890,9 +2910,7 @@ void MainWindow::saveSettings() {
     settings.setValue(QStringLiteral("window/playlistWidth"), playlistWindow_->width());
     settings.setValue(QStringLiteral("window/playlistHeight"), playlistWindow_->height());
   }
-  const bool playlistOpen =
-      closing_ ? playlistOpenAtExit_
-               : (playlistWindow_ != nullptr && playlistWindow_->isVisible());
+  const bool playlistOpen = closing_ ? playlistOpenAtExit_ : playlistOpen_;
   // Maximizar não é "o tamanho que o usuário escolheu": guardar isso reabriria a janela
   // gigante sem a playlist.
   if (!playlistOpen && !isMaximized() && !isFullScreen()) {
@@ -2908,6 +2926,8 @@ void MainWindow::saveSettings() {
   settings.setValue(QStringLiteral("window/collapsedHeight"), compactHeight_);
   settings.setValue(QStringLiteral("window/closeToTray"), closeToTray_);
   settings.setValue(QStringLiteral("playlist/visible"), playlistOpen);
+  settings.setValue(QStringLiteral("playlist/mode"), playlistMode_);
+  settings.setValue(QStringLiteral("window/integratedHeight"), integratedHeight_);
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_CLOSE")) {
     qInfo("saveSettings: playlistOpen=%d", playlistOpen ? 1 : 0);
   }
@@ -3201,15 +3221,66 @@ void MainWindow::startReading() {
   if (left > 0) statusBar()->showMessage(tr("Lendo metadados… %1 na fila").arg(left));
 }
 
+void MainWindow::applyPlaylistMode() {
+  if (playlistPanel_ == nullptr || playlistWindow_ == nullptr) return;
+  if (playlistIntegrated()) {
+    if (playlistWindow_->isVisible()) playlistWindow_->hide();
+    if (playlistPanel_->parentWidget() != this) playlistPanel_->setParent(this);
+    if (mainLayout_ != nullptr && mainLayout_->indexOf(playlistPanel_) < 0) {
+      mainLayout_->addWidget(playlistPanel_);
+    }
+    playlistPanel_->setVisible(playlistOpen_);
+  } else {
+    if (mainLayout_ != nullptr) mainLayout_->removeWidget(playlistPanel_);
+    if (playlistPanel_->parentWidget() != playlistWindow_) {
+      playlistPanel_->setParent(playlistWindow_);
+      if (auto* windowLayout = qobject_cast<QVBoxLayout*>(playlistWindow_->layout())) {
+        windowLayout->addWidget(playlistPanel_);
+      }
+    }
+    playlistPanel_->show();
+  }
+}
+
+bool MainWindow::playlistIntegrated() const { return playlistMode_ != QLatin1String("externa"); }
+
+void MainWindow::setPlaylistMode(const QString& mode) {
+  const QString wanted =
+      mode == QLatin1String("externa") ? QStringLiteral("externa") : QStringLiteral("integrada");
+  if (wanted == playlistMode_) return;
+  // Guarda a altura do painel antes de trocar de dono.
+  if (playlistIntegrated() && playlistOpen_ && height() > compactHeight_) {
+    integratedHeight_ = std::clamp(height() - compactHeight_, 160, 900);
+  }
+  playlistMode_ = wanted;
+  applyPlaylistMode();
+  setPlaylistVisible(playlistOpen_);
+  saveSettings();
+}
+
 void MainWindow::setPlaylistVisible(bool visible) {
-  if (playlistWindow_ == nullptr) return;
+  if (playlistPanel_ == nullptr || playlistWindow_ == nullptr) return;
+  playlistOpen_ = visible;
   // O botão reflete o estado; emitir toggled aqui chamaria este método de novo.
   const QSignalBlocker blocker(playlistButton_);
   playlistButton_->setChecked(visible);
-  if (visible) {
-    // Cria o handle só agora: se a principal já estiver mapeada, o Qt envia o
-    // xdg_toplevel.set_parent junto com o mapeamento e o KWin trata a janela como
-    // dependente (fora da barra de tarefas).
+
+  if (playlistIntegrated()) {
+    // Padrão: a lista é painel da principal e a janela cresce para baixo.
+    if (visible) {
+      playlistPanel_->show();
+      resize(width(), compactHeight_ + integratedHeight_);
+    } else {
+      if (height() > compactHeight_) {
+        integratedHeight_ = std::clamp(height() - compactHeight_, 160, 900);
+      }
+      playlistPanel_->hide();
+      resize(width(), compactHeight_);
+    }
+  } else if (visible) {
+    // Janela própria (preparada para o porte de Windows). O handle é criado só agora: se a
+    // principal já estiver mapeada, o Qt envia o xdg_toplevel.set_parent junto com o
+    // mapeamento e o KWin trata a janela como dependente.
     if (playlistWindow_->windowHandle() == nullptr) playlistWindow_->createWinId();
     if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
       playlistWindow_->windowHandle()->setTransientParent(windowHandle());
@@ -3223,14 +3294,10 @@ void MainWindow::setPlaylistVisible(bool visible) {
   } else {
     playlistWindow_->hide();
   }
+
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
-    qInfo("janelas: playlist visivel=%d tamanho=%dx%d transiente=%d",
-          playlistWindow_->isVisible() ? 1 : 0, playlistWindow_->width(),
-          playlistWindow_->height(),
-          (playlistWindow_->windowHandle() != nullptr &&
-           playlistWindow_->windowHandle()->transientParent() != nullptr)
-              ? 1
-              : 0);
+    qInfo("janelas: modo=%s playlist visivel=%d principal=%dx%d", qPrintable(playlistMode_),
+          playlistOpen_ ? 1 : 0, width(), height());
   }
   saveSettings();
 }
