@@ -38,7 +38,7 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 | F6a/b | Idioma (infraestrutura e inglês completo) | **concluída** |
 | F3 | Biblioteca SQLite, importação, playcount | próxima |
 | F4 | Plugins `.so` (DSP/visualização) | não iniciada |
-| F6c | Documentação pública (este README, `NOTICE`) | em andamento |
+| F6c | Documentação pública (este README bilíngue, `NOTICE`) | **concluída** |
 | F7 | Skins clássicas `.wsz` | não iniciada |
 | F2D.1 | Acoplamento de janelas (só X11) | avaliado, não planejado |
 
@@ -535,7 +535,7 @@ and this README are mine. The record of how the project was built is in
 | F6a/b | Language (infrastructure and full English) | **done** |
 | F3 | SQLite library, import, playcount | next |
 | F4 | `.so` plugins (DSP/visualization) | not started |
-| F6c | Public documentation (this README, `NOTICE`) | in progress |
+| F6c | Public documentation (this bilingual README, `NOTICE`) | **done** |
 | F7 | Classic `.wsz` skins | not started |
 | F2D.1 | Window snapping (X11 only) | evaluated, not planned |
 
