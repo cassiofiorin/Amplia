@@ -29,6 +29,7 @@ class QListWidget;
 class QPushButton;
 
 namespace wamp::ui {
+class LibraryWindow;
 class RoundButton;
 }
 class QMenu;
@@ -37,6 +38,7 @@ class QSystemTrayIcon;
 class ThemeDialog;
 class QTimer;
 class QVBoxLayout;
+
 
 namespace wamp::ui {
 class DisplayPanel;
@@ -209,6 +211,11 @@ class MainWindow final : public QMainWindow {
   void onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok);
   /// Contador fixo da fila de metadados na barra de status.
   void updateMetadataStatus();
+  void openLibrary();
+  void refreshLibrary();
+  void rescanLibrary();
+  void addLibraryFolder();
+  void playFromLibrary(const QString& path);
   QString rowLabel(const std::string& path, bool current) const;
   QString durationText(const std::string& path) const;
   void startReading();
@@ -280,6 +287,9 @@ class MainWindow final : public QMainWindow {
   QAction* actOpenPlaylist_ = nullptr;
   QAction* actAddFiles_ = nullptr;
   QAction* actAddFolder_ = nullptr;
+  QAction* actLibrary_ = nullptr;
+  std::unique_ptr<wamp::ui::LibraryWindow> library_;
+  std::vector<std::string> libraryRoots_;
   QAction* actSavePlaylist_ = nullptr;
   wamp::ui::JumpDialog* jumpDialog_ = nullptr;
   wamp::ui::ClickSlider* volumeSlider_ = nullptr;

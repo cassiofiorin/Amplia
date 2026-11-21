@@ -172,6 +172,7 @@ void warnAboutNetworkDrop(QWidget* parent, const QList<QUrl>& urls, int rejected
 
 #include "file_info_dialog.h"
 #include "jump_dialog.h"
+#include "library_window.h"
 #include "playlist_delegate.h"
 #include "preferences_dialog.h"
 #include "translator.h"
@@ -384,6 +385,27 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   }
 
   // Escape de depuração: salva a janela auxiliar da playlist (sem capturar a tela).
+  // Depuração: abrir a Biblioteca e fotografá-la, para testar sem teclado (a sessão de
+  // teste não injeta atalhos).
+  if (qEnvironmentVariableIsSet("AMPLIA_OPEN_LIBRARY")) {
+    QTimer::singleShot(0, this, [this] { openLibrary(); });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_RESCAN")) {
+    QTimer::singleShot(200, this, [this] { rescanLibrary(); });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_GRAB_LIBRARY")) {
+    const QString target = qEnvironmentVariable("AMPLIA_GRAB_LIBRARY");
+    const int libraryDelay = qEnvironmentVariableIsSet("AMPLIA_GRAB_DELAY_MS")
+                                 ? qEnvironmentVariableIntValue("AMPLIA_GRAB_DELAY_MS")
+                                 : 4000;
+    QTimer::singleShot(libraryDelay, this, [this, target] {
+      if (!library_) return;
+      library_->grab().save(target);
+      qInfo("amplia: biblioteca %dx%d visivel=%d", library_->width(), library_->height(),
+            library_->isVisible() ? 1 : 0);
+    });
+  }
+
   if (qEnvironmentVariableIsSet("AMPLIA_GRAB_PLAYLIST")) {
     const QString target = qEnvironmentVariable("AMPLIA_GRAB_PLAYLIST");
     QTimer::singleShot(3000, this, [this, target] {
@@ -1188,6 +1210,11 @@ void MainWindow::buildMenus() {
   fileMenu->addSeparator();
 
   fileMenu->addAction(actOpenPlaylist_);
+  fileMenu->addSeparator();
+  actLibrary_ = new QAction(tr("Biblioteca\u2026"), this);
+  actLibrary_->setShortcut(QKeySequence(QStringLiteral("Alt+L")));
+  connect(actLibrary_, &QAction::triggered, this, &MainWindow::openLibrary);
+  fileMenu->addAction(actLibrary_);
   fileMenu->addAction(actSavePlaylist_);
   fileMenu->addAction(actNewPlaylist_);
 
@@ -3277,6 +3304,7 @@ void MainWindow::updateMetadataStatus() {
   if (left == 0) {
     metadataTotal_ = 0;
     queueLabel_->hide();
+    if (library_) library_->setStatus(QString());
     return;
   }
   // total acumulado das filas somadas; se vier uma fila nova sem a anterior zerar,
@@ -3299,13 +3327,134 @@ void MainWindow::updateMetadataStatus() {
   // mensagem aparecia nos vãos, colado na versão.
   statusBar()->clearMessage();
   queueLabel_->show();
+  // A Biblioteca não tem fila própria: mostra o mesmo andamento, para o usuário não
+  // fechar o app no meio da indexação (o banco ficaria com metade das tags).
+  if (library_) library_->setStatus(queueLabel_->text());
+}
+
+void MainWindow::openLibrary() {
+  if (!library_) {
+    library_ = std::make_unique<wamp::ui::LibraryWindow>(this);
+    connect(library_.get(), &wamp::ui::LibraryWindow::addFolderRequested, this,
+            &MainWindow::addLibraryFolder);
+    connect(library_.get(), &wamp::ui::LibraryWindow::refreshRequested, this,
+            &MainWindow::rescanLibrary);
+    connect(library_.get(), &wamp::ui::LibraryWindow::playRequested, this,
+            &MainWindow::playFromLibrary);
+  }
+  refreshLibrary();
+  library_->show();
+  library_->raise();
+  library_->activateWindow();
+}
+
+void MainWindow::refreshLibrary() {
+  if (!library_ || !cache_) return;
+
+  // Rápido de propósito: só lê o banco. Varrer pastas de rede leva segundos, então isso
+  // fica no rescanLibrary(), que o usuário dispara (ou que roda ao adicionar uma pasta).
+  std::string error;
+  libraryRoots_ = cache_->roots(&error);
+
+  std::vector<wamp::TrackInfo> tracks;
+  for (const auto& path : cache_->allPaths(&error)) {
+    const bool insideRoot = std::any_of(
+        libraryRoots_.begin(), libraryRoots_.end(), [&path](const std::string& root) {
+          return path.compare(0, root.size(), root) == 0;
+        });
+    if (!insideRoot) continue;
+    wamp::TrackInfo info;
+    if (!cache_->lookupFast(path, &info)) {
+      info = wamp::TrackInfo{};
+      info.path = path;
+    }
+    tracks.push_back(info);
+  }
+
+  std::sort(tracks.begin(), tracks.end(), [](const wamp::TrackInfo& a, const wamp::TrackInfo& b) {
+    const std::string left = a.artist + '\x1f' + a.album + '\x1f' + a.title + a.path;
+    const std::string right = b.artist + '\x1f' + b.album + '\x1f' + b.title + b.path;
+    return left < right;
+  });
+
+  library_->setTracks(tracks);
+  updateMetadataStatus();
+}
+
+void MainWindow::rescanLibrary() {
+  if (!library_ || !cache_ || scanner_ == nullptr) return;
+
+  statusBar()->showMessage(tr("Procurando arquivos nas pastas da biblioteca…"));
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+
+  std::string error;
+  std::vector<std::string> missing;
+  for (const auto& root : cache_->roots(&error)) {
+    int folders = 0;
+    int ignored = 0;
+    const QStringList files = expandAudioPaths({QString::fromStdString(root)}, &folders, &ignored);
+    for (const QString& file : files) {
+      const std::string path = file.toStdString();
+      wamp::TrackInfo info;
+      if (!cache_->lookupFast(path, &info)) missing.push_back(path);
+    }
+  }
+
+  QApplication::restoreOverrideCursor();
+  statusBar()->clearMessage();
+
+  if (!missing.empty()) {
+    metadataTotal_ += missing.size();
+    scanner_->enqueueAll(missing);
+  }
+  refreshLibrary();
+}
+
+void MainWindow::addLibraryFolder() {
+  QWidget* const dialogParent = library_ ? static_cast<QWidget*>(library_.get()) : this;
+  const QString dir = QFileDialog::getExistingDirectory(
+      dialogParent, tr("Pasta para adicionar à biblioteca"));
+  if (dir.isEmpty() || !cache_) return;
+
+  std::string error;
+  if (!cache_->addRoot(dir.toStdString(), &error)) {
+    statusBar()->showMessage(tr("Não foi possível guardar a pasta: %1")
+                                 .arg(QString::fromStdString(error)),
+                             6000);
+    return;
+  }
+
+  int folders = 0;
+  int ignored = 0;
+  const QStringList files = expandAudioPaths({dir}, &folders, &ignored);
+  std::vector<std::string> paths;
+  paths.reserve(static_cast<std::size_t>(files.size()));
+  for (const QString& file : files) paths.push_back(file.toStdString());
+
+  const std::vector<std::string> missing = missesFor(paths);
+  if (!missing.empty()) {
+    metadataTotal_ += missing.size();
+    scanner_->enqueueAll(missing);
+  }
+  rescanLibrary();
+  statusBar()->showMessage(tr("%1 faixa(s) na biblioteca").arg(files.size()), 6000);
+}
+
+void MainWindow::playFromLibrary(const QString& path) {
+  if (path.isEmpty()) return;
+  addPaths({path});
+  playIndex(list_->count() - 1);
+  setPlaylistVisible(true);
 }
 
 void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok) {
   if (ok) {
     metadata_[path] = info;
     if (cache_) cache_->store(info);
+    if (library_ != nullptr && library_->isVisible()) library_->updateTrack(info);
   }
+
+  if (ok && library_ != nullptr && library_->isVisible()) refreshLibrary();
 
   const QString qpath = QString::fromStdString(path);
   const bool current =

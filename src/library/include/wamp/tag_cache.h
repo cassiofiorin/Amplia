@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "wamp/types.h"
 
@@ -38,6 +39,14 @@ class TagCache final {
 
   /// Confirma a transação pendente. Chamado no fechamento e a cada lote.
   void flush();
+
+  /// Pastas-raiz da biblioteca (as que o usuário mandou importar).
+  bool addRoot(const std::string& path, std::string* error);
+  bool removeRoot(const std::string& path, std::string* error);
+  std::vector<std::string> roots(std::string* error);
+
+  /// Todos os caminhos já indexados, em ordem alfabética.
+  std::vector<std::string> allPaths(std::string* error);
 
   /// Quantas faixas o banco tem (0 se estiver fechado).
   std::size_t count();

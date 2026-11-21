@@ -225,8 +225,10 @@ escolha sobrevive ao restart. *(Atingido em 20/11, com "seguir o sistema" penden
 
 ## F3 — Biblioteca
 
+- [x] Esquema SQLite + migrações (reusa `library.db`; tabela `roots`)
+- [x] Janela com lista, duração e o mesmo contador de metadados do app
+- [x] Adicionar pasta… + Atualizar + tocar direto da lista
 - [ ] Varredura incremental de pastas (mtime), em thread própria
-- [ ] Esquema SQLite + migrações
 - [ ] Busca por texto (FTS5) e filtros por artista/álbum/gênero
 - [ ] Playcount e "última reprodução" vindos do event stream
 - [ ] Capa de álbum extraída das tags + cache

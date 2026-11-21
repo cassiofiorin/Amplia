@@ -1848,3 +1848,27 @@ processamento") e ver a versão da build para reportar erro.
   `target_compile_definitions`: as aspas das definições se perdem e o pré-processador
   recebe `0.1.0`, o que quebra a compilação.
 - `AMPLIA_GRAB_DELAY_MS` permite capturar estados transitórios nos testes de interface.
+
+## D-089 — Biblioteca: índice no mesmo banco, varredura separada da exibição
+
+A F3 começou pelo caminho mais curto que entrega uso real: listar o que já está indexado
+e apontar pastas-raiz.
+
+- **Mesmo banco**: a tabela `roots(path TEXT PRIMARY KEY)` entrou no `library.db` que já
+  guarda as tags. Não há segundo arquivo para manter, nem cópia de metadados: a Biblioteca
+  é uma **visão** das faixas cujo caminho começa por alguma raiz.
+- **`refreshLibrary()` é só banco** (`roots` + `allPaths` filtrado + `lookupFast`,
+  ordenado por artista/álbum/título). Varrer pasta de rede dentro da abertura de janela
+  travava a interface inteira — inclusive o timer de captura dos testes — porque cada
+  arquivo novo dispara `avformat_open_input` pelo CIFS.
+- **`rescanLibrary()` é a varredura**: `expandAudioPaths` por raiz, cursor de espera, e
+  enfileira só o que falta (`metadataTotal_ += missing.size()`), o que faz o contador da
+  barra de status funcionar igual ao de "Adicionar pasta".
+- **Contador compartilhado**: `updateMetadataStatus()` também alimenta
+  `library_->setStatus(...)`. A Biblioteca não tem fila própria; mostrar o andamento na
+  própria janela evita fechar o app no meio da indexação.
+- **Tags chegam uma a uma**: `onMetadata()` chama `library_->updateTrack(info)` quando a
+  janela está visível, então a linha troca de nome de arquivo para "Artista - Título" sem
+  recarregar a lista.
+- Tocar da biblioteca: `playFromLibrary()` adiciona a faixa à playlist e toca — a Biblioteca
+  não é um player paralelo.

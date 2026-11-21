@@ -62,7 +62,8 @@ bool TagCache::ensureSchema(std::string* error) {
       " title TEXT, artist TEXT, album TEXT, album_artist TEXT, genre TEXT,"
       " track_no INTEGER, year INTEGER,"
       " duration_ms INTEGER, sample_rate INTEGER, channels INTEGER, bitrate INTEGER"
-      ");";
+      ");"
+      "CREATE TABLE IF NOT EXISTS roots (path TEXT PRIMARY KEY);";
   char* message = nullptr;
   if (sqlite3_exec(db_, schema, nullptr, nullptr, &message) != SQLITE_OK) {
     if (error != nullptr) *error = message != nullptr ? message : "falha ao criar a tabela";
@@ -71,6 +72,70 @@ bool TagCache::ensureSchema(std::string* error) {
   }
   if (message != nullptr) sqlite3_free(message);
   return true;
+}
+
+bool TagCache::addRoot(const std::string& path, std::string* error) {
+  if (db_ == nullptr) { if (error) *error = "banco fechado"; return false; }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "INSERT OR IGNORE INTO roots (path) VALUES (?);", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return false;
+  }
+  bindText(statement, 1, path);
+  const int rc = sqlite3_step(statement);
+  sqlite3_finalize(statement);
+  if (rc != SQLITE_DONE) { if (error) *error = sqlite3_errmsg(db_); return false; }
+  return true;
+}
+
+bool TagCache::removeRoot(const std::string& path, std::string* error) {
+  if (db_ == nullptr) { if (error) *error = "banco fechado"; return false; }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "DELETE FROM roots WHERE path = ?;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return false;
+  }
+  bindText(statement, 1, path);
+  const int rc = sqlite3_step(statement);
+  sqlite3_finalize(statement);
+  if (rc != SQLITE_DONE) { if (error) *error = sqlite3_errmsg(db_); return false; }
+  return true;
+}
+
+std::vector<std::string> TagCache::roots(std::string* error) {
+  std::vector<std::string> out;
+  if (db_ == nullptr) { if (error) *error = "banco fechado"; return out; }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT path FROM roots ORDER BY path;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return out;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    const auto* text = reinterpret_cast<const char*>(sqlite3_column_text(statement, 0));
+    if (text != nullptr) out.emplace_back(text);
+  }
+  sqlite3_finalize(statement);
+  return out;
+}
+
+std::vector<std::string> TagCache::allPaths(std::string* error) {
+  std::vector<std::string> out;
+  if (db_ == nullptr) { if (error) *error = "banco fechado"; return out; }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT path FROM tracks ORDER BY path;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return out;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    const auto* text = reinterpret_cast<const char*>(sqlite3_column_text(statement, 0));
+    if (text != nullptr) out.emplace_back(text);
+  }
+  sqlite3_finalize(statement);
+  return out;
 }
 
 namespace {
