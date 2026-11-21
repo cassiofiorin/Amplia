@@ -1941,3 +1941,22 @@ porque é o único que cresce para baixo — o botão encosta na borda de onde a
   INI, então uma sessão com a playlist esticada reabria a janela com um vão enorme (1008 px
   gravados). Agora o valor é limitado à altura natural do bloco compacto, e o painel
   integrado tem altura fixa (`kPlaylistHeight` = 300) — abrir a lista soma exatamente isso.
+
+## D-093 — Quem absorve o espaço vertical da janela
+
+A coluna de quatro botões obrigou a linha de cima a virar um bloco `display + transporte`,
+e isso expôs uma pergunta que antes não aparecia: quando a janela é esticada, quem fica com
+a altura extra?
+
+- **Display com altura fixa** (`QSizePolicy::Fixed` na vertical). Enquanto ele era elástico,
+  esticar a janela abria um vão em cima e embaixo do painel e empurrava o transporte para o
+  meio da janela.
+- **Playlist absorve**: `mainLayout_->addWidget(playlistPanel_, 1)`. Com a lista aberta,
+  aumentar a janela só aumenta a lista — nada de espaço morto.
+- **Sem a lista, a janela não cresce**: `resizeEvent` devolve `height()` para
+  `compactHeight_` quando a playlist está fechada. É o comportamento do Winamp, cuja janela
+  principal é de tamanho fixo; e evita que um arrasto na borda deixe um vão embaixo do
+  transporte sem nada para preencher.
+- A altura compacta gravada no INI é limitada à altura natural do bloco
+  (`sizeHint().height() + 8`); antes aceitava até 1200 px e uma sessão esticada reabria a
+  janela com 1008 px de vão (o mesmo problema, visto pela porta do estado salvo).

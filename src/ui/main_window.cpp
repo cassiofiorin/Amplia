@@ -379,6 +379,14 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // Fila de indexação que sobrou da sessão anterior (fechou no meio, kill, queda).
   resumePendingScan();
 
+  // Depuração: simula o usuário esticando a janela (o KWin não permite redimensionar
+  // por script no Wayland sem interação).
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_RESIZE")) {
+    QTimer::singleShot(1200, this, [this] {
+      resize(width(), compactHeight_ + qEnvironmentVariableIntValue("AMPLIA_TEST_RESIZE"));
+    });
+  }
+
   // Escape de depuração: salva a própria janela em PNG (sem capturar a tela do usuário).
   if (qEnvironmentVariableIsSet("AMPLIA_GRAB")) {
     const QString target = qEnvironmentVariable("AMPLIA_GRAB");
@@ -577,7 +585,10 @@ void MainWindow::buildUi() {
   // mesma disposição do original, com os LEDs equivalentes já dentro do painel.
   auto* leftColumn = new QVBoxLayout();
   leftColumn->setSpacing(6);
-  leftColumn->addWidget(display_, 1);
+  // Sem stretch no display: com o display elástico, esticar a janela abria um vão em
+  // branco em cima e embaixo dele; o espaço extra tem que ir para a playlist.
+  display_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  leftColumn->addWidget(display_, 0);
 
   auto roundButton = [central](wamp::ui::RoundButton::GlyphPainter glyph, int size) {
     auto* button = new wamp::ui::RoundButton(central);
@@ -720,8 +731,8 @@ void MainWindow::buildUi() {
   auto* bodyRow = new QHBoxLayout();
   bodyRow->setSpacing(6);
   bodyRow->addLayout(leftColumn, 1);
-  bodyRow->addWidget(sideWidget);
-  layout->addLayout(bodyRow);
+  bodyRow->addWidget(sideWidget, 0, Qt::AlignTop);
+  layout->addLayout(bodyRow, 0);
 
   // Editor de playlist em janela auxiliar: Qt::Tool com pai não entra na barra de tarefas
   // nem no Alt+Tab, e o compositor a mantém junto da principal. Assim o botão PL não
@@ -741,9 +752,10 @@ void MainWindow::buildUi() {
   windowLayout->setSpacing(0);
 
   playlistPanel_ = new QWidget();
-  // Altura fixa: o painel não pode "crescer junto" com a janela (era o que fazia o
-  // tamanho total derivar a cada sessão e a janela reabrir gigante).
-  playlistPanel_->setFixedHeight(kPlaylistHeight);
+  // Sem altura fixa: quem absorve o espaço quando a janela é esticada é a lista. O
+  // tamanho é controlado pelo resize (compacto + kPlaylistHeight) e pela altura
+  // compacta limitada ao bloco natural. Altura fixa aqui virava vão em branco.
+  playlistPanel_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
 
   {
     // Teclas do Playlist Editor: Espaço mostra a faixa que está tocando; Ctrl+A
@@ -2858,6 +2870,16 @@ void MainWindow::showEvent(QShowEvent* event) {
   schedulePendingPlaylistOpen();
 }
 
+void MainWindow::resizeEvent(QResizeEvent* event) {
+  QMainWindow::resizeEvent(event);
+  // Sem a playlist não existe quem absorva altura: esticar a janela deixaria um vão morto
+  // embaixo do transporte. A altura é a do bloco compacto (o mesmo critério do Winamp,
+  // cuja janela principal não é redimensionável).
+  if (!playlistOpen_ && playlistIntegrated() && std::abs(height() - compactHeight_) > 1) {
+    resize(width(), compactHeight_);
+  }
+}
+
 void MainWindow::closeEvent(QCloseEvent* event) {
   // Fechar escondendo para a bandeja não interrompe nada — a indexação segue lá.
   const bool hidingToTray =
@@ -3704,7 +3726,8 @@ void MainWindow::applyPlaylistMode() {
     if (playlistWindow_->isVisible()) playlistWindow_->hide();
     if (playlistPanel_->parentWidget() != this) playlistPanel_->setParent(this);
     if (mainLayout_ != nullptr && mainLayout_->indexOf(playlistPanel_) < 0) {
-      mainLayout_->addWidget(playlistPanel_);
+      // Stretch 1: o espaço extra da janela é da lista, nunca do bloco do display.
+      mainLayout_->addWidget(playlistPanel_, 1);
     }
     playlistPanel_->setVisible(playlistOpen_);
   } else {
@@ -3746,12 +3769,18 @@ void MainWindow::setPlaylistVisible(bool visible) {
     // Padrão: a lista é painel da principal e a janela cresce para baixo.
     if (visible) {
       playlistPanel_->show();
+      // Com a lista aberta a janela pode crescer (a lista absorve); fechada, o tamanho é
+      // o do bloco compacto — esticar sem lista deixaria um vão morto embaixo.
+      setMinimumHeight(compactHeight_ + 160);
+      setMaximumHeight(QWIDGETSIZE_MAX);
       resize(width(), compactHeight_ + integratedHeight_);
     } else {
       if (height() > compactHeight_) {
         integratedHeight_ = std::clamp(height() - compactHeight_, 160, 900);
       }
       playlistPanel_->hide();
+      setMinimumHeight(compactHeight_);
+      setMaximumHeight(compactHeight_);
       resize(width(), compactHeight_);
     }
   } else if (visible) {
