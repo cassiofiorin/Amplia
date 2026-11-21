@@ -280,6 +280,7 @@ class MainWindow final : public QMainWindow {
   wamp::ui::RoundButton* stopButton_ = nullptr;
   wamp::ui::RoundButton* prevButton_ = nullptr;
   wamp::ui::RoundButton* nextButton_ = nullptr;
+  wamp::ui::RoundButton* mlButton_ = nullptr;
   wamp::ui::RoundButton* playlistButton_ = nullptr;
   wamp::ui::RoundButton* shuffleButton_ = nullptr;
   wamp::ui::RoundButton* repeatButton_ = nullptr;

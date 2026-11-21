@@ -362,6 +362,15 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // e também o piso da janela — o painel de sete segmentos não pode ser esmagado. O
   // mínimo do layout só existe depois de ativá-lo, então o piso vem de kCompactFloor.
   layout()->activate();
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_LAYOUT")) {
+    qInfo("hint janela=%dx%d display=%dx%d minimo=%dx%d",
+          sizeHint().width(), sizeHint().height(), display_->sizeHint().width(),
+          display_->sizeHint().height(), minimumSizeHint().width(), minimumSizeHint().height());
+    for (int i = 0; i < layout()->count(); ++i) {
+      QLayoutItem* item = layout()->itemAt(i);
+      qInfo("  item %d: hint=%dx%d", i, item->sizeHint().width(), item->sizeHint().height());
+    }
+  }
   compactHeight_ = std::max(kCompactFloor, sizeHint().height());
   setMinimumSize(400, compactHeight_);
   loadSettings();
@@ -566,9 +575,9 @@ void MainWindow::buildUi() {
 
   // Ações de estado (sorteio, repetir, playlist) empilhadas à direita do display —
   // mesma disposição do original, com os LEDs equivalentes já dentro do painel.
-  auto* topRow = new QHBoxLayout();
-  topRow->setSpacing(6);
-  topRow->addWidget(display_, 1);
+  auto* leftColumn = new QVBoxLayout();
+  leftColumn->setSpacing(6);
+  leftColumn->addWidget(display_, 1);
 
   auto roundButton = [central](wamp::ui::RoundButton::GlyphPainter glyph, int size) {
     auto* button = new wamp::ui::RoundButton(central);
@@ -578,10 +587,10 @@ void MainWindow::buildUi() {
   };
 
   // A coluna vive dentro de um QWidget: um layout solto com stretch empurraria a linha
-  // inteira e abriria espaço em volta do display.
+  // inteira e abriria espaço em volta do display. Ela desce pela faixa do transporte (como
+  // no original), então quem manda na altura é o bloco display+transporte, não o display.
   auto* sideWidget = new QWidget(central);
   sideWidget->setFixedWidth(28);
-  sideWidget->setFixedHeight(display_->height());
   auto* sideButtons = new QVBoxLayout(sideWidget);
   sideButtons->setSpacing(4);
   sideButtons->setContentsMargins(0, 0, 0, 0);
@@ -603,6 +612,21 @@ void MainWindow::buildUi() {
   connect(repeatButton_, &QPushButton::clicked, this, &MainWindow::toggleRepeat);
   sideButtons->addWidget(repeatButton_);
 
+  // ML fica entre os modos e o PL: em cima os modos de reprodução, embaixo as janelas.
+  mlButton_ = roundButton(nullptr, 28);
+  mlButton_->setText(QStringLiteral("ML"));
+  mlButton_->setFixedSize(28, 28);
+  mlButton_->setCursor(Qt::PointingHandCursor);
+  mlButton_->setToolTip(tr("Biblioteca (Alt+L)"));
+  connect(mlButton_, &QPushButton::clicked, this, [this] {
+    if (library_ != nullptr && library_->isVisible()) {
+      library_->hide();
+      return;
+    }
+    openLibrary();
+  });
+  sideButtons->addWidget(mlButton_);
+
   playlistButton_ = roundButton(nullptr, 28);
   playlistButton_->setText(QStringLiteral("PL"));
   playlistButton_->setCheckable(true);
@@ -613,16 +637,11 @@ void MainWindow::buildUi() {
   sideButtons->addWidget(playlistButton_);
   sideButtons->addStretch(1);
 
-  topRow->addWidget(sideWidget);
-  layout->addLayout(topRow);
-
   // Transporte circular, mute e volume — os botões redondos deixam mais largura para a
   // barra de volume do que os retangulares de antes.
   auto* row = new QHBoxLayout();
   row->setSpacing(6);
-  // A barra de volume termina junto com a barra de posição do display, deixando a
-  // margem da coluna de botões livre para um controle futuro à direita.
-  row->setContentsMargins(0, 0, 50, 0);
+  row->setContentsMargins(0, 0, 0, 0);
 
   prevButton_ = roundButton(wamp::ui::paintPrevious, 30);
   prevButton_->setToolTip(tr("Faixa anterior (Z)"));
@@ -695,7 +714,14 @@ void MainWindow::buildUi() {
   });
   row->addWidget(volumeSlider_, 1);
 
-  layout->addLayout(row);
+  // A coluna de estado fica à direita do bloco display+transporte, e não só do display:
+  // quatro botões (sorteio, repetir, ML, PL) não cabem na altura do display.
+  leftColumn->addLayout(row);
+  auto* bodyRow = new QHBoxLayout();
+  bodyRow->setSpacing(6);
+  bodyRow->addLayout(leftColumn, 1);
+  bodyRow->addWidget(sideWidget);
+  layout->addLayout(bodyRow);
 
   // Editor de playlist em janela auxiliar: Qt::Tool com pai não entra na barra de tarefas
   // nem no Alt+Tab, e o compositor a mantém junto da principal. Assim o botão PL não
@@ -715,6 +741,9 @@ void MainWindow::buildUi() {
   windowLayout->setSpacing(0);
 
   playlistPanel_ = new QWidget();
+  // Altura fixa: o painel não pode "crescer junto" com a janela (era o que fazia o
+  // tamanho total derivar a cada sessão e a janela reabrir gigante).
+  playlistPanel_->setFixedHeight(kPlaylistHeight);
 
   {
     // Teclas do Playlist Editor: Espaço mostra a faixa que está tocando; Ctrl+A
@@ -2972,14 +3001,18 @@ void MainWindow::loadSettings() {
   const QSize savedSize = settings.value(QStringLiteral("window/size")).toSize();
   const int savedCompact = settings.value(QStringLiteral("window/compactHeight"), 0).toInt();
   int width = std::clamp(settings.value(QStringLiteral("window/width"), 460).toInt(), 400, 4000);
+  // A altura compacta é a altura natural do bloco display+transporte: aceitar um valor
+  // maior reabriria a janela com um vão em branco (aconteceu: 1008 salvo depois de uma
+  // sessão que esticou a janela com a playlist aberta).
+  const int naturalCompact = std::max(kCompactFloor, sizeHint().height());
   compactHeight_ = std::clamp(
       std::max(settings.value(QStringLiteral("window/collapsedHeight"), compactHeight_).toInt(),
                compactHeight_),
-      kCompactFloor, 1200);
+      kCompactFloor, naturalCompact + 8);
   if (savedCompact >= kCompactFloor) {
     // Caminho normal: a altura compacta é guardada explicitamente. Derivar do tamanho total
     // a cada abertura fazia o valor derivar com o tempo (painel e janela se realimentavam).
-    compactHeight_ = std::clamp(savedCompact, kCompactFloor, 1200);
+    compactHeight_ = std::clamp(savedCompact, kCompactFloor, naturalCompact + 8);
     if (savedSize.isValid() && savedSize.width() >= 400) {
       width = std::clamp(savedSize.width(), 400, 4000);
     }
@@ -2988,8 +3021,8 @@ void MainWindow::loadSettings() {
     width = std::clamp(savedSize.width(), 400, 4000);
     const bool panelOpen = settings.value(QStringLiteral("playlist/visible"), false).toBool();
     const int panelHeight = settings.value(QStringLiteral("window/panelHeight"), 300).toInt();
-    compactHeight_ = std::clamp(
-        savedSize.height() - (panelOpen ? std::max(160, panelHeight) : 0), kCompactFloor, 1200);
+    compactHeight_ = std::clamp(savedSize.height() - (panelOpen ? std::max(160, panelHeight) : 0),
+                                kCompactFloor, naturalCompact + 8);
   }
   resize(width, compactHeight_);
 
@@ -3021,10 +3054,9 @@ void MainWindow::loadSettings() {
                       .toString();
   // A chave é window/panelHeight (é o que saveSettings grava); integratedHeight é o nome
   // antigo e fica como leitura de migração.
-  const int savedPanel = settings.value(
-      QStringLiteral("window/panelHeight"),
-      settings.value(QStringLiteral("window/integratedHeight"), 300).toInt()).toInt();
-  integratedHeight_ = std::clamp(savedPanel, 160, 900);
+  // O painel integrado tem altura fixa (kPlaylistHeight): abrir a lista soma exatamente
+  // isso. Antes a altura vinha do INI e uma sessão esticada virava 734 px na seguinte.
+  integratedHeight_ = kPlaylistHeight;
   applyPlaylistMode();
 
   const int playlistW = settings.value(QStringLiteral("window/playlistWidth"), 440).toInt();

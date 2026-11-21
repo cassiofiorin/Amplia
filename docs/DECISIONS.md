@@ -1922,3 +1922,22 @@ linhas já ordenadas por visão, e a janela só desenha.
   tag (as linhas pulariam); recarrega quando `scanner_->pending() == 0`.
 - A consulta é sobre o banco inteiro e a janela filtra pelas raízes: um arquivo tocado da
   playlist entra no cache, mas só aparece na Biblioteca se estiver sob uma pasta indexada.
+
+## D-092 — Coluna de estado com quatro botões (sorteio, repetir, ML, PL)
+
+A coluna à direita passou a ter quatro botões, na ordem do original: **em cima os modos de
+reprodução** (sorteio, repetir) e **embaixo as janelas** (ML, PL). O PL fica por último
+porque é o único que cresce para baixo — o botão encosta na borda de onde a expansão sai.
+
+- A coluna **desce pela faixa do transporte**, como no Winamp: quatro círculos de 28 px com
+  6 de respiro pedem 130 px, mais que a altura do display (154 com a faixa do transporte,
+  não caberia só ali). Por isso a linha do topo deixou de ser "display + coluna" e virou um
+  bloco `display + transporte` com a coluna ao lado.
+- A margem direita de 50 px da faixa de transporte saiu: quem reserva o espaço agora é o
+  próprio layout, e a barra de volume termina junto com a barra de posição.
+- **ML abre a Biblioteca** (`Alt+L`) e esconde se já estiver visível; ele não pinta estado
+  "aberto" como o PL, porque a Biblioteca é janela própria, não um modo do player.
+- **Bug de tamanho consertado de passagem**: a altura compacta era aceita até 1200 px no
+  INI, então uma sessão com a playlist esticada reabria a janela com um vão enorme (1008 px
+  gravados). Agora o valor é limitado à altura natural do bloco compacto, e o painel
+  integrado tem altura fixa (`kPlaylistHeight` = 300) — abrir a lista soma exatamente isso.

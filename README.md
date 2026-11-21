@@ -286,7 +286,7 @@ Each mode keeps its own geometry, so switching back and forth does not lose size
 
 ### Library
 
-**File ▸ Library…** (`Alt+L`) indexes whole folders and lists everything already stored in
+The **ML** button in the right-hand column (or **File ▸ Library…**, `Alt+L`) indexes whole folders and lists everything already stored in
 the same database the tags live in. The scan runs in the background and progress shows **in
 the Library window itself** — the same `Reading metadata… N/M — do not close` message from
 the status bar, because closing the app mid-index would leave half the tags in the database.
@@ -328,7 +328,7 @@ Cada modo guarda a sua geometria, então trocar e voltar não perde tamanho.
 
 ### Biblioteca
 
-**Arquivo ▸ Biblioteca…** (`Alt+L`) indexa pastas inteiras e lista tudo o que já foi
+O botão **ML** da coluna da direita (ou **Arquivo ▸ Biblioteca…**, `Alt+L`) indexa pastas inteiras e lista tudo o que já foi
 guardado no mesmo banco das tags. A varredura roda em segundo plano e o andamento aparece
 **na própria janela da Biblioteca** — a mesma mensagem `Lendo metadados… N/M — não feche` da
 barra de status, porque fechar o app no meio da indexação deixaria metade das tags no banco.
