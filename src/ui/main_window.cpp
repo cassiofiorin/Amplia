@@ -24,6 +24,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QCloseEvent>
+#include <QDialog>
 #include <QCollator>
 #include <QCryptographicHash>
 #include <QDesktopServices>
@@ -640,17 +641,16 @@ void MainWindow::buildUi() {
   // Editor de playlist em janela auxiliar: Qt::Tool com pai não entra na barra de tarefas
   // nem no Alt+Tab, e o compositor a mantém junto da principal. Assim o botão PL não
   // redimensiona a janela do player (era o que fazia a janela inteira se mexer).
+  // Qt::Dialog (e não Qt::Tool) de propósito: no Wayland é o tipo "diálogo" que faz o Qt
+  // enviar o xdg_toplevel.set_parent — o KWin então trata a janela como dependente e a
+  // tira da barra de tarefas. Com Qt::Tool o parentesco nunca chegava ao compositor.
   playlistWindow_ = new QWidget(this, Qt::Tool);
   playlistWindow_->setWindowTitle(QStringLiteral("Playlist"));
   playlistWindow_->resize(440, 400);
   // No Wayland o papel "tool" sozinho não basta para o KWin tirar a janela da barra de
-  // tarefas: o que marca a subordinação é o xdg_toplevel.set_parent, que o Qt só monta
-  // quando as duas janelas já têm handle. Forçar a criação e declarar a transitoriedade
-  // aqui resolve — e repete no show(), porque o handle da principal pode nascer depois.
-  playlistWindow_->createWinId();
-  if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
-    playlistWindow_->windowHandle()->setTransientParent(windowHandle());
-  }
+  // tarefas: o que marca a subordinação é o xdg_toplevel.set_parent, que o Qt só envia se
+  // a janela-mãe já tiver handle quando esta é criada. Por isso o handle da playlist é
+  // criado tarde, em setPlaylistVisible() — nunca aqui, durante o construtor.
   auto* windowLayout = new QVBoxLayout(playlistWindow_);
   windowLayout->setContentsMargins(8, 8, 8, 8);
   windowLayout->setSpacing(0);
@@ -2656,6 +2656,21 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
   return QMainWindow::eventFilter(watched, event);
 }
 
+void MainWindow::showEvent(QShowEvent* event) {
+  QMainWindow::showEvent(event);
+  if (!pendingPlaylistVisible_ || playlistShowScheduled_) return;
+  playlistShowScheduled_ = true;
+  // 200 ms depois de a principal aparecer: no Wayland o parentesco das janelas
+  // auxiliares só é enviado quando a mãe já está mapeada (D-081).
+  const int delay = qEnvironmentVariableIsSet("AMPLIA_PLAYLIST_DELAY_MS")
+                        ? qEnvironmentVariableIntValue("AMPLIA_PLAYLIST_DELAY_MS")
+                        : 200;
+  QTimer::singleShot(delay, this, [this] {
+    pendingPlaylistVisible_ = false;
+    setPlaylistVisible(true);
+  });
+}
+
 void MainWindow::closeEvent(QCloseEvent* event) {
   closing_ = true;
   // Anota antes de fechar: saveSettings() roda depois e a auxiliar já estaria invisível.
@@ -2787,8 +2802,10 @@ void MainWindow::loadSettings() {
     }
   }
   if (settings.value(QStringLiteral("playlist/visible"), false).toBool()) {
+    // Não abre aqui: o construtor roda antes de a janela principal ser mapeada, e no
+    // Wayland o parentesco não seria enviado. showEvent() agenda a abertura.
     playlistButton_->setChecked(true);
-    setPlaylistVisible(true);
+    pendingPlaylistVisible_ = true;
   }
 
   // Sessão anterior: devolve a lista e a faixa atual, sem tocar (D-029). Arquivo passado
@@ -3129,6 +3146,13 @@ void MainWindow::setPlaylistVisible(bool visible) {
   if (playlistWindow_ == nullptr) return;
   playlistButton_->setChecked(visible);
   if (visible) {
+    // Cria o handle só agora: se a principal já estiver mapeada, o Qt envia o
+    // xdg_toplevel.set_parent junto com o mapeamento e o KWin trata a janela como
+    // dependente (fora da barra de tarefas).
+    if (playlistWindow_->windowHandle() == nullptr) playlistWindow_->createWinId();
+    if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
+      playlistWindow_->windowHandle()->setTransientParent(windowHandle());
+    }
     playlistWindow_->show();
     if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
       playlistWindow_->windowHandle()->setTransientParent(windowHandle());

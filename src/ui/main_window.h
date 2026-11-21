@@ -88,6 +88,7 @@ class MainWindow final : public QMainWindow {
   void dragEnterEvent(QDragEnterEvent* event) override;
   void dropEvent(QDropEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
+  void showEvent(QShowEvent* event) override;
   bool eventFilter(QObject* watched, QEvent* event) override;
 
  private:
@@ -288,6 +289,8 @@ class MainWindow final : public QMainWindow {
   // Estado da playlist no momento de fechar: a janela auxiliar é fechada ANTES de
   // salvar, então ler isVisible() ali sempre daria false.
   bool playlistOpenAtExit_ = false;
+  bool pendingPlaylistVisible_ = false;
+  bool playlistShowScheduled_ = false;
   // Durante o fechamento a auxiliar já foi escondida, mas o estado que vale é o de antes.
   bool closing_ = false;
   wamp::TrackInfo scrobbleTrack_;

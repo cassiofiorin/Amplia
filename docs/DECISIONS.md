@@ -1669,9 +1669,17 @@ a mesma chamada depois de cada `show()` (o handle da principal pode nascer depoi
 equalizador segue o mesmo caminho. Efeito colateral: a auxiliar também passa a ficar acima da
 principal e a minimizar junto, que é o comportamento esperado de janela dependente.
 
-Verificação difícil de automatizar: a barra de tarefas é do compositor, não do app. O escape
-`AMPLIA_DEBUG_WINDOWS=1` loga `transiente=%d` para confirmar o lado do cliente; o lado do
-compositor só olhando.
+Verificação pelo lado do compositor: `org.kde.KWin.getWindowInfo(uuid)` devolve
+`hasTransientParent`, `skipTaskbar` e `type` de cada janela (uuid vem de `kdotool search`).
+Resultado medido nesta sessão: **a playlist continua com `hasTransientParent: false`** mesmo com
+o cliente reportando `transiente=1`. A mesma consulta na janela de Preferências (QDialog
+**modal**) devolve `true` — ou seja, no Wayland o Qt só envia `xdg_toplevel.set_parent` para
+diálogos modais, não para janelas `Qt::Tool`/`QDialog` não modais.
+
+Consequência: com playlist em janela separada, **o Wayland mostra uma entrada na barra de
+tarefas** e não há API de aplicativo que mude isso (o protocolo não tem "skip taskbar"). O
+caminho de sistema é a regra do KWin; o caminho de produto é a playlist voltar a ser painel da
+mesma janela. Decisão pendente com o usuário.
 
 ### Sobra de copiar/colar corrigida no caminho
 
