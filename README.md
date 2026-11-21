@@ -1,5 +1,7 @@
 # Amplia
 
+Português · [English](#english)
+
 Player de áudio nativo para Linux, escrito em C++ com Qt 6 — playlist, fila, equalizador de 10 bandas, visualizador, scrobbling e controle de mídia, sem camada de emulação.
 
 ## Motivação e histórico
@@ -90,11 +92,12 @@ manifest usa `type: dir` e copiaria qualquer lixo junto).
 
 ## O que funciona hoje
 
-Botões `⇄` (sorteio) e `PL` ficam na linha do título, como os botões `PL`/`ML` da skin
-clássica; a linha de transporte fica só com os controles e o volume, que ocupa a largura
-livre. O botão `PL` abre o editor de playlist **dentro da mesma janela**: ela cresce para baixo
-(300 px) e volta ao tamanho compacto quando você fecha a lista, sem virar uma segunda
-entrada na barra de tarefas. Duplo clique toca uma faixa. Arrastar arquivos para a janela
+Sorteio, repetir e `PL` ficam empilhados à direita do display, como os botões `PL`/`ML` da
+skin clássica; a linha de transporte fica só com os controles e o volume, que ocupa a largura
+livre. O botão `PL` abre o editor de playlist em **janela própria**: o player não muda de
+tamanho, e fechar a lista só a esconde. (No Wayland o compositor pode listar essa janela
+também na barra de tarefas — limitação do protocolo, ver [Limites](#limites-conhecidos).)
+Duplo clique toca uma faixa. Arrastar arquivos para a janela
 (ou usar `Adicionar…`) apenas **organiza** a lista: nada começa a tocar sozinho — o
 primeiro item fica carregado em pausa, pronto para o `Play`. Quem abre por `Abrir…`, pela
 linha de comando ou por duplo clique escolheu tocar, e toca. `wamp --playlist` já abre com
@@ -470,3 +473,500 @@ O ícone e a interface foram desenhados para este projeto. As bibliotecas usadas
 TagLib, SQLite, libsystemd) entram por linkagem dinâmica, cada uma sob a sua licença.
 
 Feito por **Cassio Fiorin** — [github.com/cassiofiorin](https://github.com/cassiofiorin).
+
+---
+
+# English
+
+[↑ Português](#amplia)
+
+A native Linux audio player written in C++ with Qt 6 — playlist, queue, 10-band EQ,
+visualizer, scrobbling and native media control, with no emulation layer.
+
+## History and reasons
+
+I used Winamp daily for more than twenty years. It does things that no modern player does
+as well (in my opinion): a queue separate from the playlist, shuffle with a morph level, a
+compact time display with peak meters and a band visualizer, and jumping to a track by
+typing part of its name. Everything available today is either limited, too bureaucratic, or
+requires Wine — so I decided to "modernize" exactly what I liked.
+
+In September 2024 the Llama Group published the Winamp source code, but under a license
+that forbids distributing modified versions — a direct port cannot be published from it.
+So the path was another one: treat the behavior as a **specification** and write the player
+from scratch, native, in C++ with Qt 6, PipeWire and FFmpeg. No file from the original
+source entered this repository.
+
+The code was written with an AI agent (DeepSeek, through DeepSeek Harness for Linux): I
+defined the behavior, reviewed every screen, tested with my own library and decided what
+went in or had to be reprioritized. The project decisions, the scope, the acceptance tests
+and this README are mine. The record of how the project was built is in
+[`docs/NOTAS-DE-SESSAO.md`](docs/NOTAS-DE-SESSAO.md).
+
+> **On the origin of the code:** there is no direct copying of code from known sources.
+> Libraries are linked (Qt, FFmpeg, TagLib, libsystemd, SQLite), and the Winamp source
+> served as a reference for **behavior and file formats**, never as a source. But part of
+> this project was written by an AI agent trained on the widest range of sources, over which
+> I have no control — so it is possible that some snippet unintentionally reproduces a
+> solution that exists elsewhere. If you recognize such a snippet, please open an issue:
+> correction or attribution is done as soon as possible.
+
+> Amplia is an independent project. It has no affiliation with Nullsoft, Winamp or the
+> Llama Group, and it does not distribute Winamp code or brand assets. The name, the
+> interface and the features are original; compatibility with formats and keyboard habits is
+> intentional.
+
+![The Amplia window playing](/docs/img/player.png)
+
+## Status
+
+| Phase | Delivery | Status |
+|---|---|---|
+| F0 | First native sound (decode + PipeWire + minimal window) | **done** |
+| F1a | Player and playlist (queue, shuffle, `.m3u`, metadata) | **done** |
+| F1b | Integration (gapless, MPRIS2, Last.fm, ListenBrainz) | **done** — validated in daily use |
+| F1c | Formats and last mile (`.pls`, `.b4s`, `.wpl`, folders, session, columns, folder art) | **done** |
+| F2 | 10-band equalizer, `.eqf` presets, ReplayGain, response curve | **done** |
+| F2B | Player display (7-segment clock, LEDs, transport) | **done** |
+| F2C | Visualization (L/R meters, spectrum, beat, fps calibration) | **done** |
+| F2D | Windows (playlist and equalizer in their own windows) | **done** |
+| F2E | Appearance (color schemes, four-color editor, CSV) | **done** |
+| F5 | Shortcuts (keyboard parity with the original) | **done** |
+| F6a/b | Language (infrastructure and full English) | **done** |
+| F3 | SQLite library, import, playcount | next |
+| F4 | `.so` plugins (DSP/visualization) | not started |
+| F6c | Public documentation (this README, `NOTICE`) | in progress |
+| F7 | Classic `.wsz` skins | not started |
+| F2D.1 | Window snapping (X11 only) | evaluated, not planned |
+
+What already works is described in [**What works today**](#what-works-today). Each decision
+is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## How to build
+
+The build target is the KDE SDK, which already ships Qt 6, FFmpeg and PipeWire — nothing
+needs to be installed for development on the host.
+
+```bash
+# 1. runtime and SDK (once, ~3 GB in the user installation)
+flatpak install --user flathub org.kde.Sdk//6.10
+
+# 2. build + local install
+cd wamp
+./scripts/build-flatpak.sh
+
+# 3. run (opens the window; pass a file to play right away)
+flatpak run io.github.cassiofiorin.Amplia ~/Music/some-track.mp3
+```
+
+### About `flatpak-builder`
+
+The `org.flatpak.Builder` app **does not work** here: running inside its own sandbox, it
+asks the host portal for the SDK in an environment where the user installation is invisible,
+and fails with `Unable to find sdk org.kde.Sdk version 6.10` — even though
+`flatpak info org.kde.Sdk//6.10` works on the host. Use the host binary, one of two ways:
+
+```bash
+# normal path, with root
+sudo dnf install flatpak-builder
+
+# alternative without root: extract the RPM into ~/.local/share/amplia-tools
+mkdir -p /tmp/fpb && cd /tmp/fpb
+dnf download flatpak-builder
+mkdir -p root && cd root && rpm2cpio ../flatpak-builder-*.rpm | cpio -idm --quiet
+mkdir -p ~/.local/share/amplia-tools
+cp -r /tmp/fpb/root ~/.local/share/amplia-tools/flatpak-builder
+```
+
+The script looks, in this order, for: `$FLATPAK_BUILDER_BIN`, `flatpak-builder` in `PATH`,
+the extracted binary in `~/.local/share/amplia-tools/flatpak-builder/usr/bin/` and, last,
+the `org.flatpak.Builder` app (with a warning).
+
+Build artifacts stay in `~/.cache/amplia-build` (outside the repository, because the
+manifest uses `type: dir` and would copy any junk along).
+
+## What works today
+
+Shuffle, repeat and `PL` are stacked to the right of the display, like the `PL`/`ML` buttons
+of the classic skin; the transport row keeps only the controls and the volume, which takes
+the free width. The `PL` button opens the playlist editor **in its own window**: the player
+does not resize, and closing the list only hides it. (On Wayland the compositor may list that
+window in the taskbar too — a protocol limitation, see [Known limits](#known-limits).)
+Double click plays a track. Dropping files on the
+window (or using `Add…`) only **organizes** the list: nothing starts playing by itself — the
+first item is loaded paused, ready for `Play`. Opening through `Open…`, the command line or a
+double click means you chose to play, and it plays. `amplia --playlist` opens with the list
+showing. Size and state of the list are stored in the INI; on Wayland the window position
+belongs to the compositor, so only the size comes back.
+
+Winamp-style shortcuts: `Z` previous, `X` play, `C` pause, `V` stop, `B` next, `Space`
+toggles play/pause, `S` toggles shuffle, `Ctrl+P` preferences. Following the Playlist Editor
+defaults: `L` adds file(s), `Shift+L` adds a folder, `Ctrl+O` opens a playlist, `Ctrl+N`
+starts a new one, `Ctrl+S` saves `.m3u`, `Alt+3` opens **File Info**, `,` opens **Jump to
+File**.
+
+The bottom of the list has three menus, like the Playlist Editor: **File ▾** (new, open,
+add file/folder, save), **Playlist ▾** (select all/none, invert, remove, crop, clear, remove
+missing) and **Sort ▾** (by title, by filename, by path, reverse, randomize) — with the same
+shortcuts as Winamp (`Ctrl+Shift+1..3`, `Ctrl+R`, `Ctrl+Shift+R`). Sorting is blocked while
+the tag queue is still running, because the order by title would change underneath.
+
+Shuffle has a level (0–100%) in **Options ▸ Preferences…**, like Winamp's shuffle morph
+rate: 0% follows the list order, 100% shuffles across the whole playlist, and values in
+between shuffle within a window ahead, without repeating the current track or the last ones
+played. The `⇄` button on the transport row turns it on and off.
+
+In the list, `Enter` plays the selected track and `Delete` removes it; `Alt+left click`
+queues (again to unqueue) and right click opens the menu with play, queue and remove. *Clear
+playlist* asks for confirmation, because one accidental click there costs the whole list.
+
+The position and volume sliders jump to where you click (not only by dragging the handle):
+click positions, drag continues from there.
+
+You can drop files anywhere in the window, including on the list — but only files that exist
+as a local path. Dragging from a network share opened in Dolphin delivers `smb://…`, which
+the app does not read yet; in that case it warns in the status bar. Mounting the folder on
+the system (cifs) solves it, because then the path is local.
+
+Each row shows the track number on the left; the one playing gets `▶`. Queued tracks show
+their queue position attached to the right (and the tooltip says "Queue: position N"),
+updating as the queue advances. Importing several tracks already opens the playlist.
+
+Metadata arrives on its own: when you add files the list shows the file name and swaps it
+for "Artist - Title (m:ss)" as the reading queue advances (one track at a time, in the status
+bar). Nothing blocks the window — you can play while the rest is read.
+
+The queue (**Queue** button) plays before following the playlist order — it is Winamp's
+"JTF". The counter appears in the status bar.
+
+### Scrobbling
+
+`Preferences` (`Ctrl+P`, or `amplia --preferences`) ▸ **Scrobbling** tab:
+
+- **Last.fm**: paste the API key and secret (created at
+  <https://www.last.fm/api/account/create>) and click **Connect with Last.fm…**. The browser
+  opens the authorization page; after authorizing, come back and click **I already
+  authorized — finish**. The session key is stored in the INI
+  (`~/.var/app/io.github.cassiofiorin.Amplia/config/amplia/amplia.ini`, mode 600) and lasts
+  until you revoke access on the site.
+- **ListenBrainz**: paste the token from your profile and use **Test token**.
+
+The **Announce "now playing"** box is off by default: Last.fm has no call to end the
+announcement, so it stays on the profile until another scrobble arrives. When on, the
+announcement only goes out after 5 seconds of playback (a track that never started does not
+appear).
+
+Only tracks longer than 30 seconds enter, after 50% or 4 minutes played — the same rule as
+Last.fm. Time counts only while actually playing (seeking does not count). Whatever fails
+over the network goes to a queue on disk and is resent with growing delays.
+
+### Adding folders
+
+Dropping (or choosing) a folder scans it recursively and adds only audio files, in natural
+order — `CD1/`, `CD2/`, `CD10/` come out in the right order. Non-audio content (cover art,
+`.txt`, `.cue`) is ignored and counted in the status bar.
+
+### Cover art in media control
+
+If the file has embedded art, it appears in the KDE applet (extracted into the app cache,
+without touching the original file). Changing the art through **File Info** updates it right
+away.
+
+### Appearance
+
+**Options ▸ Appearance…** swaps the whole palette — window, list, display, spectrum and the
+equalizer curve — without restarting. Six schemes: **Graphite** (default), **Classic**, **LCD
+Green**, **Amber**, **Steel Blue** and **Paper** (light). The choice goes to
+`appearance/theme` in the INI.
+
+Beyond the presets, the window builds its own scheme: four colors (background, accent,
+secondary and buttons) plus a global contrast. The window repaints while you move the
+controls, and the result becomes the **Custom** item in the list.
+
+**Save current theme as…** names the palette; it then appears in the list next to the
+presets. **Import/Export themes (CSV)** moves several at once — the format is
+`id,name,background,accent,secondary,buttons,contrast`, up to 30 per file, and **Save CSV
+template…** writes an example file with a commented line.
+
+It is not a skin: Amplia keeps the same layout and the same window shape. Rendering `.wsz`
+is F7.
+
+### Tray (agent)
+
+On startup Amplia puts an icon in the tray with the Winamp agent commands: Show/Hide window,
+Play/Pause, Previous, Next, Shuffle and Repeat. The tooltip shows the playing track. Left
+click toggles the window; middle click toggles play/pause.
+
+In **Preferences ▸ Playback** there is **Close to tray (agent)**: when on, the X hides the
+window and the music keeps playing — quitting for real is "Quit" in the icon menu. The first
+time a balloon explains it.
+
+Opening Amplia again does not create a second window: the files go to the instance already
+playing and it comes to the front.
+
+### Cover art and list columns
+
+The media control art comes from the tag itself (ID3v2, FLAC, MP4). If the file has no
+embedded art, Amplia looks for `cover.jpg`, `folder.jpg`, `front.jpg` (and `.png`) in the
+folder — case-insensitively, like discographies coming from Windows.
+
+The list shows number, title and duration in columns. In **Playlist ▸ Show full path** the
+title column shows the file path instead, useful when two folders have tracks with the same
+name.
+
+### Files that do not play
+
+If you open a video (or anything that is not audio) from the command line, through "Open…" or
+by dropping a single file, Amplia explains why and offers **Open in system player** — instead
+of trying to decode and failing with a technical error. The player is audio by design: no
+video pipeline, no image sync, no extra weight.
+
+Files in a container outside the list but purely audio (`.mka`, `.m4b`) play normally: FFmpeg
+answers, not the extension. And dropping a whole folder turns none of this into a warning —
+audio files go in, the rest is counted as ignored in the status bar.
+
+### Equalizer (Alt+G)
+
+Ten bands from 70 Hz to 16 kHz, −12 to +12 dB, with preamp and seventeen common curves
+(Rock, Pop, Full Bass, Vocal and others). At the top, the curve is the real response of the
+ten bands, computed with the same coefficients as the audio: drag a point to adjust the band.
+The window does not block: dragging a slider changes the sound immediately, and what sticks
+goes to the INI (`eq/*`). Values are in dB, and bands with zero gain are skipped in
+processing. A peak limiter (ceiling at −0.6 dB) holds the boost so it does not clip: pushing
+the preamp compresses instead of distorting.
+
+### Equalizer presets
+
+**Import .eqf/CSV…** reads both `.eqf` flavors (the text one that circulates around, and the
+binary one — the record size varies between programs and versions, and is detected on read)
+and also Amplia's CSV. **Export CSV…** writes the current curve in the open format:
+
+```
+nome,preamp_db,70,180,320,600,1000,3000,6000,12000,14000,16000
+Rock,0,8,5,-2,-3,-1,3,6,7,8,8
+```
+
+**Save curve…** stores the current curve in your list (it appears in the combo after the
+built-in ones, with the name you choose) — it is a `.csv` in
+`~/.var/app/io.github.cassiofiorin.Amplia/data/cassiofiorin/Amplia/presets/`, so you can copy
+the file to another machine. **Delete** removes the curve from the list without touching the
+current setting.
+
+It is a way to share a curve with someone without sending a binary.
+
+### ReplayGain
+
+`Options ▸ ReplayGain` chooses **off**, **per track** or **per album**. The gain comes from
+the tags (`REPLAYGAIN_TRACK_GAIN`, `REPLAYGAIN_ALBUM_GAIN`) and is applied before the
+equalizer — the same point the gapless goes through, so each track enters with its own
+factor.
+
+If the file declares the peak (`REPLAYGAIN_*_PEAK`), the gain is limited by it so it does not
+clip. Without the tags, nothing changes.
+
+### Playlists
+
+`.m3u`/`.m3u8`, `.pls` (radio), `.b4s` (Winamp 5) and `.wpl` (Windows Media Player) open
+through **File ▸ Open playlist**, from the command line or by dropping the file. Relative
+paths are resolved against the playlist folder, so an album folder with `list.m3u` works
+anywhere. Saving uses the format of the chosen extension.
+
+### Session and missing files
+
+The list comes back instantly: opening reads the INI and the tags already cached, **without
+scanning the files**. New tags appear when the track is played (the decoder delivers them) or
+when you save through the tag editor.
+
+If a file no longer exists, the row gets a `⚠` at the moment you try to play it — and the
+player skips to the next one. Nothing is removed from the list on its own: an unmounted
+network share goes back to normal when it returns.
+
+### Session
+
+When opened without files, Amplia brings back the playlist from last time and leaves the
+track that was playing loaded **paused** (just press Play). If you open a file from the
+command line or through "Open with…", the previous session is not restored: the outside
+request wins.
+
+### File Info (Alt+3)
+
+The **Basic Info** and **Artwork** tabs show and edit tags with TagLib: title, artist, album,
+album artist, year, genre, comment, composer, publisher, track, disc and BPM, plus the audio
+information (codec, bitrate, rate, channels, duration) and the Replay Gain when present. The
+`<<`/`>>` arrows change tracks without closing the window.
+
+The embedded image appears in the Artwork tab, with **Change…**, **Save as…** and
+**Remove**. Today image writing covers MP3 (ID3v2), FLAC and MP4/M4A.
+
+If the file is in a read-only folder — a `ro` mounted NAS, for example — the dialog shows
+**"Read only — <reason>"** in amber above the footer and disables `OK`. The check uses
+`statvfs`, so it also catches `ro` mounts whose permission mode looks normal, and it writes
+nothing to find out.
+
+**Safe save** (on by default) copies the file to `<file>.amplia-tmp`, writes to the copy,
+checks by re-reading the fields and only then swaps the original — if something goes wrong
+in the middle, the original stays intact. That is why the footer warns: pulling the plug
+during a save without safe save can leave the tags in an inconsistent state.
+
+### Jump to File (`,`)
+
+Opens the search over the loaded playlist: type pieces of the title, artist, album or path
+(without accents and case), in any combination of words. The `↑`/`↓` arrows move through the
+list without taking focus from the field, so you can type and choose with the same hand.
+`Enter` plays the track and closes the window; `Ctrl+Enter` queues and keeps it open, to
+enqueue several; `Esc` closes without playing. The counter shows how many matched.
+**Alt+left click** on a row queues without closing the window, just like the main list — you
+can build the whole queue in there.
+
+### Player display
+
+At the top of the window is the display: seven-segment clock, playing/paused indicator,
+`KBPS`, `KHZ`, `STEREO`/`MONO`, and the `EQ`, `REP`, `RAND` indicators. Below the clock, the
+track name with the duration in parentheses.
+
+- **Click the bar** (or drag) to jump to that point of the track.
+- **Click the clock** to toggle between elapsed and remaining time.
+- **Click the `EQ`, `REP` and `RAND` LEDs** to toggle each function straight from the panel.
+
+On the transport row the buttons are round: previous, play, pause, stop, next and **mute**,
+with the volume bar next to them. Shuffle, repeat and `PL` are stacked to the right of the
+display, and the `EQ`, repeat and shuffle LEDs inside the panel also respond to clicks.
+
+The repeat button has three states: off, repeat the list and repeat the track (the `R` key
+cycles through them). With **Playing while a track is playing goes back to the start** on
+(default), clicking play during the song restarts the track.
+
+### Visualizer
+
+While the music plays, the block to the right of the display shows the **spectrum** in 20
+bands, the peak meters of the left and right channels and a dot that blinks on the beat. It
+runs at 15 frames per second, stops by itself when the window is hidden and **compensates
+for the decode buffer delay** (what appears on screen is what is leaving the card, not what
+the decoder just prepared). **Preferences ▸ Visualization** turns the visualizer on and off,
+sets the frames per second (10–60) and has the **Calibrate…** button, which measures for 10 s
+the cost of drawing the panel and picks the highest rate that still leaves headroom. When
+stopped, the block shows the dot grid instead of the bars.
+
+### Window title
+
+With a track playing (or paused), the window title becomes `Artist - Title — Amplia`. The KDE
+task panel and media applet show that title, so you can see what is playing without opening
+the player. When stopped, it goes back to `Amplia`.
+
+### Media control
+
+Amplia appears on the bus as `org.mpris.MediaPlayer2.amplia`, so media keys, applets and
+`playerctl` control the player:
+
+```bash
+playerctl --player=amplia play-pause
+playerctl --player=amplia metadata
+```
+
+## Smoke test (no GUI)
+
+The app also installs `amplia-smoke`, which exercises the engine state machine — play, pause
+with frozen position, resume, stop and seek — and exits with code 0 when everything passes:
+
+```bash
+flatpak run --command=amplia-smoke io.github.cassiofiorin.Amplia ~/Music/some-track.mp3
+```
+
+The same binary covers the playlist (queue, `next`/`previous` with wrap-around and an
+`.m3u` round trip), so it is the first place to look when something from F1 breaks.
+
+Native build outside the sandbox (to iterate faster — needs Qt 6, FFmpeg and PipeWire *dev*
+on the host, which it does not have today; in that case use the SDK shell):
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+./build/src/ui/amplia
+```
+
+## Structure
+
+```
+wamp/
+├── docs/              architecture, decisions and roadmap
+├── packaging/         Flatpak manifest, .desktop and icon
+├── scripts/           build-flatpak.sh
+└── src/
+    ├── core/          libwamp: engine, decoder, audio output, DSP, library
+    └── ui/            Qt 6 application
+```
+
+The Winamp source lives outside this repository and is **reference material only** —
+behavior consultation, never code.
+
+## Decisions that shaped the project
+
+Some choices explain the rest of the code — and they are recorded with the reason, not only
+the result, in [`docs/DECISIONS.md`](docs/DECISIONS.md):
+
+- **Qt 6 Widgets, not QML.** The window is compact and always at hand, and drawing is
+  `QPainter`. QML is reserved for skins (F7), where dynamic layout is the point.
+- **Native audio on PipeWire**, without PulseAudio in between, with a real-time thread that
+  does not allocate. The buffer is a 2 s ring and decoding runs ahead.
+- **FFmpeg as the only decoder.** One code path for every format, and content detection
+  (audio vs video) comes from FFmpeg itself, not from the extension.
+- **The equalizer runs between decode and audio output**, at the same point where gapless
+  joins the tracks — so the two do not fight.
+- **MPRIS2 over `sd-bus`**, after QtDBus refused to export the interfaces. The harder path
+  gave the finest control over the bus.
+- **Scrobbling with an on-disk queue** and `QNetworkAccessManager`, no `libcurl`: a network
+  failure does not lose a listen.
+- **No copying of the original source.** The behavior is specification; the code is new.
+
+## Known limits
+
+Things that today do **not** work, to avoid wrong expectations:
+
+- **Wayland:** the app does not snap windows together (like the playlist attached to the
+  player). Size is saved, position belongs to the compositor. There is an X11 escape
+  (`QT_QPA_PLATFORM=xcb`, the manifest enables `--socket=x11`), and the packaging ships both
+  sockets.
+- **Video:** out of scope. The player is audio; opening a video shows the explanation and
+  offers to open it in the system player.
+- **`.wsz` skins:** not yet (F7). The current color schemes are palettes, not skins.
+- **Third-party plugins:** the Winamp plugin model is a Windows DLL; F4 plans a plugin API
+  of our own in `.so`.
+- **Network:** dragging from a share opened in Dolphin delivers `smb://…`, which the app does
+  not read — mount the folder (cifs) so the path is local. URLs through `Ctrl+L` play
+  directly.
+- **Portuguese and English** are the only built-in languages today (more in
+  [Translations](#translations)).
+
+## Translations
+
+The interface is available in **Portuguese (source language)** and **English**. The choice is
+in **Preferences ▸ General ▸ Language**, with "System" following the desktop locale; changing
+it asks to restart the interface.
+
+Translating does not require a rebuild: a standalone `.qm` file in
+`~/.var/app/io.github.cassiofiorin.Amplia/data/cassiofiorin/Amplia/i18n/` is loaded on
+startup. The walkthrough is in
+[`CONTRIBUTING-TRANSLATIONS.md`](CONTRIBUTING-TRANSLATIONS.md).
+
+The display terms (`KBPS`, `KHZ`, `STEREO`, `MONO`, `EQ`, `L`, `R`, `dB`) are not translated
+on purpose: they are the language of the "audio hardware", not of the interface.
+
+## License and credits
+
+**GPL-3.0-or-later**, with a **commercial license on request** for those who need a closed
+derivative. The full text is in [`COPYING`](COPYING); credits and dependency licenses are in
+[`NOTICE`](NOTICE).
+
+What that means:
+
+- you can use, study, modify and redistribute, including commercially — under the GPL,
+  without asking for permission;
+- if you distribute a modified version, it stays under the GPL (with the source available);
+- what needs a commercial license is embedding Amplia in a **closed product**: in that case,
+  just talk to me.
+
+The icon and the interface were designed for this project. The libraries used (Qt, FFmpeg,
+TagLib, SQLite, libsystemd) are linked dynamically, each under its own license.
+
+Made by **Cassio Fiorin** — [github.com/cassiofiorin](https://github.com/cassiofiorin).
