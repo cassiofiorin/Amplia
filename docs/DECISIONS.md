@@ -1625,3 +1625,33 @@ consulta** (`NOTICE`). O raciocínio:
 Consequência registrada: o README passa a dizer em uma linha o que isso significa para quem
 chega (usar/estudar/modificar/redistribuir; derivado aberto; licença comercial para fechado),
 e o `NOTICE` lista dependências e a não-afiliação à Nullsoft/Winamp.
+
+## D-080 — Estado da playlist ao fechar, e onde a posição de janela pode existir
+
+Dois problemas relatados com o app em uso, de naturezas diferentes.
+
+### A playlist não voltava aberta
+
+`closeEvent()` fechava a janela auxiliar **antes** de `saveSettings()`, e o salvamento
+perguntava `playlistWindow_->isVisible()` — que já era falso. Resultado: a INI aprendia
+"fechado" em toda saída, independentemente do que o usuário via na tela.
+
+Correção em duas partes: o estado é anotado no começo de `closeEvent()` (`playlistOpenAtExit_`)
+e a flag `closing_` faz `saveSettings()` usar essa anotação em vez de reler a janela. Sem a
+flag, o `hide()` da auxiliar dispara um `saveSettings()` tardio que regrava "fechada" —
+foi o que aconteceu na primeira tentativa de conserto.
+
+### Posição de janela
+
+No Wayland **o cliente não posiciona janela**: `move()` é ignorado e o compositor escolhe
+onde a janela nasce. Portanto "lembrar a posição" não é um recurso que o app possa
+implementar ali — nem para a principal, nem para a playlist, nem para o equalizador.
+
+O que foi feito: `saveGeometry()`/`restoreGeometry()` são usados **só onde posicionamento
+existe** (`windowPositionSupported()` = plataforma que não é Wayland), incluindo
+`window/playlistGeometry`. Em Wayland o app continua salvando largura/altura, que são
+respeitadas.
+
+No Wayland, quem resolve isso é o compositor: **KWin → janela → Mais Ações → Configurar
+Configurações Especiais da Janela → Posição**, fixando a posição por aplicação. É regra do
+ambiente, não do produto — e vale para qualquer app, não só este.

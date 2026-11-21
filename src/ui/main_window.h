@@ -285,6 +285,11 @@ class MainWindow final : public QMainWindow {
   /// 0 = desligado, 1 = por faixa, 2 = por álbum.
   int replayGainMode_ = 0;
   bool settingsLoaded_ = false;
+  // Estado da playlist no momento de fechar: a janela auxiliar é fechada ANTES de
+  // salvar, então ler isVisible() ali sempre daria false.
+  bool playlistOpenAtExit_ = false;
+  // Durante o fechamento a auxiliar já foi escondida, mas o estado que vale é o de antes.
+  bool closing_ = false;
   wamp::TrackInfo scrobbleTrack_;
   qint64 scrobbleStartUnix_ = 0;
   std::int64_t scrobblePlayedMs_ = 0;

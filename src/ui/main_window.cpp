@@ -73,6 +73,13 @@
 
 namespace {
 
+// O Wayland não deixa o cliente posicionar janela: o compositor decide. Só tentamos
+// salvar/restaurar posição onde isso existe de fato (X11/XWayland).
+bool windowPositionSupported() {
+  const QString platform = QGuiApplication::platformName();
+  return !platform.contains(QLatin1String("wayland"), Qt::CaseInsensitive);
+}
+
 using wamp::ui::isAudioFile;
 using wamp::ui::isPlaylistFile;
 
@@ -2637,6 +2644,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+  closing_ = true;
+  // Anota antes de fechar: saveSettings() roda depois e a auxiliar já estaria invisível.
+  playlistOpenAtExit_ = playlistWindow_ != nullptr && playlistWindow_->isVisible();
   if (playlistWindow_ != nullptr) playlistWindow_->close();
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_CLOSE")) {
     qInfo("close: closeToTray=%d quitting=%d tray=%d visivel=%d", closeToTray_ ? 1 : 0,
@@ -2647,6 +2657,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   if (closeToTray_ && !quitting_ && tray_ != nullptr && tray_->isVisible()) {
     hide();
     event->ignore();
+    closing_ = false;
     if (!trayNoticeShown_) {
       trayNoticeShown_ = true;
       tray_->showMessage(QStringLiteral("Amplia"),
@@ -2657,6 +2668,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   }
   if (cache_) cache_->flush();
   saveSettings();
+
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_CLOSE")) qInfo("close: indo para o base");
   QMainWindow::closeEvent(event);
   // Com o ícone da bandeja no ar, o Qt deixa de encerrar sozinho ao fechar a última
@@ -2717,7 +2729,7 @@ void MainWindow::loadSettings() {
   // Tamanho: guarda a altura compacta e a largura, não o retângulo inteiro — assim
   // a lista aberta no fechamento anterior não deixa um vão vazio ao reabrir compacta.
   // No Wayland a posição é do compositor; a largura e a altura são respeitadas.
-  const int width = std::clamp(settings.value(QStringLiteral("window/width"), 460).toInt(), 400, 4000);
+  int width = std::clamp(settings.value(QStringLiteral("window/width"), 460).toInt(), 400, 4000);
   // O piso cresce junto com o conteúdo (display de 7 segmentos): um valor antigo da INI
   // não pode esmagar o painel.
   compactHeight_ = std::clamp(
@@ -2741,9 +2753,26 @@ void MainWindow::loadSettings() {
       settings.value(QStringLiteral("scrobble/nowPlaying"), false).toBool();
   if (scrobbler_) scrobbler_->setConfig(scrobble);
 
+  // Posições só fazem sentido onde a plataforma permite (ver windowPositionSupported).
+  const QByteArray savedGeometry = settings.value(QStringLiteral("window/geometry")).toByteArray();
+  const bool hasSavedGeometry = windowPositionSupported() && !savedGeometry.isEmpty();
+  if (hasSavedGeometry && restoreGeometry(savedGeometry)) {
+    // Largura e altura vieram junto com a posição.
+    width = this->width();
+    compactHeight_ = std::clamp(height(), kCompactFloor, 1200);
+  }
+
   const int playlistW = settings.value(QStringLiteral("window/playlistWidth"), 440).toInt();
   const int playlistH = settings.value(QStringLiteral("window/playlistHeight"), 400).toInt();
-  if (playlistWindow_ != nullptr) playlistWindow_->resize(playlistW, playlistH);
+  if (playlistWindow_ != nullptr) {
+    const QByteArray savedPlaylistGeometry =
+        settings.value(QStringLiteral("window/playlistGeometry")).toByteArray();
+    if (windowPositionSupported() && !savedPlaylistGeometry.isEmpty()) {
+      playlistWindow_->restoreGeometry(savedPlaylistGeometry);
+    } else {
+      playlistWindow_->resize(playlistW, playlistH);
+    }
+  }
   if (settings.value(QStringLiteral("playlist/visible"), false).toBool()) {
     playlistButton_->setChecked(true);
     setPlaylistVisible(true);
@@ -2798,17 +2827,28 @@ void MainWindow::saveSettings() {
     settings.setValue(QStringLiteral("window/playlistWidth"), playlistWindow_->width());
     settings.setValue(QStringLiteral("window/playlistHeight"), playlistWindow_->height());
   }
-  const bool playlistOpen = playlistWindow_ != nullptr && playlistWindow_->isVisible();
+  const bool playlistOpen =
+      closing_ ? playlistOpenAtExit_
+               : (playlistWindow_ != nullptr && playlistWindow_->isVisible());
   // Maximizar não é "o tamanho que o usuário escolheu": guardar isso reabriria a janela
   // gigante sem a playlist.
   if (!playlistOpen && !isMaximized() && !isFullScreen()) {
     compactHeight_ = std::max(minimumHeight(), height());
+  }
+  if (windowPositionSupported() && !isMaximized() && !isFullScreen()) {
+    settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
+  }
+  if (windowPositionSupported() && playlistWindow_ != nullptr && playlistOpen) {
+    settings.setValue(QStringLiteral("window/playlistGeometry"), playlistWindow_->saveGeometry());
   }
   settings.setValue(QStringLiteral("window/width"), width());
   settings.setValue(QStringLiteral("window/collapsedHeight"), compactHeight_);
   settings.setValue(QStringLiteral("window/closeToTray"), closeToTray_);
   settings.remove(QStringLiteral("window/geometry"));
   settings.setValue(QStringLiteral("playlist/visible"), playlistOpen);
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_CLOSE")) {
+    qInfo("saveSettings: playlistOpen=%d", playlistOpen ? 1 : 0);
+  }
   settings.setValue(QStringLiteral("playlist/showPath"), showPath_);
   // Sessão: a próxima abertura devolve a lista e a faixa atual (carregada em pausa).
   if (playlist_ != nullptr && !playlist_->empty()) {
@@ -3081,6 +3121,10 @@ void MainWindow::setPlaylistVisible(bool visible) {
     playlistWindow_->activateWindow();
   } else {
     playlistWindow_->hide();
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+    qInfo("janelas: playlist visivel=%d tamanho=%dx%d", playlistWindow_->isVisible() ? 1 : 0,
+          playlistWindow_->width(), playlistWindow_->height());
   }
   saveSettings();
 }
