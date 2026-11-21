@@ -355,7 +355,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`Amplia 0.1.0 (b2568f5)`) — número do projeto e commit curto, útil para reportar erro.
+(`0.1.0 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -855,7 +855,7 @@ can build the whole queue in there.
 
 The bottom bar shows, on the left, the tag-reading progress when a large list is added
 (`Reading metadata… 12/400 — do not close`) and, on the right, the build version
-(`Amplia 0.1.0 (b2568f5)`) — project number and short commit, handy for bug reports.
+(`0.1.0 (96c818a)`) — project number and short commit, handy for bug reports.
 
 ### Player display
 

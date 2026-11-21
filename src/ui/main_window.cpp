@@ -488,8 +488,9 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   versionLabel_ = new QLabel(this);
   versionLabel_->setObjectName(QStringLiteral("versionLabel"));
   versionLabel_->setToolTip(tr("Versão desta compilação do Amplia"));
-  versionLabel_->setText(QStringLiteral("Amplia %1 (%2)").arg(QStringLiteral(AMPLIA_VERSION),
-                                                             QStringLiteral(AMPLIA_GIT)));
+  // Só os dois dados: o nome do app já está na janela, na bandeja e no menu.
+  versionLabel_->setText(QStringLiteral("%1 (%2)").arg(QStringLiteral(AMPLIA_VERSION),
+                                                       QStringLiteral(AMPLIA_GIT)));
   versionLabel_->setContentsMargins(8, 0, 6, 0);
   statusBar()->addPermanentWidget(versionLabel_);
 

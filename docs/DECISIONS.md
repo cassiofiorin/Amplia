@@ -1842,7 +1842,8 @@ processamento") e ver a versão da build para reportar erro.
 - **Detalhe que custou duas tentativas**: os rótulos têm fundo transparente, e o texto de
   uma mensagem passageira por baixo aparecia nos vãos, deixando um "s" solto ao lado da
   versão. Correção: `statusBar()->clearMessage()` enquanto o contador está visível.
-- Versão: `Amplia 0.1.0 (b2568f5)` — número de `project(VERSION)` e commit curto. Vem de
+- Versão: `0.1.0 (96c818a)` — número de `project(VERSION)` e commit curto, **sem o nome do
+  app** (ele já está na janela, na bandeja e no menu; repetir só gastava a largura da barra). Vem de
   **header gerado** (`src/ui/version.h.in` + `configure_file`), não de
   `target_compile_definitions`: as aspas das definições se perdem e o pré-processador
   recebe `0.1.0`, o que quebra a compilação.
