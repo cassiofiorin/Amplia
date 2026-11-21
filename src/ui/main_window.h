@@ -211,6 +211,8 @@ class MainWindow final : public QMainWindow {
   void onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok);
   /// Contador fixo da fila de metadados na barra de status.
   void updateMetadataStatus();
+  void armPlaycount(const std::string& path);
+  void resumePendingScan();
   void openLibrary();
   void refreshLibrary();
   void rescanLibrary();
@@ -239,6 +241,8 @@ class MainWindow final : public QMainWindow {
   std::unique_ptr<wamp::Playlist> playlist_;
   std::unique_ptr<wamp::MetadataScanner> scanner_;
   std::unique_ptr<wamp::ui::EqualizerDialog> eqDialog_;
+  QTimer* playcountTimer_ = nullptr;
+  std::string playcountPath_;
   QTimer* eqSaveTimer_ = nullptr;
   QTimer* visualTimer_ = nullptr;
   bool visualEnabled_ = true;

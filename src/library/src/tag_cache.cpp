@@ -61,9 +61,14 @@ bool TagCache::ensureSchema(std::string* error) {
       " mtime INTEGER NOT NULL,"
       " title TEXT, artist TEXT, album TEXT, album_artist TEXT, genre TEXT,"
       " track_no INTEGER, year INTEGER,"
-      " duration_ms INTEGER, sample_rate INTEGER, channels INTEGER, bitrate INTEGER"
+      " duration_ms INTEGER, sample_rate INTEGER, channels INTEGER, bitrate INTEGER,"
+      " dateadded INTEGER, playcount INTEGER NOT NULL DEFAULT 0,"
+      " rating INTEGER NOT NULL DEFAULT 0, lastplay INTEGER NOT NULL DEFAULT 0"
       ");"
-      "CREATE TABLE IF NOT EXISTS roots (path TEXT PRIMARY KEY);";
+      "CREATE TABLE IF NOT EXISTS roots (path TEXT PRIMARY KEY);"
+      "CREATE TABLE IF NOT EXISTS scan_queue ("
+      " path TEXT PRIMARY KEY, added_at INTEGER NOT NULL"
+      ");";
   char* message = nullptr;
   if (sqlite3_exec(db_, schema, nullptr, nullptr, &message) != SQLITE_OK) {
     if (error != nullptr) *error = message != nullptr ? message : "falha ao criar a tabela";
@@ -71,7 +76,101 @@ bool TagCache::ensureSchema(std::string* error) {
     return false;
   }
   if (message != nullptr) sqlite3_free(message);
+
+  // Bancos criados antes da F3 não têm as colunas novas; ALTER TABLE é barato e só roda
+  // uma vez por arquivo.
+  const char* columns[] = {
+      "ALTER TABLE tracks ADD COLUMN dateadded INTEGER;",
+      "ALTER TABLE tracks ADD COLUMN playcount INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN rating INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN lastplay INTEGER NOT NULL DEFAULT 0;",
+  };
+  for (const char* alter : columns) {
+    sqlite3_exec(db_, alter, nullptr, nullptr, nullptr);  // erro = coluna já existe
+  }
   return true;
+}
+
+void TagCache::queueScan(const std::vector<std::string>& paths) {
+  if (db_ == nullptr) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(
+          db_,
+          "INSERT OR IGNORE INTO scan_queue (path, added_at)"
+          " VALUES (?, CAST(strftime('%s','now') AS INTEGER));",
+          -1, &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, nullptr);
+  for (const auto& path : paths) {
+    bindText(statement, 1, path);
+    sqlite3_step(statement);
+    sqlite3_reset(statement);
+  }
+  sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr);
+  sqlite3_finalize(statement);
+}
+
+std::vector<std::string> TagCache::scanQueue(std::string* error) {
+  std::vector<std::string> out;
+  if (db_ == nullptr) {
+    if (error) *error = "banco fechado";
+    return out;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT path FROM scan_queue ORDER BY added_at, path;", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return out;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    const unsigned char* text = sqlite3_column_text(statement, 0);
+    if (text != nullptr) out.emplace_back(reinterpret_cast<const char*>(text));
+  }
+  sqlite3_finalize(statement);
+  return out;
+}
+
+void TagCache::dropFromScanQueue(const std::string& path) {
+  if (db_ == nullptr || path.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "DELETE FROM scan_queue WHERE path = ?;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    return;
+  }
+  bindText(statement, 1, path);
+  sqlite3_step(statement);
+  sqlite3_finalize(statement);
+}
+
+void TagCache::bumpPlaycount(const std::string& path) {
+  if (db_ == nullptr || path.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_,
+                         "UPDATE tracks SET playcount = playcount + 1,"
+                         " lastplay = CAST(strftime('%s','now') AS INTEGER)"
+                         " WHERE path = ?;",
+                         -1, &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  bindText(statement, 1, path);
+  sqlite3_step(statement);
+  sqlite3_finalize(statement);
+}
+
+void TagCache::setRating(const std::string& path, int rating) {
+  if (db_ == nullptr || path.empty()) return;
+  if (rating < 0) rating = 0;
+  if (rating > 5) rating = 5;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "UPDATE tracks SET rating = ? WHERE path = ?;", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  sqlite3_bind_int(statement, 1, rating);
+  bindText(statement, 2, path);
+  sqlite3_step(statement);
+  sqlite3_finalize(statement);
 }
 
 bool TagCache::addRoot(const std::string& path, std::string* error) {
@@ -202,8 +301,8 @@ void TagCache::store(const TrackInfo& info) {
 
   const char* sql =
       "INSERT INTO tracks (path, size, mtime, title, artist, album, album_artist, genre,"
-      " track_no, year, duration_ms, sample_rate, channels, bitrate)"
-      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      " track_no, year, duration_ms, sample_rate, channels, bitrate, dateadded)"
+      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(strftime('%s','now') AS INTEGER))"
       " ON CONFLICT(path) DO UPDATE SET"
       " size = excluded.size, mtime = excluded.mtime, title = excluded.title,"
       " artist = excluded.artist, album = excluded.album,"
@@ -231,6 +330,16 @@ void TagCache::store(const TrackInfo& info) {
   sqlite3_bind_int(statement, 14, info.bitrate);
   sqlite3_step(statement);
   sqlite3_finalize(statement);
+
+  // Gravou a tag: sai da fila de indexação (mesma transação, então o kill não deixa
+  // pendente fantasma nem trabalho perdido).
+  sqlite3_stmt* dequeue = nullptr;
+  if (sqlite3_prepare_v2(db_, "DELETE FROM scan_queue WHERE path = ?;", -1, &dequeue,
+                         nullptr) == SQLITE_OK) {
+    bindText(dequeue, 1, info.path);
+    sqlite3_step(dequeue);
+    sqlite3_finalize(dequeue);
+  }
 
   if (++pending_ >= kFlushEvery) flush();
 }

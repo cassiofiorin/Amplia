@@ -293,6 +293,10 @@ the status bar, because closing the app mid-index would leave half the tags in t
 Double-click plays the track (it joins the playlist; the Library is not a second player) and
 **Add folder…** remembers the chosen root.
 
+If you close mid-index, Amplia asks: **Keep reading** or **Close anyway**. The pending queue
+is already in the database from the start of the scan, so "close anyway" loses nothing — the
+index **resumes on its own** next time the app starts.
+
 ### Playlists
 
 `.m3u`/`.m3u8`, `.pls` (rádio), `.b4s` (Winamp 5) e `.wpl` (Windows Media Player) abrem pelo
@@ -321,6 +325,10 @@ guardado no mesmo banco das tags. A varredura roda em segundo plano e o andament
 barra de status, porque fechar o app no meio da indexação deixaria metade das tags no banco.
 Duplo clique toca a faixa (ela entra na playlist, a Biblioteca não é um player paralelo) e
 **Adicionar pasta…** guarda a raiz escolhida.
+
+Se você fechar no meio da indexação, o Amplia pergunta: **Continuar lendo** ou **Fechar
+mesmo assim**. A fila de pendentes já está no banco desde o começo da varredura, então
+"fechar mesmo assim" não perde nada — a indexação **retoma sozinha** na próxima abertura.
 
 ### Sessão e arquivos ausentes
 

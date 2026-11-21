@@ -1872,3 +1872,30 @@ e apontar pastas-raiz.
   recarregar a lista.
 - Tocar da biblioteca: `playFromLibrary()` adiciona a faixa à playlist e toca — a Biblioteca
   não é um player paralelo.
+
+---
+
+## D-090 — Indexação que sobrevive ao fechamento (fila em disco, guarda e playcount)
+
+**Data:** 21/11/2026
+
+- **A fila mora no banco**: `scan_queue(path TEXT PRIMARY KEY, added_at INTEGER)`. Os
+  caminhos entram **antes** da leitura e saem na mesma transação em que a tag é gravada
+  (`TagCache::store()` faz o `DELETE`). Um `kill` no meio perde no máximo o arquivo em
+  leitura — não a lista inteira.
+- **Flush no fim do lote**: `onMetadata()` chama `cache_->flush()` quando
+  `scanner_->pending() == 0`, inclusive para arquivo ilegível (que sai da fila por
+  `dropFromScanQueue`). Sem isso a baixa ficava na transação aberta e um kill a desfazia.
+- **Retomada automática**: `resumePendingScan()` no fim do construtor lê a fila e a
+  recoloca no scanner, somando em `metadataTotal_` para o contador já nascer certo.
+- **Guarda de fechamento**: `closeEvent` pergunta quando há pendentes — **diálogo próprio**
+  (`QDialog`), porque o `QMessageBox` fixa o layout no tamanho do texto e corta rótulos
+  longos ("Fechar mesmo assim"); "Continuar lendo" é o botão padrão e o texto avisa que a
+  indexação continua na próxima abertura. Esconder para a bandeja não pergunta.
+- **Playcount**: incrementa 350 ms depois de começar a tocar, e só se ainda estiver
+  tocando (o original usa o mesmo timer — `wa_subclass.cpp`, `SetTimer(..., 350, ...)`).
+  `lastplay` é gravado junto. Trocar de faixa antes disso não conta, igual ao Winamp.
+- **Notas**: `rating INTEGER` de 0 a 5, com 0 = sem nota; a tela desenha as estrelas e o
+  banco guarda só o inteiro. "Top Rated" segue o original: `rating >= 3`.
+- **`dateadded`**: preenchido no `INSERT` e **preservado** no `ON CONFLICT DO UPDATE`, então
+  reindexar não move a faixa para o topo de "Adicionados recentemente".

@@ -45,6 +45,19 @@ class TagCache final {
   bool removeRoot(const std::string& path, std::string* error);
   std::vector<std::string> roots(std::string* error);
 
+  /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e
+  /// saem quando a tag é gravada. Se o app morrer no meio, a próxima execução retoma.
+  void queueScan(const std::vector<std::string>& paths);
+  std::vector<std::string> scanQueue(std::string* error);
+  /// Tira um caminho da fila sem gravar tag (arquivo ilegível/sumido): não insiste para sempre.
+  void dropFromScanQueue(const std::string& path);
+
+  /// Conta uma reprodução: `playcount + 1` e `lastplay` agora.
+  void bumpPlaycount(const std::string& path);
+
+  /// Nota de 0 a 5 (0 = sem classificação).
+  void setRating(const std::string& path, int rating);
+
   /// Todos os caminhos já indexados, em ordem alfabética.
   std::vector<std::string> allPaths(std::string* error);
 

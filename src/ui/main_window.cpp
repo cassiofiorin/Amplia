@@ -367,6 +367,8 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   loadSettings();
   schedulePendingPlaylistOpen();
   loadEqualizer();
+  // Fila de indexação que sobrou da sessão anterior (fechou no meio, kill, queda).
+  resumePendingScan();
 
   // Escape de depuração: salva a própria janela em PNG (sem capturar a tela do usuário).
   if (qEnvironmentVariableIsSet("AMPLIA_GRAB")) {
@@ -1482,7 +1484,10 @@ bool MainWindow::openPath(const QString& path, bool autoplay) {
     return false;
   }
   applyReplayGain(engine_->track());
-  if (autoplay) engine_->play();
+  if (autoplay) {
+    engine_->play();
+    armPlaycount(path.toStdString());
+  }
 
   const std::string native = path.toStdString();
   std::size_t index = wamp::Playlist::kNone;
@@ -2825,6 +2830,60 @@ void MainWindow::showEvent(QShowEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+  // Fechar escondendo para a bandeja não interrompe nada — a indexação segue lá.
+  const bool hidingToTray =
+      closeToTray_ && !quitting_ && tray_ != nullptr && tray_->isVisible();
+  if (!hidingToTray && scanner_ != nullptr && scanner_->pending() > 0) {
+    qInfo("amplia: close com %zu faixa(s) na fila — perguntando", scanner_->pending());
+
+    // Diálogo próprio em vez de QMessageBox: ele fixa o layout no tamanho do texto e
+    // corta rótulos longos como "Fechar mesmo assim" (o mínimo é ignorado no showEvent).
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Ainda lendo metadados"));
+    dialog.setMinimumWidth(460);
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* title = new QLabel(tr("Ainda faltam %1 de %2 faixas.")
+                                 .arg(static_cast<qulonglong>(scanner_->pending()))
+                                 .arg(static_cast<qulonglong>(metadataTotal_)),
+                             &dialog);
+    QFont bold = title->font();
+    bold.setBold(true);
+    title->setFont(bold);
+    auto* hint = new QLabel(tr("A indexação continua na próxima vez que o Amplia abrir — "
+                               "os pendentes já estão guardados no banco."),
+                            &dialog);
+    hint->setWordWrap(true);
+    layout->addWidget(title);
+    layout->addWidget(hint);
+
+    auto* buttons = new QHBoxLayout();
+    buttons->addStretch(1);
+    auto* keep = new QPushButton(tr("Continuar lendo"), &dialog);
+    auto* leave = new QPushButton(tr("Fechar mesmo assim"), &dialog);
+    keep->setDefault(true);
+    buttons->addWidget(keep);
+    buttons->addWidget(leave);
+    layout->addLayout(buttons);
+
+    connect(keep, &QPushButton::clicked, &dialog, &QDialog::reject);
+    connect(leave, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    if (qEnvironmentVariableIsSet("AMPLIA_GRAB_GUARD")) {
+      // Depuração: fotografa o próprio diálogo e responde "continuar" (a sessão de teste
+      // não tem como clicar).
+      dialog.show();
+      QCoreApplication::processEvents();
+      dialog.grab().save(qEnvironmentVariable("AMPLIA_GRAB_GUARD"));
+      dialog.hide();
+      event->ignore();
+      return;
+    }
+    if (dialog.exec() != QDialog::Accepted) {
+      event->ignore();
+      return;
+    }
+  }
+
   closing_ = true;
   // Anota antes de fechar: saveSettings() roda depois e a auxiliar já estaria invisível.
   playlistOpenAtExit_ = playlistOpen_;
@@ -3404,6 +3463,8 @@ void MainWindow::rescanLibrary() {
   statusBar()->clearMessage();
 
   if (!missing.empty()) {
+    // Grava a fila antes de começar: se o app morrer no meio, a próxima execução retoma.
+    cache_->queueScan(missing);
     metadataTotal_ += missing.size();
     scanner_->enqueueAll(missing);
   }
@@ -3447,6 +3508,34 @@ void MainWindow::playFromLibrary(const QString& path) {
   setPlaylistVisible(true);
 }
 
+void MainWindow::armPlaycount(const std::string& path) {
+  if (cache_ == nullptr) return;
+  if (playcountTimer_ == nullptr) {
+    playcountTimer_ = new QTimer(this);
+    playcountTimer_->setSingleShot(true);
+    connect(playcountTimer_, &QTimer::timeout, this, [this] {
+      // Mesma janela do ML original (350 ms): pulou a faixa antes disso, não conta.
+      if (playcountPath_.empty()) return;
+      if (engine_->state() != wamp::PlaybackState::Playing) return;
+      cache_->bumpPlaycount(playcountPath_);
+      playcountPath_.clear();
+    });
+  }
+  playcountPath_ = path;
+  playcountTimer_->start(350);
+}
+
+void MainWindow::resumePendingScan() {
+  if (cache_ == nullptr || scanner_ == nullptr) return;
+  std::string error;
+  const std::vector<std::string> pending = cache_->scanQueue(&error);
+  if (pending.empty()) return;
+  metadataTotal_ += pending.size();
+  scanner_->enqueueAll(pending);
+  updateMetadataStatus();
+  qInfo("amplia: retomando indexação de %zu faixa(s)", pending.size());
+}
+
 void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok) {
   if (ok) {
     metadata_[path] = info;
@@ -3455,6 +3544,8 @@ void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info
   }
 
   if (ok && library_ != nullptr && library_->isVisible()) refreshLibrary();
+
+  if (!ok && cache_ != nullptr) cache_->dropFromScanQueue(path);
 
   const QString qpath = QString::fromStdString(path);
   const bool current =
@@ -3466,6 +3557,10 @@ void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info
     item->setText(rowLabel(path, current));
     item->setData(kDurationRole, durationText(path));
   }
+
+  // Fim de lote: confirma tags e a baixa na fila de indexação (inclusive a remoção de
+  // arquivo ilegível). Sem isso, um kill no meio perderia o "já li" até o flush periódico.
+  if (scanner_->pending() == 0 && cache_ != nullptr) cache_->flush();
 
   updateMetadataStatus();
   if (scanner_->pending() == 0) {

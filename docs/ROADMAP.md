@@ -230,7 +230,9 @@ escolha sobrevive ao restart. *(Atingido em 20/11, com "seguir o sistema" penden
 - [x] Adicionar pasta… + Atualizar + tocar direto da lista
 - [ ] Varredura incremental de pastas (mtime), em thread própria
 - [ ] Busca por texto (FTS5) e filtros por artista/álbum/gênero
-- [ ] Playcount e "última reprodução" vindos do event stream
+- [x] Fila de indexação persistida (`scan_queue`) + retomada na abertura
+- [x] Playcount e "última reprodução" (regra de 350 ms, como o ML original)
+- [x] Nota 0–5 no banco (estrelas desenhadas na tela)
 - [ ] Capa de álbum extraída das tags + cache
 
 **Pronto quando:** 10 mil faixas indexadas em menos de um minuto e busca respondendo em
