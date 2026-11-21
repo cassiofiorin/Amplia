@@ -228,6 +228,7 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
       engine_(std::make_unique<wamp::PlayerEngine>()),
       playlist_(std::make_unique<wamp::Playlist>()) {
   restoreSession_ = restoreSession;
+  sessionRestored_ = restoreSession;
   applyThemeFromSettings();
   setWindowTitle(QStringLiteral("Amplia"));
   setAcceptDrops(true);
@@ -1294,6 +1295,7 @@ void MainWindow::wireShortcuts() {
 }
 
 void MainWindow::openFileDialog() {
+  playlistDirty_ = true;
   const QString path = QFileDialog::getOpenFileName(
       this, tr("Abrir arquivo de áudio"), QString(),
       QStringLiteral("Áudio (*.mp3 *.flac *.ogg *.opus *.wav *.m4a *.aac *.wma *.ape);;"
@@ -1356,6 +1358,7 @@ bool MainWindow::appendPlaylistFile(const QString& path, std::string* error) {
   if (!wamp::loadPlaylistFile(path.toStdString(), &entries, error)) return false;
   const std::vector<std::string> missing = missesFor(entries);
   playlist_->addAll(entries);
+  playlistDirty_ = true;
   scanner_->enqueueAll(missing);
   rebuildPlaylist();
   startReading();
@@ -1529,6 +1532,7 @@ void MainWindow::addPaths(const QStringList& paths) {
 
   const std::vector<std::string> missing = missesFor(native);
   const std::size_t first = playlist_->addAll(native);
+  playlistDirty_ = true;
   scanner_->enqueueAll(missing);
   rebuildPlaylist();
   startReading();
@@ -1680,6 +1684,7 @@ void MainWindow::newPlaylist() {
   if (answer != QMessageBox::Yes) return;
 
   playlist_->clear();
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   statusBar()->showMessage(tr("Playlist nova"), 3000);
@@ -1731,6 +1736,7 @@ void MainWindow::cropSelected() {
                             : static_cast<std::size_t>(it - keep.begin());
   };
   playlist_->setItems(std::move(keep), position(currentPath));
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   statusBar()->showMessage(tr("Só a seleção ficou na playlist"), 3000);
@@ -1746,6 +1752,7 @@ void MainWindow::clearPlaylist() {
   if (answer != QMessageBox::Yes) return;
 
   playlist_->clear();
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   statusBar()->showMessage(tr("Playlist limpa"), 3000);
@@ -1753,6 +1760,7 @@ void MainWindow::clearPlaylist() {
 
 void MainWindow::removeMissing() {
   const std::size_t removed = playlist_->removeMissingFiles();
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   if (removed == 0) {
@@ -1807,6 +1815,7 @@ void MainWindow::sortPlaylist(int mode) {
     if (it != items.end()) current = static_cast<std::size_t>(it - items.begin());
   }
   playlist_->setItems(std::move(items), current);
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   statusBar()->showMessage(tr("Playlist ordenada"), 3000);
@@ -1815,6 +1824,7 @@ void MainWindow::sortPlaylist(int mode) {
 void MainWindow::reverseList() {
   if (playlist_->size() < 2) return;
   playlist_->reverseOrder();
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   statusBar()->showMessage(tr("Ordem invertida"), 3000);
@@ -1823,6 +1833,7 @@ void MainWindow::reverseList() {
 void MainWindow::shuffleList() {
   if (playlist_->size() < 2) return;
   playlist_->shuffleOrder();
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
   statusBar()->showMessage(tr("Lista embaralhada"), 3000);
@@ -1990,6 +2001,7 @@ void MainWindow::openLocation() {
   // abre o stream direto, e sondar URL a cada item atrasaria a lista.
   const std::string path = trimmed.toStdString();
   playlist_->add(path);
+  playlistDirty_ = true;
   const std::size_t index = playlist_->size() - 1;
   playlist_->setCurrent(index);
   rebuildPlaylist();
@@ -2600,6 +2612,7 @@ void MainWindow::showListMenu(const QPoint& globalPos) {
     toggleQueue(row);
   } else if (chosen == remove) {
     playlist_->removeAt(static_cast<std::size_t>(row));
+    playlistDirty_ = true;
     rebuildPlaylist();
     updateNextUp();
   }
@@ -2933,7 +2946,11 @@ void MainWindow::saveSettings() {
   }
   settings.setValue(QStringLiteral("playlist/showPath"), showPath_);
   // Sessão: a próxima abertura devolve a lista e a faixa atual (carregada em pausa).
-  if (playlist_ != nullptr && !playlist_->empty()) {
+  // Mas quando o app foi aberto com arquivos na linha de comando, a lista em memória começa
+  // do zero: gravar isso apagaria a sessão anterior. Só grava se ela foi restaurada ou se o
+  // usuário mexeu na lista durante esta execução.
+  const bool savePlaylist = sessionRestored_ || playlistDirty_;
+  if (savePlaylist && playlist_ != nullptr && !playlist_->empty()) {
     QStringList items;
     items.reserve(static_cast<int>(playlist_->size()));
     for (const std::string& path : playlist_->items()) items << QString::fromStdString(path);
@@ -2942,7 +2959,7 @@ void MainWindow::saveSettings() {
                             ? static_cast<int>(playlist_->currentIndex())
                             : -1;
     settings.setValue(QStringLiteral("playlist/current"), current);
-  } else {
+  } else if (savePlaylist) {
     settings.remove(QStringLiteral("playlist/items"));
     settings.remove(QStringLiteral("playlist/current"));
   }
@@ -3085,6 +3102,7 @@ void MainWindow::removeSelected() {
   for (QListWidgetItem* item : selected) rows.push_back(static_cast<std::size_t>(list_->row(item)));
   std::sort(rows.rbegin(), rows.rend());
   for (std::size_t row : rows) playlist_->removeAt(row);
+  playlistDirty_ = true;
   rebuildPlaylist();
   updateNextUp();
 }

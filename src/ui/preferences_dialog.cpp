@@ -76,27 +76,6 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   playbackLayout->addWidget(restartBox_);
   playbackLayout->addWidget(shuffleGroup);
 
-  {
-    // Onde a lista mora. No Wayland a janela própria ganha uma segunda entrada na barra de
-    // tarefas (o protocolo não sabe marcar subordinação em toplevel não modal), por isso o
-    // padrão é a integrada; a janela própria fica pronta para o porte de Windows.
-    auto* modeRow = new QHBoxLayout();
-    modeRow->addWidget(new QLabel(tr("Playlist:"), this));
-    playlistModeBox_ = new QComboBox(this);
-    playlistModeBox_->addItem(tr("Integrada na janela"), QStringLiteral("integrada"));
-    playlistModeBox_->addItem(tr("Janela própria"), QStringLiteral("externa"));
-    const int index = playlistModeBox_->findData(playlistMode);
-    playlistModeBox_->setCurrentIndex(index >= 0 ? index : 0);
-    modeRow->addWidget(playlistModeBox_, 1);
-    playbackLayout->addLayout(modeRow);
-    auto* modeHint = new QLabel(
-        tr("Integrada mantém uma janela só. A janela própria separa a lista — no Wayland o "
-           "compositor pode mostrá-la na barra de tarefas e abrir sobreposta."),
-        this);
-    modeHint->setWordWrap(true);
-    playbackLayout->addWidget(modeHint);
-  }
-
   levelLabel_ = new QLabel(shuffleGroup);
   shuffleLayout->addWidget(levelLabel_);
 
@@ -139,6 +118,29 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   languageHint->setWordWrap(true);
   languageHint->setObjectName(QStringLiteral("hint"));
   generalLayout->addWidget(languageHint);
+  {
+    // Onde a lista mora. No Wayland a janela própria ganha uma segunda entrada na barra de
+    // tarefas (o protocolo não sabe marcar subordinação em toplevel não modal), por isso o
+    // padrão é a integrada; a janela própria fica pronta para o porte de Windows.
+    auto* modeRow = new QHBoxLayout();
+    modeRow->addWidget(new QLabel(tr("Playlist:"), general));
+    playlistModeBox_ = new QComboBox(general);
+    playlistModeBox_->addItem(tr("Integrada na janela"), QStringLiteral("integrada"));
+    playlistModeBox_->addItem(tr("Janela própria"), QStringLiteral("externa"));
+    const int index = playlistModeBox_->findData(playlistMode);
+    playlistModeBox_->setCurrentIndex(index >= 0 ? index : 0);
+    modeRow->addWidget(playlistModeBox_, 1);
+    generalLayout->addLayout(modeRow);
+
+    auto* modeHint = new QLabel(
+        tr("Integrada mantém uma janela só. A janela própria separa a lista — no Wayland o "
+           "compositor pode mostrá-la na barra de tarefas e abrir sobreposta."),
+        general);
+    modeHint->setWordWrap(true);
+    modeHint->setObjectName(QStringLiteral("hint"));
+    generalLayout->addWidget(modeHint);
+  }
+
   generalLayout->addStretch(1);
 
   tabs->addTab(general, tr("Geral"));

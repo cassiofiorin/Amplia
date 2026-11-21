@@ -1746,3 +1746,22 @@ Decisão: a lista é **um painel com dois donos**, escolhidos por `playlist/mode
   `saveSettings` e o gancho de depuração passaram a usá-la.
 - Por que manter o modo externo: no Windows o posicionamento funciona e o modelo do original
   é multi-janela. O modo externo é o molde do porte, não um resto do passado.
+
+## D-084 — Modo da playlist na aba Geral e guarda de sessão
+
+- O seletor `Playlist:` (integrada / janela própria) saiu da aba **Reprodução** e foi para
+  **Geral**, logo abaixo de `Idioma`. Os dois são escolhas estruturais — onde a lista mora e
+  em que língua a interface fala —, não ajustes de audição; e são as únicas que valem para a
+  próxima abertura ou para o layout inteiro.
+- **Guarda de sessão**: abrir o Amplia com um arquivo na linha de comando desliga a
+  restauração (D-029) e a lista começa vazia. Até agora, sair gravava essa lista vazia por
+  cima da sessão anterior. Agora `saveSettings()` só grava `playlist/items`/`playlist/current`
+  quando `sessionRestored_` (a lista veio da sessão) **ou** `playlistDirty_` (o usuário mexeu
+  na lista nesta execução).
+- `playlistDirty_` é marcado nas mutações de conteúdo: adicionar (diálogo, arrasto, pasta,
+  `.m3u`, URL), remover, limpar, inverter, embaralhar, ordenar, remover inexistentes e
+  "manter só a seleção". **Abrir um arquivo para tocar não marca** — inclusive pela linha de
+  comando, que é justamente o caso que destruía a sessão. Quem marca ao escolher arquivo é o
+  diálogo "Abrir…", porque ali a intenção é do usuário.
+- Verificado nos dois sentidos: rodar com um arquivo e sair → `[playlist]` intacta; rodar
+  apontando para uma pasta (adição explícita) → lista nova gravada.

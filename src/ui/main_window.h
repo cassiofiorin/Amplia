@@ -292,6 +292,9 @@ class MainWindow final : public QMainWindow {
   bool remaining_ = false;
   bool playlistAutoShown_ = false;
   bool restoreSession_ = true;
+  /// Só grava a lista no fim se ela veio da sessão ou foi mexida nesta execução.
+  bool sessionRestored_ = true;
+  bool playlistDirty_ = false;
   bool showPath_ = false;
   int playlistFontPx_ = 11;
   bool alwaysOnTop_ = false;
