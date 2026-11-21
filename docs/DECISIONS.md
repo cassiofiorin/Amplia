@@ -1655,3 +1655,28 @@ respeitadas.
 No Wayland, quem resolve isso é o compositor: **KWin → janela → Mais Ações → Configurar
 Configurações Especiais da Janela → Posição**, fixando a posição por aplicação. É regra do
 ambiente, não do produto — e vale para qualquer app, não só este.
+
+## D-081 — Janelas auxiliares e a barra de tarefas no Wayland
+
+`Qt::Tool` com pai tira a janela da barra de tarefas no X11 porque o Qt define
+`_NET_WM_WINDOW_TYPE_UTILITY`. No Wayland **não existe tipo de janela**: o que marca
+subordinação é o `xdg_toplevel.set_parent`, e o Qt só o monta quando as duas janelas já têm
+handle. Como a playlist é criada dentro de `buildUi()`, antes de a principal ser mostrada, o
+parentesco nunca chegava ao compositor — resultado: duas entradas na barra de tarefas.
+
+Correção: `createWinId()` na auxiliar seguido de `windowHandle()->setTransientParent(...)`, e
+a mesma chamada depois de cada `show()` (o handle da principal pode nascer depois). O
+equalizador segue o mesmo caminho. Efeito colateral: a auxiliar também passa a ficar acima da
+principal e a minimizar junto, que é o comportamento esperado de janela dependente.
+
+Verificação difícil de automatizar: a barra de tarefas é do compositor, não do app. O escape
+`AMPLIA_DEBUG_WINDOWS=1` loga `transiente=%d` para confirmar o lado do cliente; o lado do
+compositor só olhando.
+
+### Sobra de copiar/colar corrigida no caminho
+
+`setReplayGainMode()` gravava `visual/enabled`, `visual/fps`, `visual/fpsCostP95Ms` e
+`visual/fpsCpuPercent` junto de `replaygain/mode` — herança de um bloco vizinho. Os valores
+eram os mesmos em memória, então não corrompia nada, mas gravava quatro chaves fora de
+propósito a cada troca de modo. Agora grava só a sua, e o nome exibido na barra de status
+passou a vir de `tr()`.

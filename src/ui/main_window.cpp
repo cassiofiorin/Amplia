@@ -643,6 +643,14 @@ void MainWindow::buildUi() {
   playlistWindow_ = new QWidget(this, Qt::Tool);
   playlistWindow_->setWindowTitle(QStringLiteral("Playlist"));
   playlistWindow_->resize(440, 400);
+  // No Wayland o papel "tool" sozinho não basta para o KWin tirar a janela da barra de
+  // tarefas: o que marca a subordinação é o xdg_toplevel.set_parent, que o Qt só monta
+  // quando as duas janelas já têm handle. Forçar a criação e declarar a transitoriedade
+  // aqui resolve — e repete no show(), porque o handle da principal pode nascer depois.
+  playlistWindow_->createWinId();
+  if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
+    playlistWindow_->windowHandle()->setTransientParent(windowHandle());
+  }
   auto* windowLayout = new QVBoxLayout(playlistWindow_);
   windowLayout->setContentsMargins(8, 8, 8, 8);
   windowLayout->setSpacing(0);
@@ -2172,6 +2180,11 @@ void MainWindow::openEqualizer() {
   // Janela auxiliar: sem entrada na barra de tarefas e sem escurecer o pai.
   eqDialog_->setWindowFlag(Qt::Tool, true);
   eqDialog_->show();
+  // Mesmo motivo da playlist: no Wayland é o transient parent que tira a janela da
+  // barra de tarefas, e ele só pode ser declarado com as duas janelas já criadas.
+  if (eqDialog_->windowHandle() != nullptr && windowHandle() != nullptr) {
+    eqDialog_->windowHandle()->setTransientParent(windowHandle());
+  }
   eqDialog_->raise();
   eqDialog_->activateWindow();
 }
@@ -2181,13 +2194,13 @@ void MainWindow::setReplayGainMode(int mode) {
   applyReplayGain(engine_->track());
   QSettings settings(settingsFile(), QSettings::IniFormat);
   settings.setValue(QStringLiteral("replaygain/mode"), replayGainMode_);
-  settings.setValue(QStringLiteral("visual/enabled"), visualEnabled_);
-  settings.setValue(QStringLiteral("visual/fps"), visualFps_);
-  settings.setValue(QStringLiteral("visual/fpsCostP95Ms"), visualCostP95Ms_);
-  settings.setValue(QStringLiteral("visual/fpsCpuPercent"), visualCpuPercent_);
-  const char* names[] = {"desligado", "por faixa", "por álbum"};
-  statusBar()->showMessage(
-      tr("ReplayGain: %1").arg(QString::fromUtf8(names[replayGainMode_])), 4000);
+  QString modeName;
+  switch (replayGainMode_) {
+    case 1: modeName = tr("por faixa"); break;
+    case 2: modeName = tr("por álbum"); break;
+    default: modeName = tr("desligado"); break;
+  }
+  statusBar()->showMessage(tr("ReplayGain: %1").arg(modeName), 4000);
 }
 
 void MainWindow::applyReplayGain(const wamp::TrackInfo& track) {
@@ -3117,14 +3130,22 @@ void MainWindow::setPlaylistVisible(bool visible) {
   playlistButton_->setChecked(visible);
   if (visible) {
     playlistWindow_->show();
+    if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
+      playlistWindow_->windowHandle()->setTransientParent(windowHandle());
+    }
     playlistWindow_->raise();
     playlistWindow_->activateWindow();
   } else {
     playlistWindow_->hide();
   }
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
-    qInfo("janelas: playlist visivel=%d tamanho=%dx%d", playlistWindow_->isVisible() ? 1 : 0,
-          playlistWindow_->width(), playlistWindow_->height());
+    qInfo("janelas: playlist visivel=%d tamanho=%dx%d transiente=%d",
+          playlistWindow_->isVisible() ? 1 : 0, playlistWindow_->width(),
+          playlistWindow_->height(),
+          (playlistWindow_->windowHandle() != nullptr &&
+           playlistWindow_->windowHandle()->transientParent() != nullptr)
+              ? 1
+              : 0);
   }
   saveSettings();
 }
