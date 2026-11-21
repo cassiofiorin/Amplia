@@ -667,8 +667,8 @@ Queue: position %1</translation>
         <translation>Closing the window keeps Amplia playing; come back via the tray icon.</translation>
     </message>
     <message>
-        <source>Reproduzir com a faixa tocando volta ao início</source>
-        <translation>Play while the track is playing restarts it</translation>
+        <source>O botão Reproduzir recomeça a faixa do zero</source>
+        <translation>The Play button restarts the track from the beginning</translation>
     </message>
     <message>
         <source>Idioma:</source>
@@ -805,6 +805,18 @@ Queue: position %1</translation>
     <message>
         <source>Token recusado: %1</source>
         <translation>Token rejected: %1</translation>
+    </message>
+    <message>
+        <source>Janela integrada</source>
+        <translation>Integrated window</translation>
+    </message>
+    <message>
+        <source>Janela externa</source>
+        <translation>External window</translation>
+    </message>
+    <message>
+        <source>Janela integrada mantém uma janela só: a lista entra embaixo do player e o botão PL cresce a janela. Janela externa separa a lista num painel próprio, que pode ser movido para outro canto da tela.</source>
+        <translation>Integrated window keeps a single window: the list sits under the player and the PL button grows the window. External window puts the list in its own panel, which can be moved anywhere on screen.</translation>
     </message>
 </context>
 <context>

@@ -2008,3 +2008,26 @@ ligar a opção, e aí o compositor centralizava as duas janelas.
   `300,200`, que é o que o usuário vê).
 - Escape de diagnóstico: `AMPLIA_DEBUG_GEOM=1` loga `save: gravando posição …` e
   `restore: geometria salva aplicada em …`; `AMPLIA_TEST_HIDE=1` fecha pelo caminho normal.
+
+## D-096 — Coluna centrada no display, atraso só na janela externa
+
+- **Coluna de estado centralizada**: os quatro botões ficam ao lado do display e centrados
+  nele (`AlignVCenter`), não mais descendo pela faixa do transporte. Com 28 px de botão e 4
+  de respiro o bloco dá 124 px e cabe nos 154 do display; o transporte continua ocupando a
+  largura inteira logo abaixo.
+- **Atraso de abertura só quando serve**: os 200 ms existem para o KWin receber o
+  `xdg_toplevel.set_parent` da janela **externa** (que só é enviado com a principal já
+  mapeada). Com a playlist integrada não há janela para subordinar, e em X11 o parentesco
+  não depende do mapeamento — então o atraso passou a valer só para "externa + Wayland".
+- **Trocar de modo em tempo de execução** agora funciona nos dois sentidos: ao ir para
+  externa no Wayland, a janela é mostrada um ciclo depois (`QTimer::singleShot(200, …)`) com
+  o mesmo cuidado da abertura inicial; ao voltar para integrada, o painel é reparentado ao
+  widget central e entra no layout com stretch 1. Antes, a troca em execução deixava a
+  janela externa saindo sem `set_parent` (e o painel parecia não voltar).
+- **Nomes padronizados**: "Janela integrada" e "Janela externa" no combo de Preferências, com
+  a dica reescrita (o que cada modo faz, sem falar em "própria"/"combinada").
+- **Texto do play**: "Reproduzir com a faixa tocando volta ao início" virou "O botão
+  Reproduzir recomeça a faixa do zero" — o sujeito agora é o botão, não a ação ambígua.
+- Verificação: alternância por `AMPLIA_TEST_MODE=externa|integrada` (escape de depuração),
+  log `teste modo=… externa_visivel=… pai_do_painel=…`; captura da janela compacta com a
+  coluna centrada (`/home/cassio/sideD.png`).

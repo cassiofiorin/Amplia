@@ -68,7 +68,7 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   playbackLayout->addWidget(trayBox_);
 
   restartBox_ = new QCheckBox(
-      tr("Reproduzir com a faixa tocando volta ao início"), playback);
+      tr("O botão Reproduzir recomeça a faixa do zero"), playback);
   restartBox_->setChecked(restartOnPlay);
   restartBox_->setToolTip(
       QStringLiteral("Clicar em reproduzir enquanto a faixa toca recomeça do zero, "
@@ -125,16 +125,17 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
     auto* modeRow = new QHBoxLayout();
     modeRow->addWidget(new QLabel(tr("Playlist:"), general));
     playlistModeBox_ = new QComboBox(general);
-    playlistModeBox_->addItem(tr("Integrada na janela"), QStringLiteral("integrada"));
-    playlistModeBox_->addItem(tr("Janela própria"), QStringLiteral("externa"));
+    playlistModeBox_->addItem(tr("Janela integrada"), QStringLiteral("integrada"));
+    playlistModeBox_->addItem(tr("Janela externa"), QStringLiteral("externa"));
     const int index = playlistModeBox_->findData(playlistMode);
     playlistModeBox_->setCurrentIndex(index >= 0 ? index : 0);
     modeRow->addWidget(playlistModeBox_, 1);
     generalLayout->addLayout(modeRow);
 
     auto* modeHint = new QLabel(
-        tr("Integrada mantém uma janela só. A janela própria separa a lista — no Wayland o "
-           "compositor pode mostrá-la na barra de tarefas e abrir sobreposta."),
+        tr("Janela integrada mantém uma janela só: a lista entra embaixo do player e o botão "
+           "PL cresce a janela. Janela externa separa a lista num painel próprio, que pode "
+           "ser movido para outro canto da tela."),
         general);
     modeHint->setWordWrap(true);
     modeHint->setObjectName(QStringLiteral("hint"));

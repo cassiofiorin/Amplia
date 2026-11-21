@@ -381,6 +381,21 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
 
   // Depuração: simula o usuário esticando a janela (o KWin não permite redimensionar
   // por script no Wayland sem interação).
+  // Depuração: troca o modo da playlist em tempo de execução (a sessão de teste não
+  // consegue clicar no combo de Preferências).
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_MODE")) {
+    const QString mode = qEnvironmentVariable("AMPLIA_TEST_MODE");
+    QTimer::singleShot(1500, this, [this, mode] {
+      setPlaylistMode(mode);
+      QTimer::singleShot(600, this, [this] {
+        qInfo("teste modo=%s externa_visivel=%d pai_do_painel=%s painel_visivel=%d",
+              qPrintable(playlistMode_),
+              playlistWindow_ != nullptr && playlistWindow_->isVisible() ? 1 : 0,
+              playlistPanel_ ? playlistPanel_->parentWidget()->metaObject()->className() : "-",
+              playlistPanel_ && playlistPanel_->isVisible() ? 1 : 0);
+      });
+    });
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_RESIZE")) {
     QTimer::singleShot(1200, this, [this] {
       resize(width(), compactHeight_ + qEnvironmentVariableIntValue("AMPLIA_TEST_RESIZE"));
@@ -586,14 +601,9 @@ void MainWindow::buildUi() {
   connect(display_, &wamp::ui::DisplayPanel::timeClicked, this, &MainWindow::toggleTimeMode);
 
 
-  // Ações de estado (sorteio, repetir, playlist) empilhadas à direita do display —
-  // mesma disposição do original, com os LEDs equivalentes já dentro do painel.
-  auto* leftColumn = new QVBoxLayout();
-  leftColumn->setSpacing(6);
   // Sem stretch no display: com o display elástico, esticar a janela abria um vão em
   // branco em cima e embaixo dele; o espaço extra tem que ir para a playlist.
   display_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  leftColumn->addWidget(display_, 0);
 
   auto roundButton = [central](wamp::ui::RoundButton::GlyphPainter glyph, int size) {
     auto* button = new wamp::ui::RoundButton(central);
@@ -610,7 +620,6 @@ void MainWindow::buildUi() {
   auto* sideButtons = new QVBoxLayout(sideWidget);
   sideButtons->setSpacing(4);
   sideButtons->setContentsMargins(0, 0, 0, 0);
-  sideButtons->addStretch(1);
 
   shuffleButton_ = roundButton(wamp::ui::paintShuffle, 28);
   shuffleButton_->setCheckable(true);
@@ -651,7 +660,6 @@ void MainWindow::buildUi() {
   playlistButton_->setToolTip(tr("Mostrar / ocultar a playlist"));
   connect(playlistButton_, &QPushButton::toggled, this, &MainWindow::setPlaylistVisible);
   sideButtons->addWidget(playlistButton_);
-  sideButtons->addStretch(1);
 
   // Transporte circular, mute e volume — os botões redondos deixam mais largura para a
   // barra de volume do que os retangulares de antes.
@@ -730,14 +738,15 @@ void MainWindow::buildUi() {
   });
   row->addWidget(volumeSlider_, 1);
 
-  // A coluna de estado fica à direita do bloco display+transporte, e não só do display:
-  // quatro botões (sorteio, repetir, ML, PL) não cabem na altura do display.
-  leftColumn->addLayout(row);
-  auto* bodyRow = new QHBoxLayout();
-  bodyRow->setSpacing(6);
-  bodyRow->addLayout(leftColumn, 1);
-  bodyRow->addWidget(sideWidget, 0, Qt::AlignTop);
-  layout->addLayout(bodyRow, 0);
+  // A coluna de estado fica ao lado do display e centralizada nele (é o que agrada o
+  // olho); o transporte ocupa a largura inteira logo abaixo. Quatro botões de 28 px com
+  // 4 de respiro dão 124 px, que cabem nos 154 do display.
+  auto* displayRow = new QHBoxLayout();
+  displayRow->setSpacing(6);
+  displayRow->addWidget(display_, 1);
+  displayRow->addWidget(sideWidget, 0, Qt::AlignVCenter);
+  layout->addLayout(displayRow, 0);
+  layout->addLayout(row, 0);
 
   // Editor de playlist em janela auxiliar: Qt::Tool com pai não entra na barra de tarefas
   // nem no Alt+Tab, e o compositor a mantém junto da principal. Assim o botão PL não
@@ -2901,9 +2910,17 @@ void MainWindow::schedulePendingPlaylistOpen() {
   // dois lados. Sem isso, abrir com a playlist ligada não abria a playlist.
   if (!pendingPlaylistVisible_ || playlistShowScheduled_) return;
   playlistShowScheduled_ = true;
+  // O atraso existe para o KWin receber o xdg_toplevel.set_parent da janela externa, que
+  // só é enviado quando a principal já foi mapeada. Com a playlist integrada não há janela
+  // nenhuma para subordinar (e em X11 o pedido de parentesco não depende do mapeamento).
+  const int defaultDelay = (playlistIntegrated() || windowPositionSupported()) ? 0 : 200;
   const int delay = qEnvironmentVariableIsSet("AMPLIA_PLAYLIST_DELAY_MS")
                         ? qEnvironmentVariableIntValue("AMPLIA_PLAYLIST_DELAY_MS")
-                        : 200;
+                        : defaultDelay;
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+    qInfo("janelas: abrindo playlist com atraso de %d ms (modo=%s)", delay,
+          qPrintable(playlistMode_));
+  }
   QTimer::singleShot(delay, this, [this] {
     pendingPlaylistVisible_ = false;
     setPlaylistVisible(true);
@@ -3874,16 +3891,26 @@ void MainWindow::setPlaylistVisible(bool visible) {
     // Janela própria (preparada para o porte de Windows). O handle é criado só agora: se a
     // principal já estiver mapeada, o Qt envia o xdg_toplevel.set_parent junto com o
     // mapeamento e o KWin trata a janela como dependente.
-    if (playlistWindow_->windowHandle() == nullptr) playlistWindow_->createWinId();
-    if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
-      playlistWindow_->windowHandle()->setTransientParent(windowHandle());
+    auto showExternal = [this] {
+      if (playlistWindow_->windowHandle() == nullptr) playlistWindow_->createWinId();
+      if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
+        playlistWindow_->windowHandle()->setTransientParent(windowHandle());
+      }
+      playlistWindow_->show();
+      if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
+        playlistWindow_->windowHandle()->setTransientParent(windowHandle());
+      }
+      playlistWindow_->raise();
+      playlistWindow_->activateWindow();
+    };
+    if (windowPositionSupported()) {
+      showExternal();
+    } else {
+      // Wayland: mapear no mesmo ciclo em que o painel muda de dono deixa a janela saindo
+      // sem o set_parent (o KWin a trata como independente). Um ciclo de espera resolve,
+      // e é o mesmo remédio da abertura inicial.
+      QTimer::singleShot(200, this, showExternal);
     }
-    playlistWindow_->show();
-    if (playlistWindow_->windowHandle() != nullptr && windowHandle() != nullptr) {
-      playlistWindow_->windowHandle()->setTransientParent(windowHandle());
-    }
-    playlistWindow_->raise();
-    playlistWindow_->activateWindow();
   } else {
     playlistWindow_->hide();
   }
