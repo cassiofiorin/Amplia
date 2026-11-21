@@ -672,8 +672,10 @@ void MainWindow::buildUi() {
     // janela: assim seguem a lista quando ela muda de dono (integrada ↔ janela própria) e
     // só valem com o foco dentro da lista.
     auto* showPlaying = new QAction(playlistPanel_);
-    showPlaying->setShortcut(QKeySequence(Qt::Key_Space));
-    showPlaying->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    // Sem atalho no QAction: as teclas são tratadas no eventFilter da lista
+    // (ShortcutOverride), senão brigam com os atalhos da janela principal — Ctrl+A é
+    // "sempre no topo" no player e "selecionar tudo" na lista, como no original.
+    showPlaying->setText(tr("Ir para a faixa tocando"));
     connect(showPlaying, &QAction::triggered, this, [this] {
       if (list_ == nullptr || !playlist_->hasCurrent()) return;
       const int row = static_cast<int>(playlist_->currentIndex());
@@ -682,8 +684,7 @@ void MainWindow::buildUi() {
     playlistPanel_->addAction(showPlaying);
 
     auto* selectAll = new QAction(playlistPanel_);
-    selectAll->setShortcut(QKeySequence(QStringLiteral("Ctrl+A")));
-    selectAll->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    selectAll->setText(tr("Selecionar tudo"));
     connect(selectAll, &QAction::triggered, this, [this] {
       if (list_ == nullptr) return;
       list_->selectAll();
@@ -2691,6 +2692,33 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
       }
     }
   }
+  // Teclas que pertencem à lista quando ela tem o foco: aceitar o ShortcutOverride faz o
+  // Qt entregar o evento ao widget em vez de disparar o atalho da janela (setas = volume,
+  // Ctrl+A = sempre no topo). Sem isso, no modo integrado as setas mexiam no volume em vez
+  // de rolar a lista.
+  if (list_ != nullptr && watched == list_ && event->type() == QEvent::ShortcutOverride) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    const bool ctrl = key->modifiers().testFlag(Qt::ControlModifier);
+    switch (key->key()) {
+      case Qt::Key_Up:
+      case Qt::Key_Down:
+      case Qt::Key_PageUp:
+      case Qt::Key_PageDown:
+      case Qt::Key_Home:
+      case Qt::Key_End:
+      case Qt::Key_Space:
+        key->accept();
+        return true;
+      case Qt::Key_A:
+        if (ctrl) {
+          key->accept();
+          return true;
+        }
+        break;
+      default:
+        break;
+    }
+  }
   if (list_ != nullptr && watched == list_ && event->type() == QEvent::KeyPress) {
     auto* key = static_cast<QKeyEvent*>(event);
     if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
@@ -2702,6 +2730,17 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     }
     if (key->key() == Qt::Key_Delete) {
       removeSelected();
+      return true;
+    }
+    if (key->key() == Qt::Key_Space) {
+      if (playlist_->hasCurrent()) {
+        const int row = static_cast<int>(playlist_->currentIndex());
+        if (QListWidgetItem* item = list_->item(row)) list_->scrollToItem(item);
+      }
+      return true;
+    }
+    if (key->key() == Qt::Key_A && key->modifiers().testFlag(Qt::ControlModifier)) {
+      list_->selectAll();
       return true;
     }
   }

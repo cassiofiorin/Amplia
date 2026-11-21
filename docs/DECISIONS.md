@@ -1791,3 +1791,22 @@ Verificação: resize real para 760×600 com o painel fechado → log `saveSetti
 → INI `size=@Size(760 572)` → reabrir → KWin reporta `760×600`. Antes disso, a medição estava
 sendo feita na janela errada (`kdotool search --name "Amplia"` casa também com a aba do Firefox
 que abriu o repositório): lição registrada — filtrar por `caption` exata do KWin.
+
+## D-086 — Teclas da lista: ShortcutOverride em vez de QAction
+
+Sintoma relatado: no modo integrado, **Ctrl+A não selecionava tudo** e as **setas mexiam no
+volume** em vez de rolar a lista.
+
+Causa: as ações da lista usavam `Qt::WidgetWithChildrenShortcut` presas ao painel, mas a
+janela principal tinha os mesmos atalhos com `Qt::WindowShortcut` (`Ctrl+A` = sempre no topo,
+setas = volume/seek). Com o foco na lista, os dois conjuntos ficam ativos → ambiguidade, e o
+Qt simplesmente não dispara nenhum: daí "Ctrl+A não faz nada" e "seta muda o volume".
+
+Correção: as teclas que pertencem à lista passam a ser resolvidas no `eventFilter` do
+`QListWidget`, tratando `QEvent::ShortcutOverride` e chamando `accept()`. Aceitar o override
+faz o Qt entregar o evento como `KeyPress` ao widget em vez de disparar o atalho da janela —
+então a lista rola com as setas e recebe Ctrl+A/Espaço. As `QAction` de menu continuam
+existentes (com o mesmo efeito), só deixaram de declarar atalho para não recriar o conflito.
+
+Consequência de desenho, igual ao original: `Ctrl+A` e as setas têm significados **por
+janela/foco** — no player, sempre no topo e volume; na lista, selecionar tudo e rolar.
