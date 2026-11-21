@@ -1,0 +1,4 @@
+// Gerado pelo CMake a partir de src/ui/version.h.in — não editar.
+#pragma once
+#define AMPLIA_VERSION "@PROJECT_VERSION@"
+#define AMPLIA_GIT "@AMPLIA_GIT_HASH@"

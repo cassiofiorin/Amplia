@@ -207,6 +207,8 @@ class MainWindow final : public QMainWindow {
   void rebuildPlaylist();
   void refreshQueue();
   void onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok);
+  /// Contador fixo da fila de metadados na barra de status.
+  void updateMetadataStatus();
   QString rowLabel(const std::string& path, bool current) const;
   QString durationText(const std::string& path) const;
   void startReading();
@@ -255,6 +257,9 @@ class MainWindow final : public QMainWindow {
   std::map<std::string, wamp::TrackInfo> metadata_;
   /// Caminhos que não abriram ao tocar: linha ganha o aviso e é pulada.
   std::set<std::string> missingFiles_;
+  std::size_t metadataTotal_ = 0;
+  class QLabel* queueLabel_ = nullptr;
+  class QLabel* versionLabel_ = nullptr;
 
   wamp::ui::DisplayPanel* display_ = nullptr;
   wamp::ui::RoundButton* playButton_ = nullptr;

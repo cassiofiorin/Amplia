@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.25)
 project(WAmp VERSION 0.1.0 LANGUAGES CXX)
 
+# Versão mostrada na barra de status: número do projeto + commit curto, quando houver git.
+execute_process(
+  COMMAND git rev-parse --short HEAD
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  OUTPUT_VARIABLE AMPLIA_GIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET)
+if(NOT AMPLIA_GIT_HASH)
+  set(AMPLIA_GIT_HASH "sem-git")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

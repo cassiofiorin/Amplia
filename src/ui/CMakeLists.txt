@@ -27,10 +27,15 @@ add_executable(wamp
   translator.h
 )
 
+# Versão exibida na barra de status: número do projeto + commit. Header gerado evita
+# a dança de aspas das definições de compilação (-DAMPLIA_VERSION=0.1.0 perdia as aspas).
+configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
+
 set_target_properties(wamp PROPERTIES OUTPUT_NAME amplia)
 
 target_link_libraries(wamp PRIVATE wamp-core wamp-platform wamp-library wamp-tags wamp-scrobble Qt6::Widgets)
 target_compile_options(wamp PRIVATE -Wall -Wextra)
+target_include_directories(wamp PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 install(TARGETS wamp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES

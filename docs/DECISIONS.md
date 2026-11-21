@@ -1827,3 +1827,23 @@ Três defeitos somados, todos no caminho "abrir com o painel ligado":
    `panelHeight = height - compactHeight` se realimentavam: cada fechamento com o painel
    aberto empurrava os dois valores. Agora `window/compactHeight` é gravado explicitamente e
    a derivação só serve de migração para INIs antigas.
+
+### Barra de status: fila de metadados e versão (21/11)
+
+Pedido do usuário: acompanhar a leitura de tags numa lista grande ("não feche durante o
+processamento") e ver a versão da build para reportar erro.
+
+- Dois rótulos fixos na `QStatusBar`: `queueLabel_` (esquerda, `addWidget(…, 1)`) e
+  `versionLabel_` (direita, `addPermanentWidget`). Mensagem passageira (`showMessage`) não
+  serve: some sozinha e é sobrescrita por qualquer outro aviso.
+- Texto: `Lendo metadados… 12/400 — não feche`, com o total acumulado das filas somadas
+  (`metadataTotal_ += missing.size()` em cada `enqueueAll`) e `done = total - pending`.
+  O aviso completo fica no tooltip.
+- **Detalhe que custou duas tentativas**: os rótulos têm fundo transparente, e o texto de
+  uma mensagem passageira por baixo aparecia nos vãos, deixando um "s" solto ao lado da
+  versão. Correção: `statusBar()->clearMessage()` enquanto o contador está visível.
+- Versão: `Amplia 0.1.0 (b2568f5)` — número de `project(VERSION)` e commit curto. Vem de
+  **header gerado** (`src/ui/version.h.in` + `configure_file`), não de
+  `target_compile_definitions`: as aspas das definições se perdem e o pré-processador
+  recebe `0.1.0`, o que quebra a compilação.
+- `AMPLIA_GRAB_DELAY_MS` permite capturar estados transitórios nos testes de interface.

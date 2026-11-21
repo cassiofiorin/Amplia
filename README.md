@@ -351,6 +351,12 @@ deixa aberta, para enfileirar várias; `Esc` fecha sem tocar. O contador mostra 
 casaram. **Alt+clique esquerdo** numa linha enfileira sem fechar a janela, igual à lista
 principal — dá para montar a fila inteira ali dentro.
 
+### Barra de status
+
+A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
+é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
+(`Amplia 0.1.0 (b2568f5)`) — número do projeto e commit curto, útil para reportar erro.
+
 ### Painel do player
 
 No topo da janela fica o display: relógio de sete segmentos, indicador de tocando/pausado,
@@ -844,6 +850,12 @@ list without taking focus from the field, so you can type and choose with the sa
 enqueue several; `Esc` closes without playing. The counter shows how many matched.
 **Alt+left click** on a row queues without closing the window, just like the main list — you
 can build the whole queue in there.
+
+### Status bar
+
+The bottom bar shows, on the left, the tag-reading progress when a large list is added
+(`Reading metadata… 12/400 — do not close`) and, on the right, the build version
+(`Amplia 0.1.0 (b2568f5)`) — project number and short commit, handy for bug reports.
 
 ### Player display
 

@@ -175,6 +175,7 @@ void warnAboutNetworkDrop(QWidget* parent, const QList<QUrl>& urls, int rejected
 #include "playlist_delegate.h"
 #include "preferences_dialog.h"
 #include "translator.h"
+#include "version.h"
 #include "theme.h"
 #include "theme_editor.h"
 #include "theme_store.h"
@@ -369,7 +370,12 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // Escape de depuração: salva a própria janela em PNG (sem capturar a tela do usuário).
   if (qEnvironmentVariableIsSet("AMPLIA_GRAB")) {
     const QString target = qEnvironmentVariable("AMPLIA_GRAB");
-    QTimer::singleShot(2500, this, [this, target] {
+    // Atraso ajustável: útil para pegar a interface em estados transitórios (fila de
+    // metadados, abertura da playlist). Padrão 2,5 s.
+    const int grabDelay = qEnvironmentVariableIsSet("AMPLIA_GRAB_DELAY_MS")
+                              ? qEnvironmentVariableIntValue("AMPLIA_GRAB_DELAY_MS")
+                              : 2500;
+    QTimer::singleShot(grabDelay, this, [this, target] {
       grab().save(target);
       qInfo("amplia: janela %dx%d compacta=%d display=%dx%d", width(), height(), compactHeight_,
             display_ ? display_->width() : -1, display_ ? display_->height() : -1);
@@ -468,6 +474,24 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   shortcut(QKeySequence(QStringLiteral("Alt+E")), [this] { focusPlaylist(); });
   shortcut(QKeySequence(QStringLiteral("Alt+G")), [this] { focusEqualizer(); });
   shortcut(QKeySequence(QStringLiteral("Ctrl+Tab")), [this] { cycleWindows(); });
+
+  // Contador da fila de metadados e versão ficam fixos na barra: a mensagem passageira
+  // (showMessage) some sozinha e não serve para acompanhar um lote grande.
+  queueLabel_ = new QLabel(this);
+  queueLabel_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+  queueLabel_->setObjectName(QStringLiteral("queueLabel"));
+  queueLabel_->hide();
+  statusBar()->setSizeGripEnabled(false);
+  queueLabel_->setContentsMargins(4, 0, 8, 0);
+  statusBar()->addWidget(queueLabel_, 1);
+
+  versionLabel_ = new QLabel(this);
+  versionLabel_->setObjectName(QStringLiteral("versionLabel"));
+  versionLabel_->setToolTip(tr("Versão desta compilação do Amplia"));
+  versionLabel_->setText(QStringLiteral("Amplia %1 (%2)").arg(QStringLiteral(AMPLIA_VERSION),
+                                                             QStringLiteral(AMPLIA_GIT)));
+  versionLabel_->setContentsMargins(8, 0, 6, 0);
+  statusBar()->addPermanentWidget(versionLabel_);
 
   statusBar()->showMessage(tr("Arraste arquivos para a playlist ou use Arquivo ▸ Abrir"));
   refresh();
@@ -1361,7 +1385,9 @@ bool MainWindow::appendPlaylistFile(const QString& path, std::string* error) {
   const std::vector<std::string> missing = missesFor(entries);
   playlist_->addAll(entries);
   playlistDirty_ = true;
+  metadataTotal_ += missing.size();
   scanner_->enqueueAll(missing);
+  updateMetadataStatus();
   rebuildPlaylist();
   startReading();
   return true;
@@ -1535,7 +1561,9 @@ void MainWindow::addPaths(const QStringList& paths) {
   const std::vector<std::string> missing = missesFor(native);
   const std::size_t first = playlist_->addAll(native);
   playlistDirty_ = true;
+  metadataTotal_ += missing.size();
   scanner_->enqueueAll(missing);
+  updateMetadataStatus();
   rebuildPlaylist();
   startReading();
 
@@ -3242,6 +3270,36 @@ QString MainWindow::durationText(const std::string& path) const {
   return formatTime(it->second.durationMs);
 }
 
+void MainWindow::updateMetadataStatus() {
+  if (queueLabel_ == nullptr || scanner_ == nullptr) return;
+  const std::size_t left = scanner_->pending();
+  if (left == 0) {
+    metadataTotal_ = 0;
+    queueLabel_->hide();
+    return;
+  }
+  // total acumulado das filas somadas; se vier uma fila nova sem a anterior zerar,
+  // somamos no enfileiramento (abaixo) em vez de adivinhar aqui.
+  if (metadataTotal_ < left) metadataTotal_ = left;
+  const std::size_t done = metadataTotal_ - left;
+  // Texto curto: a barra é estreita e o rótulo da versão ocupa a direita. O aviso
+  // completo fica no tooltip, para não competir por espaço.
+  const QString text =
+      tr("Lendo metadados… %1/%2 — não feche").arg(done).arg(metadataTotal_);
+  // Elide pelo espaço real: sem isso o texto escapa da geometria do rótulo e deixa
+  // fragmentos na barra (visto ao lado da versão).
+  const int available = queueLabel_->width() > 40 ? queueLabel_->width() - 8 : 320;
+  queueLabel_->setText(queueLabel_->fontMetrics().elidedText(text, Qt::ElideRight, available));
+  queueLabel_->setToolTip(tr("Lendo as tags de %1 de %2 faixas. Não feche o Amplia durante "
+                             "o processamento — a lista ficaria sem metadados.")
+                              .arg(done)
+                              .arg(metadataTotal_));
+  // Sem mensagem passageira por baixo: os rótulos têm fundo transparente e o texto da
+  // mensagem aparecia nos vãos, colado na versão.
+  statusBar()->clearMessage();
+  queueLabel_->show();
+}
+
 void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok) {
   if (ok) {
     metadata_[path] = info;
@@ -3259,10 +3317,8 @@ void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info
     item->setData(kDurationRole, durationText(path));
   }
 
-  const std::size_t left = scanner_->pending();
-  if (left > 0) {
-    statusBar()->showMessage(tr("Lendo metadados… %1 na fila").arg(left));
-  } else {
+  updateMetadataStatus();
+  if (scanner_->pending() == 0) {
     statusBar()->showMessage(tr("Metadados da playlist carregados"), 2500);
   }
 }
@@ -3312,8 +3368,9 @@ std::vector<std::string> MainWindow::missesFor(const std::vector<std::string>& p
 }
 
 void MainWindow::startReading() {
-  const std::size_t left = scanner_->pending();
-  if (left > 0) statusBar()->showMessage(tr("Lendo metadados… %1 na fila").arg(left));
+  // A fila é mostrada pelo rótulo fixo da barra (com total e aviso), não por mensagem
+  // transitória: as duas se sobrepunham e a mensagem era cortada pelo rótulo da versão.
+  updateMetadataStatus();
 }
 
 void MainWindow::applyPlaylistMode() {
