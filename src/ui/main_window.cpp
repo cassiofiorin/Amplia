@@ -2566,9 +2566,14 @@ void MainWindow::saveEqualizer() {
 void MainWindow::openPreferences() {
   const wamp::ScrobbleConfig scrobble =
       scrobbler_ ? scrobbler_->config() : wamp::ScrobbleConfig{};
+  const bool xwaylandOn =
+      QSettings(settingsFile(), QSettings::IniFormat)
+          .value(QStringLiteral("window/xwaylandPosition"), false)
+          .toBool();
   PreferencesDialog dialog(shuffle_, qRound(shuffleLevel_ * 100), closeToTray_, restartOnPlay_,
                            visualEnabled_, visualFps_, visualCostP95Ms_, visualCpuPercent_,
-                           playlistMode_, scrobble, wamp::ui::languageFromSettings(), this);
+                           playlistMode_, xwaylandOn, scrobble,
+                           wamp::ui::languageFromSettings(), this);
   connect(&dialog, &PreferencesDialog::calibrateRequested, this,
           [this, &dialog] { calibrateVisual(&dialog); });
   if (dialog.exec() != QDialog::Accepted) return;
@@ -2603,6 +2608,36 @@ void MainWindow::openPreferences() {
   }
 
   if (dialog.playlistMode() != playlistMode_) setPlaylistMode(dialog.playlistMode());
+
+  if (dialog.xwaylandPosition() != xwaylandOn) {
+    QSettings settings(settingsFile(), QSettings::IniFormat);
+    settings.setValue(QStringLiteral("window/xwaylandPosition"), dialog.xwaylandPosition());
+    settings.sync();
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(tr("Posição das janelas"));
+    box.setText(dialog.xwaylandPosition()
+                    ? tr("Guardar posição exige reiniciar com XWayland.")
+                    : tr("Voltar ao Wayland nativo exige reiniciar."));
+    box.setInformativeText(dialog.xwaylandPosition()
+                               ? tr("A playlist e a Biblioteca voltam onde estavam. Reiniciar "
+                                    "interrompe a reprodução.")
+                               : tr("As janelas passam a abrir onde o compositor decidir. "
+                                    "Reiniciar interrompe a reprodução."));
+    auto* now = box.addButton(tr("Reiniciar agora"), QMessageBox::AcceptRole);
+    box.addButton(tr("Na próxima"), QMessageBox::RejectRole);
+    box.setDefaultButton(now);
+    box.exec();
+    if (box.clickedButton() == now) {
+      saveSettings();
+      if (restartHandler_) {
+        restartHandler_();
+        return;
+      }
+    } else {
+      statusBar()->showMessage(tr("Posição das janelas: vale na próxima abertura"), 6000);
+    }
+  }
 
   visualEnabled_ = dialog.visualEnabled();
   visualFps_ = dialog.visualFps();
@@ -3076,9 +3111,11 @@ void MainWindow::loadSettings() {
                       .toString();
   // A chave é window/panelHeight (é o que saveSettings grava); integratedHeight é o nome
   // antigo e fica como leitura de migração.
-  // O painel integrado tem altura fixa (kPlaylistHeight): abrir a lista soma exatamente
-  // isso. Antes a altura vinha do INI e uma sessão esticada virava 734 px na seguinte.
-  integratedHeight_ = kPlaylistHeight;
+  // Altura da lista quando o usuário estica a janela com ela aberta: lembrada entre
+  // sessões, com piso no tamanho padrão (menos que isso não mostra a lista).
+  integratedHeight_ =
+      std::clamp(settings.value(QStringLiteral("window/panelHeight"), kPlaylistHeight).toInt(),
+                 kPlaylistHeight, 900);
   applyPlaylistMode();
 
   const int playlistW = settings.value(QStringLiteral("window/playlistWidth"), 440).toInt();
@@ -3180,6 +3217,9 @@ void MainWindow::saveSettings() {
   }
   if (windowPositionSupported() && playlistWindow_ != nullptr && playlistOpen) {
     settings.setValue(QStringLiteral("window/playlistGeometry"), playlistWindow_->saveGeometry());
+  }
+  if (windowPositionSupported() && library_ != nullptr && library_->isVisible()) {
+    settings.setValue(QStringLiteral("window/libraryGeometry"), library_->saveGeometry());
   }
   settings.setValue(QStringLiteral("window/width"), width());
   settings.setValue(QStringLiteral("window/collapsedHeight"), compactHeight_);
@@ -3477,6 +3517,13 @@ void MainWindow::openLibrary() {
               statusBar()->showMessage(
                   tr("%1 faixa(s) enfileirada(s)").arg(paths.size()), 2500);
             });
+  }
+  if (windowPositionSupported()) {
+    const QByteArray saved =
+        QSettings(settingsFile(), QSettings::IniFormat)
+            .value(QStringLiteral("window/libraryGeometry"))
+            .toByteArray();
+    if (!saved.isEmpty()) library_->restoreGeometry(saved);
   }
   if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_VIEW")) {
     library_->selectView(qEnvironmentVariableIntValue("AMPLIA_LIBRARY_VIEW"));

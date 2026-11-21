@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
     if (QString::fromLocal8Bit(argv[i]) == QLatin1String("--prefs")) {
       wamp::ScrobbleConfig scrobble;
       PreferencesDialog dialog(true, 50, false, true, true, 15, 0.0, 0.0, QStringLiteral("integrada"),
-                           scrobble, QStringLiteral("sistema"));
+                           false, scrobble, QStringLiteral("sistema"));
       dialog.resize(dialog.sizeHint());
       dialog.show();
       app.processEvents();

@@ -27,7 +27,7 @@
 PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
                                      bool restartOnPlay, bool visualEnabled, int visualFps,
                                      double costP95Ms, double cpuPercent,
-                                     const QString& playlistMode,
+                                     const QString& playlistMode, bool xwaylandPosition,
                                      const wamp::ScrobbleConfig& scrobble, const QString& language,
                                      QWidget* parent)
     : QDialog(parent), net_(std::make_unique<wamp::Scrobbler>()) {
@@ -139,6 +139,20 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
     modeHint->setWordWrap(true);
     modeHint->setObjectName(QStringLiteral("hint"));
     generalLayout->addWidget(modeHint);
+
+    // Posição de janela é o único ponto em que o Wayland nativo limita de verdade: o
+    // protocolo não deixa o cliente dizer onde a janela fica. XWayland deixa.
+    xwaylandBox_ = new QCheckBox(tr("Guardar a posição das janelas (usa XWayland)"), general);
+    xwaylandBox_->setChecked(xwaylandPosition);
+    generalLayout->addWidget(xwaylandBox_);
+    auto* xwaylandHint = new QLabel(
+        tr("O compositor Wayland decide onde a janela abre e não aceita posição do programa. "
+           "Com XWayland o Amplia guarda e devolve a posição da playlist e da Biblioteca. "
+           "Vale na próxima abertura; em troca, as janelas deixam de ser Wayland nativas."),
+        general);
+    xwaylandHint->setWordWrap(true);
+    xwaylandHint->setObjectName(QStringLiteral("hint"));
+    generalLayout->addWidget(xwaylandHint);
   }
 
   generalLayout->addStretch(1);
@@ -454,6 +468,10 @@ void PreferencesDialog::testListenbrainz() {
   } else {
     listenbrainzStatus_->setText(tr("Token recusado: %1").arg(error));
   }
+}
+
+bool PreferencesDialog::xwaylandPosition() const {
+  return xwaylandBox_ != nullptr && xwaylandBox_->isChecked();
 }
 
 QString PreferencesDialog::playlistMode() const {

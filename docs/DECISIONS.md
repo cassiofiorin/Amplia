@@ -1960,3 +1960,30 @@ a altura extra?
 - A altura compacta gravada no INI é limitada à altura natural do bloco
   (`sizeHint().height() + 8`); antes aceitava até 1200 px e uma sessão esticada reabria a
   janela com 1008 px de vão (o mesmo problema, visto pela porta do estado salvo).
+
+## D-094 — Posição de janela no Wayland: a opção XWayland
+
+O protocolo `xdg_toplevel` **não tem pedido de posição**: o compositor decide onde a janela
+abre, e `QWindow::setPosition`/`move()` não têm efeito em janela de topo. O atraso que
+resolveu o `set_parent` da playlist externa não muda isso — ele só adiou o mapeamento para o
+pai já estar mapeado, o que é sobre subordinação, não sobre geometria.
+
+- **O padrão continua Wayland nativo**, com a playlist integrada (a posição nem entra na
+  conversa, é a mesma janela).
+- **Preferências ▸ Geral ▸ "Guardar a posição das janelas (usa XWayland)"** liga o único
+  backend em que o cliente posiciona a si mesmo. O `main()` lê a chave **antes do
+  `QApplication`** (`qputenv("QT_QPA_PLATFORM", "xcb")`), porque é o plugin de plataforma que
+  a consome na construção; a troca pede reinício, como a do idioma.
+- Com a opção ligada, a janela externa da playlist e a Biblioteca salvam e restauram
+  geometria (`window/playlistGeometry`, `window/libraryGeometry`); com ela desligada, só o
+  tamanho é guardado — o compositor escolhe o lugar.
+- Medido: Wayland nativo reabre a playlist em `1060,304` (escolha do KWin) ignorando o
+  `320,210` salvo; em XWayland reabre em `320,210`, e a Biblioteca em `120,90`.
+- O `--socket=x11` já estava nas `finish-args`, então isso não muda empacotamento.
+- **Áudio saiu da árvore** da Biblioteca: não há outro tipo de mídia na interface, então a
+  visão só repetia "todas as faixas". O enum `LibraryView::Audio` fica (é a consulta base),
+  mas sem item na árvore.
+- **Altura da playlist é lembrada de novo**: `window/panelHeight` volta a ser lido, agora com
+  piso `kPlaylistHeight` (300) e teto 900 — esticar a janela com a lista aberta vale para a
+  próxima sessão, sem reabrir o vão que a D-093 fechou (a altura compacta continua limitada
+  ao bloco natural).

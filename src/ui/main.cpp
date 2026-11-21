@@ -25,6 +25,17 @@ constexpr auto kInstanceName = "io.github.cassiofiorin.Amplia.instance";
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Backend gráfico: Wayland nativo por padrão. Posição de janela só existe no X11/XWayland
+  // (o protocolo xdg_toplevel não tem pedido de posição), então quem marcou a opção nas
+  // Preferências abre em XWayland. A variável precisa entrar antes do QApplication: é o
+  // plugin de plataforma que a lê na construção.
+  if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM")) {
+    QSettings early(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
+    if (early.value(QStringLiteral("window/xwaylandPosition"), false).toBool()) {
+      qputenv("QT_QPA_PLATFORM", "xcb");
+    }
+  }
+
   QApplication app(argc, argv);
   QApplication::setApplicationName(QStringLiteral("Amplia"));
   QApplication::setApplicationDisplayName(QStringLiteral("Amplia"));

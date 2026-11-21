@@ -30,7 +30,6 @@ const ViewDef kViews[] = {
     // Rótulos curtos de propósito: a árvore tem 210 px e os nomes longos do original
     // ("Adicionadas recentemente") não cabem. A janela de cada visão vai no parêntese.
     {"Todas as faixas", wamp::LibraryView::All},
-    {"Áudio", wamp::LibraryView::Audio},
     {"Adicionadas (3 dias)", wamp::LibraryView::RecentlyAdded},
     {"Modificadas (3 dias)", wamp::LibraryView::RecentlyModified},
     {"Tocadas (2 semanas)", wamp::LibraryView::RecentlyPlayed},

@@ -302,6 +302,11 @@ a track has played for 350 ms — the same window the original ML uses. Double-c
 track (it joins the playlist; the Library is not a second player) and **Add folder…** remembers
 the chosen root.
 
+On Wayland the compositor decides where windows open; if you want the playlist and the
+Library to come back where you left them, enable **Preferences ▸ General ▸ Remember window
+positions (uses XWayland)** — Amplia restarts on that backend, the only one where a program
+may position its own windows.
+
 If you close mid-index, Amplia asks: **Keep reading** or **Close anyway**. The pending queue
 is already in the database from the start of the scan, so "close anyway" loses nothing — the
 index **resumes on its own** next time the app starts.
@@ -343,6 +348,11 @@ só o número de 0 a 5, as estrelas são desenho. O contador de execuções soma
 passa de 350 ms tocando — a mesma janela do ML original. Duplo clique toca a faixa (ela entra
 na playlist, a Biblioteca não é um player paralelo) e **Adicionar pasta…** guarda a raiz
 escolhida.
+
+No Wayland o compositor decide onde a janela abre; se você quer a playlist e a Biblioteca
+voltando na posição em que ficaram, ligue **Preferências ▸ Geral ▸ Guardar a posição das
+janelas (usa XWayland)** — o Amplia reinicia nesse backend, o único em que o programa pode
+posicionar as próprias janelas.
 
 Se você fechar no meio da indexação, o Amplia pergunta: **Continuar lendo** ou **Fechar
 mesmo assim**. A fila de pendentes já está no banco desde o começo da varredura, então
