@@ -2804,7 +2804,12 @@ void MainWindow::loadSettings() {
   if (settings.value(QStringLiteral("playlist/visible"), false).toBool()) {
     // Não abre aqui: o construtor roda antes de a janela principal ser mapeada, e no
     // Wayland o parentesco não seria enviado. showEvent() agenda a abertura.
-    playlistButton_->setChecked(true);
+    // Sincroniza o botão sem emitir toggled: o sinal chamaria setPlaylistVisible()
+    // na hora e derrubaria o agendamento feito em showEvent().
+    {
+      const QSignalBlocker blocker(playlistButton_);
+      playlistButton_->setChecked(true);
+    }
     pendingPlaylistVisible_ = true;
   }
 
@@ -2874,7 +2879,6 @@ void MainWindow::saveSettings() {
   settings.setValue(QStringLiteral("window/width"), width());
   settings.setValue(QStringLiteral("window/collapsedHeight"), compactHeight_);
   settings.setValue(QStringLiteral("window/closeToTray"), closeToTray_);
-  settings.remove(QStringLiteral("window/geometry"));
   settings.setValue(QStringLiteral("playlist/visible"), playlistOpen);
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_CLOSE")) {
     qInfo("saveSettings: playlistOpen=%d", playlistOpen ? 1 : 0);
@@ -3144,6 +3148,8 @@ void MainWindow::startReading() {
 
 void MainWindow::setPlaylistVisible(bool visible) {
   if (playlistWindow_ == nullptr) return;
+  // O botão reflete o estado; emitir toggled aqui chamaria este método de novo.
+  const QSignalBlocker blocker(playlistButton_);
   playlistButton_->setChecked(visible);
   if (visible) {
     // Cria o handle só agora: se a principal já estiver mapeada, o Qt envia o
