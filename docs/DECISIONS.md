@@ -1987,3 +1987,24 @@ pai já estar mapeado, o que é sobre subordinação, não sobre geometria.
   piso `kPlaylistHeight` (300) e teto 900 — esticar a janela com a lista aberta vale para a
   próxima sessão, sem reabrir o vão que a D-093 fechou (a altura compacta continua limitada
   ao bloco natural).
+
+## D-095 — Quando a geometria é gravada (por que "não funcionava")
+
+A opção XWayland existia, mas a posição **nunca era gravada** na maioria dos caminhos: só o
+`closeEvent` chamava `saveSettings()`. Quem fechava pela bandeja (`closeToTray`) ou perdia o
+app num kill reabria com a geometria antiga — ou com nenhuma, no primeiro teste depois de
+ligar a opção, e aí o compositor centralizava as duas janelas.
+
+- **Gravação por movimento**: `moveEvent` da janela principal e um `eventFilter` em
+  `QEvent::Move` da playlist externa e da Biblioteca agendam `saveSettings()` 700 ms depois
+  do último movimento (`scheduleSettingsSave`). Assim a posição sobrevive a kill e a queda,
+  não só a um fechamento limpo.
+- **Fechar para a bandeja grava antes de esconder**: `saveSettings()` no ramo do
+  `closeToTray` do `closeEvent`. Esconder é o "terminei por agora" de quem usa o agente.
+- Condições para gravar continuam: `windowPositionSupported()` (backend X11/XWayland) e
+  janela não maximizada/nem em tela cheia. O tamanho é gravado em qualquer plataforma.
+- **Medido**: mover para `300,200`, `flatpak kill` e reabrir → `300,200`; playlist em
+  `420,300` idem; `restoreGeometry` aplica `300,228` no widget (o X reporta o quadro em
+  `300,200`, que é o que o usuário vê).
+- Escape de diagnóstico: `AMPLIA_DEBUG_GEOM=1` loga `save: gravando posição …` e
+  `restore: geometria salva aplicada em …`; `AMPLIA_TEST_HIDE=1` fecha pelo caminho normal.

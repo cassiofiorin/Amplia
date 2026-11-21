@@ -93,6 +93,7 @@ class MainWindow final : public QMainWindow {
   void dropEvent(QDropEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void resizeEvent(QResizeEvent* event) override;
+  void moveEvent(QMoveEvent* event) override;
   void showEvent(QShowEvent* event) override;
   /// Agenda a abertura da playlist pedida pela INI (idempotente).
   void schedulePendingPlaylistOpen();
@@ -213,6 +214,9 @@ class MainWindow final : public QMainWindow {
   void onMetadata(const std::string& path, const wamp::TrackInfo& info, bool ok);
   /// Contador fixo da fila de metadados na barra de status.
   void updateMetadataStatus();
+  /// Grava o estado 700 ms depois do último movimento/redimensionamento. Sem isso, um
+  /// fechamento pela bandeja, um kill ou uma queda voltam com a janela no lugar antigo.
+  void scheduleSettingsSave();
   void armPlaycount(const std::string& path);
   void resumePendingScan();
   void openLibrary();
@@ -244,6 +248,7 @@ class MainWindow final : public QMainWindow {
   std::unique_ptr<wamp::Playlist> playlist_;
   std::unique_ptr<wamp::MetadataScanner> scanner_;
   std::unique_ptr<wamp::ui::EqualizerDialog> eqDialog_;
+  QTimer* saveStateTimer_ = nullptr;
   QTimer* playcountTimer_ = nullptr;
   std::string playcountPath_;
   QTimer* eqSaveTimer_ = nullptr;

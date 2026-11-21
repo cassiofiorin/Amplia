@@ -387,6 +387,11 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
     });
   }
 
+  // Depuração: fecha pelo caminho normal (passa pelo closeEvent), para testar a bandeja.
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_HIDE")) {
+    QTimer::singleShot(1500, this, [this] { close(); });
+  }
+
   // Escape de depuração: salva a própria janela em PNG (sem capturar a tela do usuário).
   if (qEnvironmentVariableIsSet("AMPLIA_GRAB")) {
     const QString target = qEnvironmentVariable("AMPLIA_GRAB");
@@ -2770,6 +2775,11 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
   }
 
   // Fechar a janela da playlist (X) só esconde; o botão PL acompanha.
+  if ((playlistWindow_ != nullptr && watched == playlistWindow_ ||
+       (library_ != nullptr && watched == library_.get())) &&
+      event->type() == QEvent::Move) {
+    scheduleSettingsSave();
+  }
   if (playlistWindow_ != nullptr && watched == playlistWindow_ &&
       event->type() == QEvent::Close) {
     playlistButton_->setChecked(false);
@@ -2905,6 +2915,23 @@ void MainWindow::showEvent(QShowEvent* event) {
   schedulePendingPlaylistOpen();
 }
 
+void MainWindow::scheduleSettingsSave() {
+  if (!settingsLoaded_) return;
+  if (saveStateTimer_ == nullptr) {
+    saveStateTimer_ = new QTimer(this);
+    saveStateTimer_->setSingleShot(true);
+    saveStateTimer_->setInterval(700);
+    connect(saveStateTimer_, &QTimer::timeout, this, [this] { saveSettings(); });
+  }
+  saveStateTimer_->start();
+}
+
+void MainWindow::moveEvent(QMoveEvent* event) {
+  QMainWindow::moveEvent(event);
+  // Só faz sentido quando o backend deixa posicionar (XWayland/X11).
+  if (windowPositionSupported()) scheduleSettingsSave();
+}
+
 void MainWindow::resizeEvent(QResizeEvent* event) {
   QMainWindow::resizeEvent(event);
   // Sem a playlist não existe quem absorva altura: esticar a janela deixaria um vão morto
@@ -2981,6 +3008,10 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   // Fechar com o agente ligado só esconde a janela: a música continua e o ícone
   // da bandeja é o caminho de volta. "Sair" no menu da bandeja desliga `quitting_`.
   if (closeToTray_ && !quitting_ && tray_ != nullptr && tray_->isVisible()) {
+    // Esconder não é fechar, mas é a hora em que o usuário "terminou" a janela: grava o
+    // estado agora. Sem isso, quem usa a bandeja nunca salvava a posição/tamanho das
+    // janelas (só o "Sair" salvava) e a posição parecia não funcionar.
+    saveSettings();
     hide();
     event->ignore();
     closing_ = false;
@@ -3102,6 +3133,10 @@ void MainWindow::loadSettings() {
   const QByteArray savedGeometry = settings.value(QStringLiteral("window/geometry")).toByteArray();
   const bool hasSavedGeometry = windowPositionSupported() && !savedGeometry.isEmpty();
   if (hasSavedGeometry && restoreGeometry(savedGeometry)) {
+    if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
+      qInfo("restore: geometria salva aplicada em %d,%d %dx%d", this->x(), this->y(),
+            this->width(), this->height());
+    }
     // Largura e altura vieram junto com a posição.
     width = this->width();
     compactHeight_ = std::clamp(height(), kCompactFloor, 1200);
@@ -3213,6 +3248,10 @@ void MainWindow::saveSettings() {
     settings.setValue(QStringLiteral("window/panelHeight"), integratedHeight_);
   }
   if (windowPositionSupported() && !isMaximized() && !isFullScreen()) {
+    if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
+      qInfo("save: gravando posição %d,%d %dx%d", this->x(), this->y(), this->width(),
+            this->height());
+    }
     settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
   }
   if (windowPositionSupported() && playlistWindow_ != nullptr && playlistOpen) {
@@ -3528,6 +3567,7 @@ void MainWindow::openLibrary() {
   if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_VIEW")) {
     library_->selectView(qEnvironmentVariableIntValue("AMPLIA_LIBRARY_VIEW"));
   }
+  library_->installEventFilter(this);  // para salvar a posição quando ela se mover
   refreshLibrary();
   library_->show();
   library_->raise();

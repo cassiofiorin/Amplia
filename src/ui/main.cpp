@@ -33,10 +33,13 @@ int main(int argc, char** argv) {
     QSettings early(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
     if (early.value(QStringLiteral("window/xwaylandPosition"), false).toBool()) {
       qputenv("QT_QPA_PLATFORM", "xcb");
+      qInfo("amplia: XWayland pedido pela preferência (arquivo %s)",
+            qPrintable(wamp::ui::settingsFileForTests()));
     }
   }
 
   QApplication app(argc, argv);
+  qInfo("amplia: plataforma %s", qPrintable(QGuiApplication::platformName()));
   QApplication::setApplicationName(QStringLiteral("Amplia"));
   QApplication::setApplicationDisplayName(QStringLiteral("Amplia"));
   QApplication::setOrganizationName(QStringLiteral("cassiofiorin"));
