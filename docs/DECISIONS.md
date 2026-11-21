@@ -1765,3 +1765,29 @@ Decisão: a lista é **um painel com dois donos**, escolhidos por `playlist/mode
   diálogo "Abrir…", porque ali a intenção é do usuário.
 - Verificado nos dois sentidos: rodar com um arquivo e sair → `[playlist]` intacta; rodar
   apontando para uma pasta (adição explícita) → lista nova gravada.
+
+## D-085 — Tamanho da janela vale em qualquer plataforma; posição só no X11
+
+Contexto: no Wayland a janela voltava sempre ao tamanho padrão. Diagnóstico: `saveSettings()`
+gravava `window/geometry` (largura + altura + posição) **atrás de `windowPositionSupported()`**,
+que é falso no Wayland — então nada de tamanho era salvo, e o que sobrava
+(`window/width` + `window/collapsedHeight`) não cobria a playlist aberta.
+
+Decisão: separar as duas coisas de vez.
+
+- **Tamanho**: `window/size` (QSize total) e `window/panelHeight` são gravados em qualquer
+  plataforma; a restauração lê `window/size` e **deriva** a altura compacta
+  (`total − painel`, quando a playlist veio aberta), com piso `kCompactFloor` (274).
+- **Posição**: continua em `window/geometry` + `restoreGeometry`, só sob
+  `windowPositionSupported()`.
+- **Janela da playlist** (modo externo): mesmo raciocínio — tamanho sempre, geometria só no X11.
+
+Por que não guardar só a compacta (como antes): com o painel aberto, `height()` inclui os 300
+do painel; gravar isso como compacta reabriria a janela 300 px alta demais quando a playlist
+fosse fechada. Guardar o total e a altura do painel, e derivar na leitura, mantém as duas
+formas coerentes.
+
+Verificação: resize real para 760×600 com o painel fechado → log `saveSettings: tamanho=760x572`
+→ INI `size=@Size(760 572)` → reabrir → KWin reporta `760×600`. Antes disso, a medição estava
+sendo feita na janela errada (`kdotool search --name "Amplia"` casa também com a aba do Firefox
+que abriu o repositório): lição registrada — filtrar por `caption` exata do KWin.

@@ -2806,16 +2806,22 @@ void MainWindow::loadSettings() {
   volumeSlider_->setValue(volume);
   engine_->setVolume(static_cast<float>(volume) / 100.0f);
 
-  // Tamanho: guarda a altura compacta e a largura, não o retângulo inteiro — assim
-  // a lista aberta no fechamento anterior não deixa um vão vazio ao reabrir compacta.
-  // No Wayland a posição é do compositor; a largura e a altura são respeitadas.
+  // Tamanho: o cliente escolhe (o compositor respeita); a posição é dele no Wayland.
+  // Guardamos o tamanho TOTAL e a altura do painel e derivamos a altura compacta — assim
+  // abrir/fechar a lista não inventa um vão nem encolhe a janela.
+  const QSize savedSize = settings.value(QStringLiteral("window/size")).toSize();
   int width = std::clamp(settings.value(QStringLiteral("window/width"), 460).toInt(), 400, 4000);
-  // O piso cresce junto com o conteúdo (display de 7 segmentos): um valor antigo da INI
-  // não pode esmagar o painel.
   compactHeight_ = std::clamp(
       std::max(settings.value(QStringLiteral("window/collapsedHeight"), compactHeight_).toInt(),
                compactHeight_),
       kCompactFloor, 1200);
+  if (savedSize.isValid() && savedSize.width() >= 400 && savedSize.height() >= kCompactFloor) {
+    width = std::clamp(savedSize.width(), 400, 4000);
+    const bool panelOpen = settings.value(QStringLiteral("playlist/visible"), false).toBool();
+    const int panelHeight = settings.value(QStringLiteral("window/panelHeight"), 300).toInt();
+    compactHeight_ = std::clamp(
+        savedSize.height() - (panelOpen ? std::max(160, panelHeight) : 0), kCompactFloor, 1200);
+  }
   resize(width, compactHeight_);
 
   wamp::ScrobbleConfig scrobble;
@@ -2928,6 +2934,14 @@ void MainWindow::saveSettings() {
   // gigante sem a playlist.
   if (!playlistOpen && !isMaximized() && !isFullScreen()) {
     compactHeight_ = std::max(minimumHeight(), height());
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+    qInfo("saveSettings: tamanho=%dx%d", width(), height());
+  }
+  if (!isMaximized() && !isFullScreen()) {
+    // Tamanho vale em qualquer plataforma; só a posição depende do X11.
+    settings.setValue(QStringLiteral("window/size"), size());
+    settings.setValue(QStringLiteral("window/panelHeight"), integratedHeight_);
   }
   if (windowPositionSupported() && !isMaximized() && !isFullScreen()) {
     settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
