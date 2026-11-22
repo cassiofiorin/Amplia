@@ -46,6 +46,7 @@
 #include <QMenu>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QProcess>
 #include <QMenuBar>
 #include <QMetaObject>
 #include <QMimeData>
@@ -383,14 +384,28 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // por script no Wayland sem interação).
   // Depuração: troca o modo da playlist em tempo de execução (a sessão de teste não
   // consegue clicar no combo de Preferências).
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_OFF")) {
+    QTimer::singleShot(1500, this, [this] {
+      QSettings settings(settingsFile(), QSettings::IniFormat);
+      settings.setValue(QStringLiteral("window/xwaylandPosition"), false);
+      settings.sync();
+      restartWithPlatformChange();
+    });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_TOGGLE_TOP")) {
+    QTimer::singleShot(1500, this, [this] {
+      if (alwaysOnTopAction_ != nullptr) alwaysOnTopAction_->trigger();
+    });
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_MODE")) {
     const QString mode = qEnvironmentVariable("AMPLIA_TEST_MODE");
     QTimer::singleShot(1500, this, [this, mode] {
       setPlaylistMode(mode);
       QTimer::singleShot(600, this, [this] {
-        qInfo("teste modo=%s externa_visivel=%d pai_do_painel=%s painel_visivel=%d",
+        qInfo("teste modo=%s externa_visivel=%d painel_na_externa=%d pai_do_painel=%s painel_visivel=%d",
               qPrintable(playlistMode_),
               playlistWindow_ != nullptr && playlistWindow_->isVisible() ? 1 : 0,
+              playlistPanel_ != nullptr && playlistPanel_->parentWidget() == playlistWindow_ ? 1 : 0,
               playlistPanel_ ? playlistPanel_->parentWidget()->metaObject()->className() : "-",
               playlistPanel_ && playlistPanel_->isVisible() ? 1 : 0);
       });
@@ -2643,14 +2658,10 @@ void MainWindow::openPreferences() {
     box.setDefaultButton(now);
     box.exec();
     if (box.clickedButton() == now) {
-      saveSettings();
-      if (restartHandler_) {
-        restartHandler_();
-        return;
-      }
-    } else {
-      statusBar()->showMessage(tr("Posição das janelas: vale na próxima abertura"), 6000);
+      restartWithPlatformChange();
+      return;  // o processo será encerrado
     }
+    statusBar()->showMessage(tr("Posição das janelas: vale na próxima abertura"), 6000);
   }
 
   visualEnabled_ = dialog.visualEnabled();
@@ -2930,6 +2941,18 @@ void MainWindow::schedulePendingPlaylistOpen() {
 void MainWindow::showEvent(QShowEvent* event) {
   QMainWindow::showEvent(event);
   schedulePendingPlaylistOpen();
+}
+
+void MainWindow::restartWithPlatformChange() {
+  saveSettings();
+  // O processo atual já rodou com a plataforma antiga: só um processo novo relê a INI em
+  // main() e escolhe o backend. Limpa a variável que o próprio app pôs, senão o filho
+  // herda xcb e a preferência desligada não teria efeito.
+  qunsetenv("QT_QPA_PLATFORM");
+  const QString program = QCoreApplication::applicationFilePath();
+  QProcess::startDetached(QStringLiteral("/bin/sh"),
+                          {QStringLiteral("-c"), QStringLiteral("sleep 1; exec \"$0\""), program});
+  QCoreApplication::quit();
 }
 
 void MainWindow::scheduleSettingsSave() {
@@ -3239,7 +3262,8 @@ void MainWindow::saveSettings() {
   if (volumeSlider_ != nullptr) settings.setValue(QStringLiteral("play/volume"), volumeSlider_->value());
   settings.setValue(QStringLiteral("play/remaining"), remaining_);
   settings.setValue(QStringLiteral("playlist/fontPx"), playlistFontPx_);
-  settings.setValue(QStringLiteral("window/alwaysOnTop"), alwaysOnTop_);
+  settings.setValue(QStringLiteral("window/alwaysOnTop"),
+                    alwaysOnTopAction_ != nullptr ? alwaysOnTopAction_->isChecked() : alwaysOnTop_);
   settings.setValue(QStringLiteral("window/easyMove"), easyMove_);
   if (playlistWindow_ != nullptr && playlistWindow_->isVisible()) {
     settings.setValue(QStringLiteral("window/playlistWidth"), playlistWindow_->width());
@@ -3869,22 +3893,27 @@ void MainWindow::setPlaylistVisible(bool visible) {
   const QSignalBlocker blocker(playlistButton_);
   playlistButton_->setChecked(visible);
 
+  // Limites de altura dependem só do estado (integrada + lista aberta ou não). Fixar o
+  // máximo quando a lista fecha impedia o usuário de redimensionar qualquer coisa depois,
+  // e um mínimo esquecido de "compacto + 160" travava a janela grande com vão morto.
+  if (playlistIntegrated() && visible) {
+    setMinimumHeight(compactHeight_ + 160);
+    setMaximumHeight(QWIDGETSIZE_MAX);
+  } else {
+    setMinimumHeight(compactHeight_);
+    setMaximumHeight(QWIDGETSIZE_MAX);
+  }
+
   if (playlistIntegrated()) {
     // Padrão: a lista é painel da principal e a janela cresce para baixo.
     if (visible) {
       playlistPanel_->show();
-      // Com a lista aberta a janela pode crescer (a lista absorve); fechada, o tamanho é
-      // o do bloco compacto — esticar sem lista deixaria um vão morto embaixo.
-      setMinimumHeight(compactHeight_ + 160);
-      setMaximumHeight(QWIDGETSIZE_MAX);
       resize(width(), compactHeight_ + integratedHeight_);
     } else {
       if (height() > compactHeight_) {
         integratedHeight_ = std::clamp(height() - compactHeight_, 160, 900);
       }
       playlistPanel_->hide();
-      setMinimumHeight(compactHeight_);
-      setMaximumHeight(compactHeight_);
       resize(width(), compactHeight_);
     }
   } else if (visible) {
@@ -3914,6 +3943,9 @@ void MainWindow::setPlaylistVisible(bool visible) {
   } else {
     playlistWindow_->hide();
   }
+
+  // Modo externo nunca deixa a principal esticada: a lista está na outra janela.
+  if (!playlistIntegrated() && height() != compactHeight_) resize(width(), compactHeight_);
 
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
     qInfo("janelas: modo=%s playlist visivel=%d principal=%dx%d", qPrintable(playlistMode_),

@@ -217,6 +217,9 @@ class MainWindow final : public QMainWindow {
   /// Grava o estado 700 ms depois do último movimento/redimensionamento. Sem isso, um
   /// fechamento pela bandeja, um kill ou uma queda voltam com a janela no lugar antigo.
   void scheduleSettingsSave();
+  /// Reinício de verdade (novo processo): a plataforma só pode ser trocada antes do
+  /// QApplication, então reconstruir a janela no mesmo processo não mudaria nada.
+  void restartWithPlatformChange();
   void armPlaycount(const std::string& path);
   void resumePendingScan();
   void openLibrary();

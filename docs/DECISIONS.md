@@ -2031,3 +2031,27 @@ ligar a opção, e aí o compositor centralizava as duas janelas.
 - Verificação: alternância por `AMPLIA_TEST_MODE=externa|integrada` (escape de depuração),
   log `teste modo=… externa_visivel=… pai_do_painel=…`; captura da janela compacta com a
   coluna centrada (`/home/cassio/sideD.png`).
+
+## D-097 — Troca de backend exige processo novo (e o que travava a janela)
+
+- **A opção XWayland não podia ser desligada** porque o "Reiniciar agora" chamava o mesmo
+  `restartHandler_` do idioma, que **recria a janela no mesmo processo**. Plataforma é
+  escolhida na construção do `QApplication`, então nada mudava: o app continuava em xcb e a
+  impressão era "não desmarca". Agora existe `restartWithPlatformChange()`: limpa
+  `QT_QPA_PLATFORM` (senão o filho herda xcb), inicia um processo novo (`/bin/sh -c 'sleep 1;
+  exec "$0"'`) e encerra o atual — o servidor de instância única já morreu, então o filho
+  vira a instância.
+- **A janela não encolhia** porque `setPlaylistVisible(false)` deixava `setMaximumHeight`
+  preso em `compactHeight_` e o mínimo podia ficar em `compactHeight_ + 160` (vindo do modo
+  integrado com lista aberta). A troca para janela externa acontece sem passar por esse
+  ramo, então a janela ficava grande com vão morto e sem poder diminuir. Agora os limites
+  são recalculados em **todo** `setPlaylistVisible` (`mín = compacto` ou `compacto + 160`,
+  `máx = livre`) e o modo externo sempre devolve a principal ao tamanho compacto.
+- **"Sempre no topo" voltava ligado** porque o save podia rodar antes de o menu refletir o
+  estado; `saveSettings()` passou a gravar `alwaysOnTopAction_->isChecked()` (fonte da
+  verdade na interface). Verificado com `AMPLIA_TEST_TOGGLE_TOP=1`: `true → trigger → false`,
+  e `false` depois de fechar.
+- Escapes de teste novos: `AMPLIA_TEST_TOGGLE_TOP`, `AMPLIA_TEST_MODE=externa|integrada`,
+  `AMPLIA_TEST_XWAYLAND_OFF` (grava `false` e reinicia de verdade).
+- Verificação da troca de backend: log mostra `plataforma xcb` na sessão antiga e
+  `plataforma wayland` na nova, com `xwaylandPosition=false` no INI.
