@@ -19,6 +19,7 @@
 #include <QTimer>
 
 #include <cerrno>
+#include <climits>
 #include "round_button.h"
 
 #include "format_support.h"
@@ -68,6 +69,7 @@
 #include <QTimer>
 
 #include <cerrno>
+#include <climits>
 #include <QUrl>
 #include <QWindow>
 #include <QVBoxLayout>
@@ -3221,14 +3223,32 @@ void MainWindow::loadSettings() {
   // Posições só fazem sentido onde a plataforma permite (ver windowPositionSupported).
   const QByteArray savedGeometry = settings.value(QStringLiteral("window/geometry")).toByteArray();
   const bool hasSavedGeometry = windowPositionSupported() && !savedGeometry.isEmpty();
+  const int savedX = settings.value(QStringLiteral("window/posX"), INT_MIN).toInt();
+  const int savedY = settings.value(QStringLiteral("window/posY"), INT_MIN).toInt();
   if (hasSavedGeometry && restoreGeometry(savedGeometry)) {
+    if (savedX != INT_MIN && savedY != INT_MIN &&
+        std::abs(x() - savedX) > 4 && qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
+      // Só registra: o `restoreGeometry` já aplica a posição, e corrigir com `move()`
+      // mistura coordenadas de quadro e de cliente (deriva de um título por sessão).
+      qInfo("restore: posição aplicada %d,%d (gravada %d,%d)", x(), y(), savedX, savedY);
+    }
     if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
       qInfo("restore: geometria salva aplicada em %d,%d %dx%d", this->x(), this->y(),
             this->width(), this->height());
     }
-    // Largura e altura vieram junto com a posição.
+    // Só a largura vem do restore; a altura compacta tem chave própria. Antes o compacto
+    // era derivado da altura restaurada, então uma sessão com a lista aberta virava o
+    // "tamanho do player" (1010 px) e, no XWayland, a janela era empurrada para y=0 por
+    // não caber na tela — a posição "voltava para o centro" a cada abertura.
     width = this->width();
-    compactHeight_ = std::clamp(height(), kCompactFloor, 1200);
+    const int naturalCompact = std::max(kCompactFloor, compactHeight_);
+    compactHeight_ = std::clamp(settings.value(QStringLiteral("window/compactHeight"), compactHeight_).toInt(),
+                                kCompactFloor, naturalCompact);
+    // Fechada, a altura é o compacto — a geometria restaurada pode trazer o tamanho de uma
+    // sessão com a lista aberta.
+    if (!settings.value(QStringLiteral("playlist/visible"), false).toBool()) {
+      resize(width, compactHeight_);
+    }
   }
 
   playlistMode_ = settings.value(QStringLiteral("playlist/mode"), QStringLiteral("integrada"))
@@ -3343,6 +3363,14 @@ void MainWindow::saveSettings() {
             this->height());
     }
     settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
+    // Posição explícita do quadro: o `restoreGeometry` guarda um blob com a geometria da
+    // tela e, no XWayland, pode aplicar um y diferente do salvo. Os números crus são
+    // reaplicados depois do restore e eliminam essa deriva entre sessões.
+    // Coordenadas do cliente (x()/y()), que é o que `move()` posiciona. Usar o quadro aqui
+    // criava deriva de um título de janela por sessão (o cliente era movido para o y do
+    // quadro e o quadro recalculado 28 px acima na abertura seguinte).
+    settings.setValue(QStringLiteral("window/posX"), x());
+    settings.setValue(QStringLiteral("window/posY"), y());
   }
   if (windowPositionSupported() && playlistWindow_ != nullptr && playlistOpen) {
     settings.setValue(QStringLiteral("window/playlistGeometry"), playlistWindow_->saveGeometry());

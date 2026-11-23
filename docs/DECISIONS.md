@@ -2101,3 +2101,22 @@ preferência parecia não funcionar.
   instância); desligando, `xcb` → `wayland`. Geometria sobrevive a `flatpak kill`:
   `save: gravando posição 340,400` e, na volta, `restore: geometria salva aplicada em
   340,428` com o X reportando `340,400` (28 px do quadro).
+
+## D-100 — A posição "voltava para o centro" mesmo com XWayland
+
+Dois defeitos somados, nenhum na preferência:
+
+1. **O compacto vinha da geometria restaurada.** O `loadSettings()` fazia
+   `compactHeight_ = alturaRestaurada`. Uma sessão com a playlist aberta gravava 1010 px,
+   então a sessão seguinte abria a janela **mais alta que a tela**; o gerenciador de janelas
+   a empurrava para `y = 0` e parecia que a posição tinha sido esquecida. Agora o compacto
+   vem de `window/compactHeight`, limitado ao bloco natural (282), e a janela é
+   redimensionada para ele quando a lista está fechada.
+2. **Correção de posição com `move()` misturava quadro e cliente.** O `restoreGeometry` já
+   aplica a posição; a "correção" extra reaplicava o `y` com `move()`, que posiciona o
+   quadro, e cada sessão ganhava/perdia um título de janela (28 px) — deriva de 28 px por
+   abertura. A correção saiu: fica só o `restoreGeometry`, e `window/posX`/`posY` são
+   gravados como registro para depuração.
+
+Medido em três aberturas seguidas, com a lista fechada e com ela aberta: `420,260`
+estável nas duas, `507x282` (cliente) fechada e `507x582` aberta.
