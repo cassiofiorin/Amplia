@@ -876,13 +876,11 @@ void MainWindow::buildUi() {
 
   {
     // Teclas do Playlist Editor: Espaço mostra a faixa que está tocando; Ctrl+A
-    // seleciona tudo (no player, Ctrl+A é "sempre no topo"). Ficam presas ao painel, não à
-    // janela: assim seguem a lista quando ela muda de dono (integrada ↔ janela própria) e
-    // só valem com o foco dentro da lista.
+    // seleciona tudo. Ficam presas ao painel, não à janela: assim seguem a lista quando
+    // ela muda de dono (integrada ↔ janela própria) e só valem com o foco dentro da lista.
     auto* showPlaying = new QAction(playlistPanel_);
     // Sem atalho no QAction: as teclas são tratadas no eventFilter da lista
-    // (ShortcutOverride), senão brigam com os atalhos da janela principal — Ctrl+A é
-    // "sempre no topo" no player e "selecionar tudo" na lista, como no original.
+    // (ShortcutOverride), senão brigam com os atalhos da janela principal.
     showPlaying->setText(tr("Ir para a faixa tocando"));
     connect(showPlaying, &QAction::triggered, this, [this] {
       if (list_ == nullptr || !playlist_->hasCurrent()) return;
