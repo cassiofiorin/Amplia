@@ -410,6 +410,19 @@ void LibraryWindow::updateButtons() {
 }
 
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == table_ && event->type() == QEvent::MouseButtonPress) {
+    auto* mouse = static_cast<QMouseEvent*>(event);
+    // Alt+clique enfileira a faixa sob o cursor, como na playlist — sem mexer na seleção.
+    if (mouse->button() == Qt::LeftButton && mouse->modifiers().testFlag(Qt::AltModifier)) {
+      const QModelIndex index = table_->indexAt(mouse->position().toPoint());
+      if (index.isValid()) {
+        if (QTableWidgetItem* item = table_->item(index.row(), 0)) {
+          emit enqueueSelectionRequested({item->data(Qt::UserRole).toString()});
+        }
+      }
+      return true;
+    }
+  }
   if (watched == table_ && event->type() == QEvent::KeyPress) {
     auto* key = static_cast<QKeyEvent*>(event);
     // Ctrl+A seleciona tudo: antes o atalho estava preso ao "Sempre no topo" na janela

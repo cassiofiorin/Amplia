@@ -963,11 +963,17 @@ void MainWindow::buildUi() {
   queueLayout->setSpacing(2);
   queueHeader_ = new QLabel(tr("Na fila (0)"), queuePanel_);
   queueHeader_->setObjectName(QStringLiteral("queueHeader"));
+  queueHeader_->setStyleSheet(QStringLiteral("color: %1;").arg(wamp::ui::activeTheme().windowText.name()));
   queueLayout->addWidget(queueHeader_);
   queueList_ = new QListWidget(queuePanel_);
   queueList_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   queueList_->setSelectionMode(QAbstractItemView::SingleSelection);
   queueList_->setMaximumHeight(96);
+  // Mesmo desenho da lista de cima: fonte e cor do texto vêm do tema, sem cor própria.
+  queueList_->setFont(list_->font());
+  queueList_->setStyleSheet(QStringLiteral("QListWidget { background: transparent; border: none; }"
+                                           "QListWidget::item { color: %1; padding: 1px 2px; }")
+                                .arg(wamp::ui::activeTheme().windowText.name()));
   queueList_->setContextMenuPolicy(Qt::CustomContextMenu);
   connect(queueList_, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
     const QModelIndex index = queueList_->indexAt(pos);
