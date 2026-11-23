@@ -481,11 +481,6 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_OFF")) {
     QTimer::singleShot(1500, this, [restartWithValue] { restartWithValue(false); });
   }
-  if (qEnvironmentVariableIsSet("AMPLIA_TEST_TOGGLE_TOP")) {
-    QTimer::singleShot(1500, this, [this] {
-      if (alwaysOnTopAction_ != nullptr) alwaysOnTopAction_->trigger();
-    });
-  }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_MODE")) {
     const QString mode = qEnvironmentVariable("AMPLIA_TEST_MODE");
     QTimer::singleShot(1500, this, [this, mode] {
@@ -1431,18 +1426,6 @@ void MainWindow::buildMenus() {
   optionsMenu->addAction(shuffleAction);
   shuffleAction_ = shuffleAction;
 
-  alwaysOnTopAction_ = new QAction(tr("Sempre no topo"), this);
-  alwaysOnTopAction_->setCheckable(true);
-  // Sem atalho: Ctrl+A é "selecionar tudo" nas listas, e manter-no-topo é caso de
-  // gerenciador de janelas (regra do KWin), não de tecla do player.
-  alwaysOnTopAction_->setShortcut(QKeySequence());
-  connect(alwaysOnTopAction_, &QAction::toggled, this, [this](bool on) {
-    alwaysOnTop_ = on;
-    setWindowFlag(Qt::WindowStaysOnTopHint, on);
-    show();
-    saveSettings();
-  });
-  optionsMenu->addAction(alwaysOnTopAction_);
 
   easyMoveAction_ = new QAction(tr("Arrastar de qualquer ponto"), this);
   easyMoveAction_->setCheckable(true);
@@ -3290,11 +3273,6 @@ void MainWindow::loadSettings() {
   remaining_ = settings.value(QStringLiteral("play/remaining"), false).toBool();
   setPlaylistFontSize(settings.value(QStringLiteral("playlist/fontPx"), 11).toInt());
 
-  alwaysOnTop_ = settings.value(QStringLiteral("window/alwaysOnTop"), false).toBool();
-  if (alwaysOnTop_) {
-    setWindowFlag(Qt::WindowStaysOnTopHint, true);
-    if (alwaysOnTopAction_ != nullptr) alwaysOnTopAction_->setChecked(true);
-  }
   easyMove_ = settings.value(QStringLiteral("window/easyMove"), false).toBool();
   if (easyMoveAction_ != nullptr) easyMoveAction_->setChecked(easyMove_);
   if (display_ != nullptr) display_->setShowRemaining(remaining_);
@@ -3484,8 +3462,6 @@ void MainWindow::saveSettings() {
   if (volumeSlider_ != nullptr) settings.setValue(QStringLiteral("play/volume"), volumeSlider_->value());
   settings.setValue(QStringLiteral("play/remaining"), remaining_);
   settings.setValue(QStringLiteral("playlist/fontPx"), playlistFontPx_);
-  settings.setValue(QStringLiteral("window/alwaysOnTop"),
-                    alwaysOnTopAction_ != nullptr ? alwaysOnTopAction_->isChecked() : alwaysOnTop_);
   settings.setValue(QStringLiteral("window/easyMove"), easyMove_);
   if (playlistWindow_ != nullptr && playlistWindow_->isVisible()) {
     settings.setValue(QStringLiteral("window/playlistWidth"), playlistWindow_->width());
@@ -3989,7 +3965,16 @@ void MainWindow::saveTrackAnalysis() {
 }
 
 void MainWindow::rescanLibrary() {
-  if (!library_ || !cache_ || scanner_ == nullptr) return;
+  // A lista de raízes pode estar vazia por nunca se ter aberto a Biblioteca nesta sessão:
+  // reler do banco aqui evita varrer "nada" e achar que a pasta está vazia.
+  if (cache_ != nullptr) {
+    std::string error;
+    const std::vector<std::string> roots = cache_->roots(&error);
+    if (error.empty()) libraryRoots_ = roots;
+  }
+  // A varredura não depende da janela estar aberta: ela só atualiza a interface se
+  // estiver (o índice é do banco).
+  if (cache_ == nullptr || scanner_ == nullptr) return;
 
   statusBar()->showMessage(tr("Procurando arquivos nas pastas da biblioteca…"));
   QApplication::setOverrideCursor(Qt::WaitCursor);

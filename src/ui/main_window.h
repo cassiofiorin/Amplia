@@ -335,10 +335,8 @@ class MainWindow final : public QMainWindow {
   bool playlistDirty_ = false;
   bool showPath_ = false;
   int playlistFontPx_ = 11;
-  bool alwaysOnTop_ = false;
   bool stopAfterCurrent_ = false;
   bool easyMove_ = false;
-  QAction* alwaysOnTopAction_ = nullptr;
   QAction* stopAfterAction_ = nullptr;
   QAction* easyMoveAction_ = nullptr;
   /// 0 = desligado, 1 = por faixa, 2 = por álbum.

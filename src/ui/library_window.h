@@ -13,6 +13,7 @@ class QLineEdit;
 class QTableWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
+class QAction;
 class QPushButton;
 
 namespace wamp::ui {
@@ -65,7 +66,7 @@ class LibraryWindow final : public QWidget {
   QLabel* status_ = nullptr;
   QPushButton* playButton_ = nullptr;
   QPushButton* queueButton_ = nullptr;
-  QPushButton* removeButton_ = nullptr;
+  QAction* removeAction_ = nullptr;
 };
 
 }  // namespace wamp::ui

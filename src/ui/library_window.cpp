@@ -4,6 +4,7 @@
 #include <QHeaderView>
 #include <QEvent>
 #include <QHBoxLayout>
+#include <QMenuBar>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -75,6 +76,27 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   root->setContentsMargins(8, 8, 8, 8);
   root->setSpacing(6);
 
+  // As ações de manutenção ficam num menu, como na janela principal: quem quer
+  // adicionar pasta ou limpar a biblioteca procura no lugar de sempre, e o rodapé deixa
+  // de parecer uma fileira de botões pedindo clique.
+  auto* menuBar = new QMenuBar(this);
+  auto* optionsMenu = menuBar->addMenu(tr("Opções"));
+  auto* addFolderAction = optionsMenu->addAction(tr("Adicionar pasta…"));
+  auto* refreshAction = optionsMenu->addAction(tr("Atualizar"));
+  removeAction_ = optionsMenu->addAction(tr("Remover selecionadas"));
+  removeAction_->setShortcut(QKeySequence::Delete);
+  removeAction_->setEnabled(false);
+  optionsMenu->addSeparator();
+  auto* clearAction = optionsMenu->addAction(tr("Limpar biblioteca…"));
+  connect(addFolderAction, &QAction::triggered, this, &LibraryWindow::addFolderRequested);
+  connect(refreshAction, &QAction::triggered, this, &LibraryWindow::refreshRequested);
+  connect(clearAction, &QAction::triggered, this, &LibraryWindow::clearRequested);
+  connect(removeAction_, &QAction::triggered, this, [this] {
+    const QStringList paths = selectedPaths();
+    if (!paths.isEmpty()) emit removeRequested(paths);
+  });
+  root->setMenuBar(menuBar);
+
   auto* splitter = new QSplitter(Qt::Horizontal, this);
 
   // Árvore de visões, painel esquerdo do ML.
@@ -128,23 +150,8 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   footer->addWidget(summary_, 1);
   playButton_ = new QPushButton(tr("Tocar"), right);
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
-  removeButton_ = new QPushButton(tr("Remover"), right);
-  removeButton_->setToolTip(tr("Tirar as faixas selecionadas da biblioteca (Delete)"));
-  removeButton_->setEnabled(false);
-  auto* addFolder = new QPushButton(tr("Adicionar pasta…"), right);
-  auto* refresh = new QPushButton(tr("Atualizar"), right);
-  auto* clearLibrary = new QPushButton(tr("Limpar biblioteca…"), right);
   footer->addWidget(playButton_);
   footer->addWidget(queueButton_);
-  footer->addWidget(removeButton_);
-  footer->addWidget(addFolder);
-  footer->addWidget(refresh);
-  footer->addWidget(clearLibrary);
-  connect(removeButton_, &QPushButton::clicked, this, [this] {
-    const QStringList paths = selectedPaths();
-    if (!paths.isEmpty()) emit removeRequested(paths);
-  });
-  connect(clearLibrary, &QPushButton::clicked, this, &LibraryWindow::clearRequested);
   rightLayout->addLayout(footer);
 
   status_ = new QLabel(right);
@@ -198,8 +205,6 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
           [this] { emit playSelectionRequested(selectedPaths()); });
   connect(queueButton_, &QPushButton::clicked, this,
           [this] { emit enqueueSelectionRequested(selectedPaths()); });
-  connect(addFolder, &QPushButton::clicked, this, &LibraryWindow::addFolderRequested);
-  connect(refresh, &QPushButton::clicked, this, &LibraryWindow::refreshRequested);
 
   updateButtons();
 }
@@ -309,7 +314,7 @@ void LibraryWindow::updateButtons() {
   const bool has = !selectedPaths().isEmpty();
   playButton_->setEnabled(has);
   queueButton_->setEnabled(has);
-  if (removeButton_ != nullptr) removeButton_->setEnabled(has);
+  if (removeAction_ != nullptr) removeAction_->setEnabled(has);
 }
 
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {

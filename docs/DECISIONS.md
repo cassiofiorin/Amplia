@@ -2350,3 +2350,22 @@ vai para as tags**. Por isso o grupo novo fica separado, abaixo do Replay Gain:
   mostrada quando a leitura de `TKEY` entrar.
 - `tools/preview.cpp --fileinfo` passou a renderizar o diálogo com valores de amostra (o alvo
   ganhou `src/ui/file_info_dialog.cpp` e `wamp-tags`), para conferir o desenho sem arquivo.
+
+## D-112 — Biblioteca com menu "Opções" e sempre-no-topo fora do app
+
+Duas correções de desenho que vieram do uso:
+
+- **Menus em vez de botões no rodapé da Biblioteca**: *Adicionar pasta…*, *Atualizar*,
+  *Remover selecionadas* (Delete) e *Limpar biblioteca…* passaram para um `QMenuBar` com o
+  menu **Opções**, como a janela principal. O rodapé ficou com o resumo e as ações de uso
+  imediato (Tocar, Enfileirar). Botão de manutenção no rodapé parecia convite para clicar,
+  além de competir por largura com o resumo da coleção.
+- **"Sempre no topo" saiu do Amplia**: manter a janela acima é regra do gerenciador de
+  janelas (KWin), não do player. Havia dois donos para o mesmo estado — o menu do app e o
+  menu do compositor — e o app reaplicava o valor salvo na abertura, desfazendo qualquer
+  ajuste feito no KWin. Some o item de menu, a chave `window/alwaysOnTop` e a reaplicação no
+  `loadSettings`. Usar o menu do título (Manter acima) ou uma regra de janela do KWin.
+- **Varredura da biblioteca sem a janela aberta**: `rescanLibrary()` exigia `library_`
+  existir e por isso "não varria nada" quando chamada pela linha de comando ou por um
+  atalho sem a Biblioteca aberta; agora relê as raízes do banco e só atualiza a interface
+  se ela estiver aberta.
