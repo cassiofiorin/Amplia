@@ -236,6 +236,9 @@ class MainWindow final : public QMainWindow {
   /// Rádio local: escolhe 20 faixas a partir da semente (faixa tocando, senão a indicada)
   /// e enfileira no fim da playlist — nunca substitui a lista do usuário.
   void startRadioStation(const QString& seedPath);
+
+  /// Registra pulo quando a faixa atual é interrompida cedo (ver D-116).
+  void recordSkipIfEarly(std::size_t nextIndex);
   QString rowLabel(const std::string& path, bool current) const;
   QString durationText(const std::string& path) const;
   void startReading();

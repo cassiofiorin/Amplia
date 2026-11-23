@@ -2075,6 +2075,7 @@ void MainWindow::shuffleList() {
 void MainWindow::playIndex(std::size_t index) {
   const std::size_t total = playlist_->size();
   if (index >= total) return;
+  recordSkipIfEarly(index);
   // Pula as que não existem: no máximo uma volta na lista, para não girar para sempre.
   for (std::size_t tentativa = 0; tentativa < total; ++tentativa) {
     const std::size_t atual = (index + tentativa) % total;
@@ -4092,6 +4093,39 @@ void MainWindow::addLibraryFolder() {
   }
   rescanLibrary();
   statusBar()->showMessage(tr("%1 faixa(s) na biblioteca").arg(files.size()), 6000);
+}
+
+void MainWindow::recordSkipIfEarly(std::size_t nextIndex) {
+  if (cache_ == nullptr || playlist_ == nullptr || engine_ == nullptr) return;
+  const std::size_t current = playlist_->currentIndex();
+  const std::vector<std::string>& items = playlist_->items();
+  if (current >= items.size() || current == nextIndex) return;
+  // Só conta pulo se a faixa começou e foi interrompida cedo: parar, terminar ou pular
+  // de uma faixa que já estava no fim não são recusa.
+  const std::int64_t position = engine_->positionMs();
+  const bool playing = engine_->state() == wamp::PlaybackState::Playing ||
+                       engine_->state() == wamp::PlaybackState::Paused;
+  if (!playing || position <= 0 || position >= 30000) return;
+
+  const std::string& path = items.at(current);
+  wamp::RadioContext context;
+  wamp::TrackInfo info;
+  if (cache_->lookupFast(path, &info)) {
+    context.genre = info.genre;
+    context.artist = info.artist;
+  }
+  float bpm = 0.0f;
+  int keyPc = -1;
+  int keyMajor = 0;
+  bool analysed = false;
+  if (cache_->analysisFor(path, &bpm, &keyPc, &keyMajor, &analysed) && analysed) {
+    context.bpmBucket = wamp::radioBpmBucket(bpm);
+    context.keyCamelot = wamp::radioCamelot(keyPc, keyMajor);
+  } else if (info.bpmTag > 0.0f) {
+    context.bpmBucket = wamp::radioBpmBucket(info.bpmTag);
+    context.keyCamelot = wamp::radioCamelot(info.keyPcTag, info.keyMajorTag);
+  }
+  cache_->recordRadioEvent(path, 0, context);
 }
 
 void MainWindow::startRadioStation(const QString& seedPath) {
