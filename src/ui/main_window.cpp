@@ -48,6 +48,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QLocale>
 #include <QMenu>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -3885,12 +3886,25 @@ QString MainWindow::librarySummary(const std::vector<wamp::LibraryEntry>& rows) 
     totalBytes += entry.info.fileSize;
   }
   const qint64 seconds = totalMs / 1000;
-  const QString time = QStringLiteral("%1h %2min").arg(seconds / 3600).arg((seconds % 3600) / 60);
+  const qint64 hours = seconds / 3600;
+  const qint64 minutes = (seconds % 3600) / 60;
+  QString time = tr("%1h %2min").arg(hours).arg(minutes);
+  // Coleção grande fica mais legível em dias: "49h 34min (2 dias e 1h)".
+  if (hours >= 24) {
+    const qint64 days = hours / 24;
+    const qint64 restHours = hours % 24;
+    const QString daysPart = days == 1 ? tr("1 dia") : tr("%1 dias").arg(days);
+    time += restHours == 0 ? tr(" (%1)").arg(daysPart)
+                           : tr(" (%1 e %2h)").arg(daysPart).arg(restHours);
+  }
+  // Unidade acompanha a grandeza: acima de 1 GB o número em MB perde legibilidade.
   const double megabytes = static_cast<double>(totalBytes) / (1024.0 * 1024.0);
-  QString summary = tr("%1 faixa(s) — %2 — %3 MB")
-                        .arg(rows.size())
-                        .arg(time)
-                        .arg(QString::number(megabytes, 'f', megabytes >= 1024 ? 0 : 1));
+  const bool useGigabytes = megabytes >= 1024.0;
+  const double size = useGigabytes ? megabytes / 1024.0 : megabytes;
+  const QString sizeText = useGigabytes
+                               ? tr("%1 GB").arg(QLocale().toString(size, 'f', size >= 10.0 ? 0 : 1))
+                               : tr("%1 MB").arg(QLocale().toString(size, 'f', useGigabytes ? 0 : 1));
+  QString summary = tr("%1 faixa(s) — %2 — %3").arg(rows.size()).arg(time).arg(sizeText);
   // Progresso da análise local (BPM/tonalidade): só aparece quando há o que mostrar.
   if (cache_ != nullptr) {
     std::string error;

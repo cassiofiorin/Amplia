@@ -2394,3 +2394,11 @@ Duas correções de desenho que vieram do uso:
 - Verificação: ETA medido numa reindexação de 1.500 faixas (`330/1500 — faltam 1 min`);
   painel com `0 de 7650 analisadas (0%)` e a dica dos 40; ✔ conferido nas Preferências com o
   tema grafite (fundo âmbar, marca escura).
+
+## D-114 — Rodapé da Biblioteca: dias e GB
+
+- **Tempo** continua em horas/minutos, com os dias entre parênteses quando passa de 24 h:
+  `515h 42min (21 dias e 11h)`. Fora dos parênteses fica o número exato (horas), porque é
+  dele que se precisa ao comparar coleções; os dias dão a escala.
+- **Tamanho** troca de unidade acima de 1 GB (`63 GB` em vez de `64531 MB`), com uma casa
+  decimal abaixo de 10 GB. Formatação por `QLocale()` para usar a vírgula decimal do idioma.
