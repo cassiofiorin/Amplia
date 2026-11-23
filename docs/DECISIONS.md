@@ -2288,3 +2288,19 @@ comportamento de "remover" foi escolhido para não brigar com a varredura.
   faixas e marcadores). O fluxo das três janelas é modal e depende de interação — fica para
   conferência manual, porque a sessão de teste não consegue injetar teclado (o KDE pede
   autorização de "controle remoto" para o xdotool).
+
+## D-109 — Release Candidate 1 publicada como Flatpak
+
+O marco de "primeira build instalável" foi fechado em `v0.1.0-rc1`: README com a versão e o
+estado, tag anotada, e o binário publicado em Releases.
+
+- **Pacote**: `flatpak build-export --arch=x86_64 <repo> <builddir> master` (o ramo é o
+  terceiro argumento — passar o app-id ali cria um ramo com esse nome e o `build-bundle`
+  depois não acha `master`) e `flatpak build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo`.
+  O `--runtime-repo` é o que faz o `flatpak install` buscar o `org.kde.Platform//6.10` sozinho.
+- **Validação**: instalar o `.flatpak` com `flatpak install --user --reinstall` antes de
+  publicar; é o teste que pega manifesto incompleto.
+- **Release**: criada como *pre-release* (`prerelease: true`) porque a F3 ainda não está
+  completa (falta incremental, filtros e capa). O asset tem ~21 MB.
+- O que fica de fora do escopo declarado: skins `.wsz`, plugins `.so`, auto-tag e análise
+  local (próximas etapas).
