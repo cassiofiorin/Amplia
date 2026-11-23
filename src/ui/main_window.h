@@ -248,9 +248,18 @@ class MainWindow final : public QMainWindow {
     std::string seed;
   };
   std::vector<QueueEntry> pathQueue_;
+  QWidget* queuePanel_ = nullptr;
+  QLabel* queueHeader_ = nullptr;
+  QListWidget* queueList_ = nullptr;
+  QPushButton* queueToggle_ = nullptr;
+  bool queuePanelUserHidden_ = false;
 
   /// Acrescenta à fila (sem tocar na playlist) e atualiza o bloco/contagem.
   void enqueuePaths(const QStringList& paths, int origin, const std::string& seed = {});
+
+  /// Bloco "Na fila": mostra/esconde e redesenha a partir de pathQueue_.
+  void toggleQueuePanel();
+  void refreshQueuePanel();
   QString rowLabel(const std::string& path, bool current) const;
   QString durationText(const std::string& path) const;
   void startReading();

@@ -934,6 +934,23 @@ void MainWindow::buildUi() {
   });
   panelLayout->addWidget(list_, 1);
 
+  // Fila própria: fica abaixo da lista, escondida quando vazia. É a única lista de "o que
+  // toca depois" — as marcas numéricas antigas na playlist foram aposentadas (D-117).
+  queuePanel_ = new QWidget(playlistPanel_);
+  auto* queueLayout = new QVBoxLayout(queuePanel_);
+  queueLayout->setContentsMargins(0, 4, 0, 0);
+  queueLayout->setSpacing(2);
+  queueHeader_ = new QLabel(tr("Na fila (0)"), queuePanel_);
+  queueHeader_->setObjectName(QStringLiteral("queueHeader"));
+  queueLayout->addWidget(queueHeader_);
+  queueList_ = new QListWidget(queuePanel_);
+  queueList_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  queueList_->setSelectionMode(QAbstractItemView::SingleSelection);
+  queueList_->setMaximumHeight(96);
+  queueLayout->addWidget(queueList_);
+  queuePanel_->hide();
+  panelLayout->addWidget(queuePanel_);
+
   // Ações com atalho vivem num lugar só: dois QAction com o mesmo atalho fariam o Qt
   // reclamar de atalho ambíguo. Topo e rodapé apontam para as mesmas instâncias.
   actNewPlaylist_ = new QAction(tr("Nova playlist"), this);
@@ -1038,8 +1055,18 @@ void MainWindow::buildUi() {
   connect(queueButton, &QPushButton::clicked, this, &MainWindow::queueSelected);
   panelButtons->addWidget(queueButton);
 
+  queueToggle_ = new QPushButton(tr("Fila (0) ⌄"), playlistPanel_);
+  queueToggle_->setToolTip(tr("Ver ou esconder a fila (Ctrl+Shift+Q)"));
+  connect(queueToggle_, &QPushButton::clicked, this, &MainWindow::toggleQueuePanel);
+  panelButtons->addWidget(queueToggle_);
+
   panelButtons->addStretch(1);
   panelLayout->addLayout(panelButtons);
+
+  auto* queueShortcut = new QAction(this);
+  queueShortcut->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+Q")));
+  connect(queueShortcut, &QAction::triggered, this, &MainWindow::toggleQueuePanel);
+  addAction(queueShortcut);
 
   setCentralWidget(central);
 
@@ -3691,11 +3718,52 @@ void MainWindow::showPlaylist(bool visible) {
   setPlaylistVisible(visible);
 }
 
+void MainWindow::toggleQueuePanel() {
+  if (queuePanel_ == nullptr) return;
+  queuePanelUserHidden_ = queuePanel_->isVisible();
+  queuePanel_->setVisible(!queuePanelUserHidden_);
+  refreshQueuePanel();
+}
+
+void MainWindow::refreshQueuePanel() {
+  if (queueList_ == nullptr || queueHeader_ == nullptr) return;
+  queueList_->clear();
+  for (std::size_t i = 0; i < pathQueue_.size(); ++i) {
+    const QueueEntry& entry = pathQueue_[i];
+    QString title = QString::fromStdString(entry.path).section(QLatin1Char('/'), -1);
+    wamp::TrackInfo info;
+    if (cache_ != nullptr && cache_->lookupFast(entry.path, &info)) {
+      const QString name = QString::fromStdString(info.title);
+      const QString artist = QString::fromStdString(info.artist);
+      if (!name.isEmpty()) {
+        title = artist.isEmpty() ? name : artist + QStringLiteral(" — ") + name;
+      }
+    }
+    const QString origin = entry.origin == 2 ? tr("RÁDIO")
+                          : entry.origin == 1 ? tr("BIBLIOTECA")
+                                              : tr("PLAYLIST");
+    const qint64 seconds = info.durationMs / 1000;
+    const QString duration = QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+    queueList_->addItem(tr("%1 · %2 · %3 · %4")
+                            .arg(i + 1)
+                            .arg(title, origin, duration));
+  }
+  queueHeader_->setText(tr("Na fila (%1)").arg(pathQueue_.size()));
+  if (queueToggle_ != nullptr) {
+    queueToggle_->setText(queuePanel_->isVisible()
+                              ? tr("Fila (%1) ⌃").arg(pathQueue_.size())
+                              : tr("Fila (%1) ⌄").arg(pathQueue_.size()));
+    queueToggle_->setEnabled(!pathQueue_.empty());
+  }
+  if (pathQueue_.empty()) queuePanel_->hide();
+}
+
 void MainWindow::enqueuePaths(const QStringList& paths, int origin, const std::string& seed) {
   for (const QString& path : paths) {
     if (path.isEmpty()) continue;
     pathQueue_.push_back({path.toStdString(), origin, seed});
   }
+  refreshQueuePanel();
   statusBar()->showMessage(tr("%1 faixa(s) na fila").arg(pathQueue_.size()), 3000);
 }
 
