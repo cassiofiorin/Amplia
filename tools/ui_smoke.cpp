@@ -8,10 +8,12 @@
 #include "equalizer_dialog.h"
 
 #include "wamp/eq_preset.h"
+#include "wamp/tag_cache.h"
 
 #include <cmath>
 
 #include <QDir>
+#include <QTemporaryDir>
 #include <QFile>
 #include "format_support.h"
 
@@ -519,6 +521,32 @@ int main(int argc, char** argv) {
       QApplication::sendEvent(&panel, &click);
     }
     check(eq == 1 && rep == 1 && rnd == 1, "pílulas EQ/REP/RAND respondem ao clique");
+  }
+
+  // Biblioteca: remover guarda o marcador (a varredura não traz de volta) e limpar
+  // apaga tudo, inclusive os marcadores.
+  {
+    QTemporaryDir dir;
+    std::string error;
+    const QString file = dir.filePath(QStringLiteral("library.sqlite"));
+    wamp::TagCache cache(file.toStdString());
+    const bool opened = cache.open(&error);
+    check(opened, "cache da biblioteca abre no banco temporário");
+    if (opened) {
+      const std::string path = "/tmp/ui-smoke-track.mp3";
+      wamp::TrackInfo info;
+      info.path = path;
+      info.title = "Faixa de teste";
+      cache.store(info);
+      const std::size_t removed = cache.forgetTracks({path}, &error);
+      check(removed == 1, "remover tira a faixa da biblioteca");
+      const auto ignored = cache.ignoredPaths(&error);
+      check(ignored.size() == 1 && ignored.front() == path, "remover grava o marcador de ignorado");
+      cache.store(info);
+      check(cache.clearLibrary(&error), "limpar biblioteca responde ok");
+      check(cache.allPaths(&error).empty() && cache.ignoredPaths(&error).empty(),
+            "limpar apaga faixas e marcadores");
+    }
   }
 
   return failures == 0 ? 0 : 1;

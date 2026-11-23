@@ -60,8 +60,9 @@ add_executable(wamp-ui-smoke
   ${CMAKE_SOURCE_DIR}/src/ui/jump_dialog.h
 )
 
-target_include_directories(wamp-ui-smoke PRIVATE ${CMAKE_SOURCE_DIR}/src/ui)
-target_link_libraries(wamp-ui-smoke PRIVATE wamp-core wamp-scrobble Qt6::Widgets)
+target_include_directories(wamp-ui-smoke PRIVATE ${CMAKE_SOURCE_DIR}/src/ui
+                                                  ${CMAKE_SOURCE_DIR}/src/library/include)
+target_link_libraries(wamp-ui-smoke PRIVATE wamp-core wamp-library wamp-scrobble Qt6::Widgets)
 target_compile_options(wamp-ui-smoke PRIVATE -Wall -Wextra)
 
 set_target_properties(wamp-ui-smoke PROPERTIES OUTPUT_NAME amplia-ui-smoke)

@@ -8,6 +8,7 @@ add_executable(wamp
   equalizer_dialog.cpp
   eq_curve_view.cpp
   library_window.cpp
+  confirm_dialog.cpp
   library_window.h
   icons.cpp
   round_button.cpp

@@ -46,6 +46,13 @@ class LibraryWindow final : public QWidget {
   void enqueueSelectionRequested(const QStringList& paths);
   /// Clique na coluna de nota: 0 limpa, 1–5 grava.
   void ratingRequested(const QString& path, int rating);
+  /// Delete na tabela: a MainWindow confirma em três camadas e tira da biblioteca.
+  void removeRequested(const QStringList& paths);
+  /// "Limpar biblioteca…": confirmação em três camadas e apaga tudo.
+  void clearRequested();
+
+ protected:
+  bool eventFilter(QObject* watched, QEvent* event) override;
 
  private:
   void updateButtons();
@@ -58,6 +65,7 @@ class LibraryWindow final : public QWidget {
   QLabel* status_ = nullptr;
   QPushButton* playButton_ = nullptr;
   QPushButton* queueButton_ = nullptr;
+  QPushButton* removeButton_ = nullptr;
 };
 
 }  // namespace wamp::ui

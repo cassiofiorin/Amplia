@@ -226,6 +226,8 @@ class MainWindow final : public QMainWindow {
   void openLibrary();
   void refreshLibrary();
   QString librarySummary(const std::vector<wamp::LibraryEntry>& rows) const;
+  void forgetLibraryTracks(const QStringList& paths);
+  void clearLibrary();
   void rescanLibrary();
   void addLibraryFolder();
   void playFromLibrary(const QString& path);

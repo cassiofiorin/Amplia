@@ -64,6 +64,12 @@ class TagCache final {
   /// Pastas-raiz da biblioteca (as que o usuário mandou importar).
   bool addRoot(const std::string& path, std::string* error);
   bool removeRoot(const std::string& path, std::string* error);
+  /// Tira as faixas da biblioteca (os arquivos ficam) e as marca como ignoradas, para a
+  /// varredura não trazer de volta. Devolve quantas linhas realmente saíram.
+  std::size_t forgetTracks(const std::vector<std::string>& paths, std::string* error);
+  /// Apaga tracks, roots, scan_queue e a lista de ignorados.
+  bool clearLibrary(std::string* error);
+  std::vector<std::string> ignoredPaths(std::string* error);
   std::vector<std::string> roots(std::string* error);
 
   /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e

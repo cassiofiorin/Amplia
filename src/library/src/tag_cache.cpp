@@ -69,6 +69,11 @@ bool TagCache::ensureSchema(std::string* error) {
       "CREATE TABLE IF NOT EXISTS roots (path TEXT PRIMARY KEY);"
       "CREATE TABLE IF NOT EXISTS scan_queue ("
       " path TEXT PRIMARY KEY, added_at INTEGER NOT NULL"
+      ");"
+      // Removido da biblioteca pelo usuário: a varredura respeita esta lista, senão a
+      // faixa voltaria no próximo Atualizar e pareceria que a remoção não funcionou.
+      "CREATE TABLE IF NOT EXISTS ignored ("
+      " path TEXT PRIMARY KEY, ignored_at INTEGER NOT NULL"
       ");";
   char* message = nullptr;
   if (sqlite3_exec(db_, schema, nullptr, nullptr, &message) != SQLITE_OK) {
@@ -188,6 +193,86 @@ bool TagCache::addRoot(const std::string& path, std::string* error) {
   sqlite3_finalize(statement);
   if (rc != SQLITE_DONE) { if (error) *error = sqlite3_errmsg(db_); return false; }
   return true;
+}
+
+std::size_t TagCache::forgetTracks(const std::vector<std::string>& paths, std::string* error) {
+  // Fecha a transação de gravação pendente (a varredura pode estar no meio de um lote):
+  // sem isso o BEGIN abaixo falha e a remoção não acontece.
+  flush();
+  if (db_ == nullptr) {
+    if (error) *error = "banco fechado";
+    return 0;
+  }
+  if (paths.empty()) return 0;
+  char* message = nullptr;
+  if (sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, &message) != SQLITE_OK) {
+    if (error) *error = message != nullptr ? message : "falha ao abrir transacao";
+    sqlite3_free(message);
+    return 0;
+  }
+  sqlite3_stmt* drop = nullptr;
+  sqlite3_stmt* keep = nullptr;
+  sqlite3_prepare_v2(db_, "DELETE FROM tracks WHERE path = ?;", -1, &drop, nullptr);
+  sqlite3_prepare_v2(db_, "INSERT OR REPLACE INTO ignored (path, ignored_at) VALUES (?1, strftime('%s','now'));",
+                     -1, &keep, nullptr);
+  std::size_t removed = 0;
+  for (const auto& path : paths) {
+    bindText(drop, 1, path);
+    if (sqlite3_step(drop) == SQLITE_DONE && sqlite3_changes(db_) > 0) ++removed;
+    sqlite3_reset(drop);
+    bindText(keep, 1, path);
+    sqlite3_step(keep);
+    sqlite3_reset(keep);
+  }
+  sqlite3_finalize(drop);
+  sqlite3_finalize(keep);
+  if (sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, &message) != SQLITE_OK) {
+    if (error) *error = message != nullptr ? message : "falha ao confirmar";
+    sqlite3_free(message);
+    return 0;
+  }
+  return removed;
+}
+
+bool TagCache::clearLibrary(std::string* error) {
+  flush();
+  if (db_ == nullptr) {
+    if (error) *error = "banco fechado";
+    return false;
+  }
+  char* message = nullptr;
+  const char* sql =
+      "BEGIN;"
+      "DELETE FROM tracks;"
+      "DELETE FROM roots;"
+      "DELETE FROM scan_queue;"
+      "DELETE FROM ignored;"
+      "COMMIT;";
+  if (sqlite3_exec(db_, sql, nullptr, nullptr, &message) != SQLITE_OK) {
+    if (error) *error = message != nullptr ? message : "falha ao limpar";
+    sqlite3_free(message);
+    return false;
+  }
+  return true;
+}
+
+std::vector<std::string> TagCache::ignoredPaths(std::string* error) {
+  std::vector<std::string> result;
+  if (db_ == nullptr) {
+    if (error) *error = "banco fechado";
+    return result;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT path FROM ignored;", -1, &statement, nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return result;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    const unsigned char* text = sqlite3_column_text(statement, 0);
+    if (text != nullptr) result.emplace_back(reinterpret_cast<const char*>(text));
+  }
+  sqlite3_finalize(statement);
+  return result;
 }
 
 bool TagCache::removeRoot(const std::string& path, std::string* error) {

@@ -2,7 +2,9 @@
 
 #include <QCursor>
 #include <QHeaderView>
+#include <QEvent>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -117,6 +119,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->setAlternatingRowColors(true);
   table_->horizontalHeader()->setStretchLastSection(false);
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+  table_->installEventFilter(this);
   rightLayout->addWidget(table_, 1);
 
   auto* footer = new QHBoxLayout();
@@ -125,12 +128,23 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   footer->addWidget(summary_, 1);
   playButton_ = new QPushButton(tr("Tocar"), right);
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
+  removeButton_ = new QPushButton(tr("Remover"), right);
+  removeButton_->setToolTip(tr("Tirar as faixas selecionadas da biblioteca (Delete)"));
+  removeButton_->setEnabled(false);
   auto* addFolder = new QPushButton(tr("Adicionar pasta…"), right);
   auto* refresh = new QPushButton(tr("Atualizar"), right);
+  auto* clearLibrary = new QPushButton(tr("Limpar biblioteca…"), right);
   footer->addWidget(playButton_);
   footer->addWidget(queueButton_);
+  footer->addWidget(removeButton_);
   footer->addWidget(addFolder);
   footer->addWidget(refresh);
+  footer->addWidget(clearLibrary);
+  connect(removeButton_, &QPushButton::clicked, this, [this] {
+    const QStringList paths = selectedPaths();
+    if (!paths.isEmpty()) emit removeRequested(paths);
+  });
+  connect(clearLibrary, &QPushButton::clicked, this, &LibraryWindow::clearRequested);
   rightLayout->addLayout(footer);
 
   status_ = new QLabel(right);
@@ -295,6 +309,25 @@ void LibraryWindow::updateButtons() {
   const bool has = !selectedPaths().isEmpty();
   playButton_->setEnabled(has);
   queueButton_->setEnabled(has);
+  if (removeButton_ != nullptr) removeButton_->setEnabled(has);
+}
+
+bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == table_ && event->type() == QEvent::KeyPress) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    // Ctrl+A seleciona tudo: antes o atalho estava preso ao "Sempre no topo" na janela
+    // principal e a lista nunca recebia a tecla.
+    if (key->key() == Qt::Key_A && key->modifiers().testFlag(Qt::ControlModifier)) {
+      table_->selectAll();
+      return true;
+    }
+    if (key->key() == Qt::Key_Delete) {
+      const QStringList paths = selectedPaths();
+      if (!paths.isEmpty()) emit removeRequested(paths);
+      return true;
+    }
+  }
+  return QWidget::eventFilter(watched, event);
 }
 
 }  // namespace wamp::ui

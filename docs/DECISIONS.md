@@ -2258,3 +2258,33 @@ usuário via era "o player congela ao apertar pause".
   é aceitável (o usuário pediu troca de posição/faixa) e bem diferente de travar o
   play/pause. A solução completa é o decoder pertencer à thread de controle, com fila de
   comandos; fica registrada como evolução, não como pendência desta fatia.
+
+## D-108 — Remover da biblioteca, limpar e o Ctrl+A que não era da lista
+
+A Biblioteca ganhou as ações que faltavam para ser usável com o acervo grande, e o
+comportamento de "remover" foi escolhido para não brigar com a varredura.
+
+- **Remover = marcar como ignorada**: `TagCache::forgetTracks(paths)` apaga a linha de
+  `tracks` e grava o caminho em `ignored (path, ignored_at)` na mesma transação. A varredura
+  consulta `ignoredPaths()` e **pula** o arquivo — sem isso a faixa voltava no próximo
+  "Atualizar" e parecia que a remoção não funcionou. O arquivo no disco não é tocado.
+- **Limpar biblioteca** (`TagCache::clearLibrary`) apaga `tracks`, `roots`, `scan_queue` e
+  `ignored`, ou seja, volta ao estado de primeira execução.
+- As duas funções chamam `flush()` antes de abrir transação: a gravação de metadados mantém
+  uma transação aberta por lote, e o `BEGIN` aninhado falhava com "cannot start a
+  transaction within a transaction" (o teste do `ui_smoke` pegou isso).
+- **Três confirmações** (`src/ui/confirm_dialog.cpp`, `confirmDestructive`): a primeira com
+  botão padrão "Continuar" (Enter resolve), a segunda **1,5× maior e sem botão padrão** (Enter
+  não faz nada; é preciso tabular até o botão) e a terceira **1,25×**, sem padrão e com o
+  botão de prosseguir **desabilitado por 700 ms**. Escape cancela em qualquer camada. A ideia
+  é que o "clicar duas vezes rápido" ou "Enter, Enter" não destrua nada.
+- **Ctrl+A e Delete dentro da Biblioteca**: `LibraryWindow::eventFilter` trata `Ctrl+A`
+  (selecionar tudo) e `Delete` (remover seleção) na tabela. O `Ctrl+A` estava preso ao
+  "Sempre no topo" da janela principal — atalho que o usuário pediu para remover, porque
+  isso é função do gerenciador de janelas (Wayland/KWin), não do player.
+- Botões no rodapé: **Remover** (habilita com seleção), **Limpar biblioteca…**, além de
+  Adicionar pasta…/Atualizar.
+- Verificação: `ui_smoke` cobre o banco (remover tira a linha, grava o marcador; limpar apaga
+  faixas e marcadores). O fluxo das três janelas é modal e depende de interação — fica para
+  conferência manual, porque a sessão de teste não consegue injetar teclado (o KDE pede
+  autorização de "controle remoto" para o xdotool).

@@ -200,6 +200,7 @@ void warnAboutNetworkDrop(QWidget* parent, const QList<QUrl>& urls, int rejected
 
 #include "file_info_dialog.h"
 #include "jump_dialog.h"
+#include "confirm_dialog.h"
 #include "library_window.h"
 #include "playlist_delegate.h"
 #include "preferences_dialog.h"
@@ -1426,7 +1427,9 @@ void MainWindow::buildMenus() {
 
   alwaysOnTopAction_ = new QAction(tr("Sempre no topo"), this);
   alwaysOnTopAction_->setCheckable(true);
-  alwaysOnTopAction_->setShortcut(QKeySequence(QStringLiteral("Ctrl+A")));
+  // Sem atalho: Ctrl+A é "selecionar tudo" nas listas, e manter-no-topo é caso de
+  // gerenciador de janelas (regra do KWin), não de tecla do player.
+  alwaysOnTopAction_->setShortcut(QKeySequence());
   connect(alwaysOnTopAction_, &QAction::toggled, this, [this](bool on) {
     alwaysOnTop_ = on;
     setWindowFlag(Qt::WindowStaysOnTopHint, on);
@@ -3817,6 +3820,10 @@ void MainWindow::openLibrary() {
               cache_->flush();
               refreshLibrary();
             });
+    connect(library_.get(), &wamp::ui::LibraryWindow::removeRequested, this,
+            &MainWindow::forgetLibraryTracks);
+    connect(library_.get(), &wamp::ui::LibraryWindow::clearRequested, this,
+            &MainWindow::clearLibrary);
     connect(library_.get(), &wamp::ui::LibraryWindow::enqueueSelectionRequested, this,
             [this](const QStringList& paths) {
               if (paths.isEmpty()) return;
@@ -3892,6 +3899,52 @@ void MainWindow::refreshLibrary() {
   updateMetadataStatus();
 }
 
+void MainWindow::forgetLibraryTracks(const QStringList& paths) {
+  if (!library_ || cache_ == nullptr || paths.isEmpty()) return;
+  const int count = paths.size();
+  if (!wamp::ui::confirmDestructive(
+          library_.get(), tr("Remover da biblioteca"),
+          tr("Tirar %n faixa(s) da biblioteca?\n\nOs arquivos continuam no disco.", nullptr, count),
+          tr("A remoção é permanente para esta biblioteca: essas faixas não voltam na próxima "
+             "varredura. Para trazê-las de novo, use “Adicionar pasta…” na pasta delas."),
+          tr("Remover"))) {
+    return;
+  }
+  std::vector<std::string> list;
+  list.reserve(static_cast<std::size_t>(count));
+  for (const QString& path : paths) list.push_back(path.toStdString());
+  std::string error;
+  const std::size_t removed = cache_->forgetTracks(list, &error);
+  cache_->flush();
+  refreshLibrary();
+  statusBar()->showMessage(
+      removed == 0 ? tr("Nada foi removido (%1)").arg(QString::fromStdString(error))
+                   : tr("%1 faixa(s) fora da biblioteca (os arquivos ficaram)").arg(removed),
+      5000);
+}
+
+void MainWindow::clearLibrary() {
+  if (!library_ || cache_ == nullptr) return;
+  std::string error;
+  const auto rows = cache_->queryLibrary(wamp::LibraryView::All, std::string(), 3, &error);
+  if (!wamp::ui::confirmDestructive(
+          library_.get(), tr("Limpar biblioteca"),
+          tr("Apagar a biblioteca inteira (%n faixa(s))?", nullptr, static_cast<int>(rows.size())),
+          tr("Isto é permanente: o índice, as pastas registradas e a fila de indexação serão "
+             "apagados. Os arquivos de música não são tocados."),
+          tr("Limpar"))) {
+    return;
+  }
+  if (!cache_->clearLibrary(&error)) {
+    statusBar()->showMessage(tr("Não foi possível limpar: %1").arg(QString::fromStdString(error)),
+                             6000);
+    return;
+  }
+  cache_->flush();
+  refreshLibrary();
+  statusBar()->showMessage(tr("Biblioteca limpa — adicione uma pasta para começar de novo"), 6000);
+}
+
 void MainWindow::rescanLibrary() {
   if (!library_ || !cache_ || scanner_ == nullptr) return;
 
@@ -3900,12 +3953,16 @@ void MainWindow::rescanLibrary() {
 
   std::string error;
   std::vector<std::string> missing;
+  // Removidas pelo usuário: não voltam na varredura (D-108).
+  const auto ignoredPaths = cache_->ignoredPaths(&error);
+  const std::set<std::string> ignored(ignoredPaths.begin(), ignoredPaths.end());
   for (const auto& root : cache_->roots(&error)) {
     int folders = 0;
-    int ignored = 0;
-    const QStringList files = expandAudioPaths({QString::fromStdString(root)}, &folders, &ignored);
+    int skipped = 0;
+    const QStringList files = expandAudioPaths({QString::fromStdString(root)}, &folders, &skipped);
     for (const QString& file : files) {
       const std::string path = file.toStdString();
+      if (ignored.count(path) > 0) continue;
       wamp::TrackInfo info;
       if (!cache_->lookupFast(path, &info)) missing.push_back(path);
     }
