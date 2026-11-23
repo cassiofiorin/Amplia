@@ -2174,3 +2174,25 @@ Junto: **ajuste ao mínimo antes de mostrar** — uma geometria salva por uma ve
 (507 px) era menor que o novo mínimo (514 px), então a janela crescia no `showEvent` e o
 gerenciador podia reposicioná-la; agora o `resize` ao mínimo acontece ainda no
 `loadSettings`, mantendo o canto.
+
+## D-104 — Desligar a posição precisa apagar a geometria *depois* do save do restart
+
+O caminho "abrir → desmarcar Guardar a posição → Reiniciar agora → abrir" parecia não
+funcionar: a janela voltava ao mesmo lugar. Eram dois problemas:
+
+- O `persistXwaylandChoice(false)` removia `window/geometry`, `window/playlistGeometry`,
+  `window/libraryGeometry`, `window/posX` e `window/posY`, mas o `restartWithPlatformChange()`
+  chamava `saveSettings()` **logo depois** — e o processo ainda era xcb, então a geometria
+  era regravada na mesma sessão. Resultado: voltar a ligar a opção ressuscitava a posição
+  antiga, e no modo externo parecia que desligar não tinha efeito. Agora existe a marca
+  `forgetGeometry_`, ligada em `persistXwaylandChoice(false)` e desligada ao fim do save do
+  restart: enquanto ela está ativa, `saveSettings()` não grava posição nem geometria.
+- O escape de teste `AMPLIA_TEST_XWAYLAND_DIALOG` era herdado pelo `execv` e rodava de novo a
+  cada sessão quando o valor pedido já era o estado atual, causando laço de reinícios. Passou
+  a comparar com a preferência gravada e a fazer `qunsetenv` antes de reiniciar.
+
+Com a correção, o fluxo de desligar deixa o INI com **zero** chaves de geometria e a sessão
+seguinte reporta `load: plataforma=wayland salva=0 bytes` — não há nada para restaurar. O
+lugar onde a janela aparece depois disso é escolha do compositor, e no KWin o padrão para uma
+janela nova é o centro da tela (`1023,363` nesta máquina), que é justamente onde estava a
+posição salva nos testes — o que fazia a mudança parecer inócua.

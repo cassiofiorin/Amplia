@@ -459,10 +459,19 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   };
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_DIALOG")) {
     const bool value = qEnvironmentVariableIntValue("AMPLIA_TEST_XWAYLAND_DIALOG") != 0;
-    QTimer::singleShot(1500, this, [this, value] {
-      persistXwaylandChoice(value);
-      restartWithPlatformChange();
-    });
+    // O ambiente é herdado pelo execv: sem tirar a variável (e sem comparar com o estado
+    // atual) a sessão nova repetiria o pedido para sempre.
+    const bool current =
+        QSettings(settingsFile(), QSettings::IniFormat)
+            .value(QStringLiteral("window/xwaylandPosition"), false)
+            .toBool();
+    if (current != value) {
+      QTimer::singleShot(1500, this, [this, value] {
+        qunsetenv("AMPLIA_TEST_XWAYLAND_DIALOG");
+        persistXwaylandChoice(value);
+        restartWithPlatformChange();
+      });
+    }
   }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_ON")) {
     QTimer::singleShot(1500, this, [restartWithValue] { restartWithValue(true); });
@@ -3030,12 +3039,16 @@ void MainWindow::persistXwaylandChoice(bool value) {
                             "window/libraryGeometry", "window/posX", "window/posY"}) {
       settings.remove(QLatin1String(key));
     }
+    // O restart logo abaixo dispara um saveSettings(): sem esta marca ele regravaria a
+    // geometria que acabamos de apagar (era o que fazia a opção parecer não funcionar).
+    forgetGeometry_ = true;
   }
   settings.sync();
 }
 
 void MainWindow::restartWithPlatformChange() {
   saveSettings();
+  forgetGeometry_ = false;
   // O processo atual já rodou com a plataforma antiga: só um processo novo relê a INI em
   // main() e escolhe o backend. Limpa a variável que o próprio app pôs, senão o filho
   // herda xcb e a preferência desligada não teria efeito.
@@ -3465,7 +3478,9 @@ void MainWindow::saveSettings() {
               .arg(QGuiApplication::platformName())
               .arg(windowPositionSupported() ? 1 : 0)
               .arg(isMaximized() ? 1 : 0));
-  if (windowPositionSupported() && !isMaximized() && !isFullScreen()) {
+  if (forgetGeometry_) {
+    // A opção acabou de ser desligada: nada de geometria nesta sessão.
+  } else if (windowPositionSupported() && !isMaximized() && !isFullScreen()) {
     if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
       qInfo("save: gravando posição %d,%d %dx%d", this->x(), this->y(), this->width(),
             this->height());

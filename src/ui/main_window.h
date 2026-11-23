@@ -340,6 +340,9 @@ class MainWindow final : public QMainWindow {
   /// 0 = desligado, 1 = por faixa, 2 = por álbum.
   int replayGainMode_ = 0;
   bool settingsLoaded_ = false;
+  // Verdadeiro entre "desligar a posição" e o restart: o save que o restart dispara não
+  // pode regravar a geometria que a opção acabou de apagar.
+  bool forgetGeometry_ = false;
   // Estado da playlist no momento de fechar: a janela auxiliar é fechada ANTES de
   // salvar, então ler isVisible() ali sempre daria false.
   bool playlistOpenAtExit_ = false;
