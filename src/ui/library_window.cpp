@@ -194,8 +194,8 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
   // A estação é uma coisa viva: o botão gera as próximas a partir da faixa tocando (ou da
   // selecionada), em vez de tocar só a lista visível.
-  stationButton_ = new QPushButton(tr("Tocar essa estação local"), right);
-  stationButton_->setToolTip(tr("Gera uma fila a partir do que está tocando (ou da faixa selecionada)."));
+  stationButton_ = new QPushButton(tr("Tocar estação dessa música"), right);
+  stationButton_->setToolTip(tr("Enfileira uma estação a partir desta música (ou da que está tocando)."));
   connect(stationButton_, &QPushButton::clicked, this, [this] {
     QString selected;
     const int row = table_->currentRow();
