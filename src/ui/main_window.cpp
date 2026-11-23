@@ -2832,7 +2832,7 @@ void MainWindow::onTrackEnded() {
   // Fila própria primeiro: quando ela esvazia, a reprodução volta à playlist (decisão
   // tomada com o usuário — "seguir para a playlist carregada").
   if (!pathQueue_.empty()) {
-    const std::string next = pathQueue_.front();
+    const std::string next = pathQueue_.front().path;
     pathQueue_.erase(pathQueue_.begin());
     if (openPath(QString::fromStdString(next))) return;
   }
@@ -3691,6 +3691,14 @@ void MainWindow::showPlaylist(bool visible) {
   setPlaylistVisible(visible);
 }
 
+void MainWindow::enqueuePaths(const QStringList& paths, int origin, const std::string& seed) {
+  for (const QString& path : paths) {
+    if (path.isEmpty()) continue;
+    pathQueue_.push_back({path.toStdString(), origin, seed});
+  }
+  statusBar()->showMessage(tr("%1 faixa(s) na fila").arg(pathQueue_.size()), 3000);
+}
+
 void MainWindow::queueSelected() {
   const QList<QListWidgetItem*> selected = list_->selectedItems();
   if (selected.isEmpty()) return;
@@ -3698,10 +3706,14 @@ void MainWindow::queueSelected() {
   rows.reserve(static_cast<std::size_t>(selected.size()));
   for (QListWidgetItem* item : selected) rows.push_back(list_->row(item));
   std::sort(rows.begin(), rows.end());
-  for (int row : rows) playlist_->enqueue(static_cast<std::size_t>(row));
-  refreshQueue();
+  QStringList paths;
+  for (int row : rows) {
+    if (QListWidgetItem* item = list_->item(row)) {
+      paths.append(item->data(Qt::UserRole).toString());
+    }
+  }
+  enqueuePaths(paths, 0);
   updateNextUp();
-  statusBar()->showMessage(tr("%1 faixas na fila").arg(playlist_->queueSize()), 3000);
 }
 
 void MainWindow::removeSelected() {
@@ -4179,7 +4191,10 @@ void MainWindow::startRadioStation(const QString& seedPath) {
     return;
   }
   // Fila própria: as sugestões não entram na playlist do usuário.
-  pathQueue_.assign(picked.begin() + 1, picked.end());
+  pathQueue_.clear();
+  for (std::size_t i = 1; i < picked.size(); ++i) {
+    pathQueue_.push_back({picked[i], 2, model.path});
+  }
   openPath(QString::fromStdString(picked.front()));
   statusBar()->showMessage(tr("Estação local: %1 faixa(s) a partir de “%2”")
                                .arg(picked.size())

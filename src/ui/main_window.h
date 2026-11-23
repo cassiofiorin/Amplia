@@ -240,8 +240,17 @@ class MainWindow final : public QMainWindow {
   /// Registra pulo quando a faixa atual é interrompida cedo (ver D-116).
   void recordSkipIfEarly(std::size_t nextIndex);
 
-  /// Fila própria (independente da playlist): caminhos a tocar antes de seguir a lista.
-  std::vector<std::string> pathQueue_;
+  /// Uma fila só, alimentada por qualquer origem: playlist (0), biblioteca (1) e
+  /// estação/rádio (2). Os itens não entram na playlist.
+  struct QueueEntry {
+    std::string path;
+    int origin = 0;
+    std::string seed;
+  };
+  std::vector<QueueEntry> pathQueue_;
+
+  /// Acrescenta à fila (sem tocar na playlist) e atualiza o bloco/contagem.
+  void enqueuePaths(const QStringList& paths, int origin, const std::string& seed = {});
   QString rowLabel(const std::string& path, bool current) const;
   QString durationText(const std::string& path) const;
   void startReading();
