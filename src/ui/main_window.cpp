@@ -2920,7 +2920,6 @@ void MainWindow::onTrackEnded() {
 
 void MainWindow::toggleQueue(int row) {
   if (row < 0 || static_cast<std::size_t>(row) >= playlist_->size()) return;
-  const std::size_t index = static_cast<std::size_t>(row);
   if (QListWidgetItem* item = list_->item(row)) {
     enqueuePaths({item->data(Qt::UserRole).toString()}, 0);
   }
@@ -3883,11 +3882,7 @@ void MainWindow::refreshQueue() {
   if (list_ == nullptr) return;
   for (int row = 0; row < list_->count(); ++row) {
     QListWidgetItem* item = list_->item(row);
-    const std::size_t position = playlist_->queuePosition(static_cast<std::size_t>(row));
-    item->setData(kQueueRole, static_cast<int>(position));
-    QString tip = QString::fromStdString(playlist_->at(static_cast<std::size_t>(row)));
-    if (position > 0) tip += tr("\nFila: posição %1").arg(position);
-    item->setToolTip(tip);
+    item->setToolTip(QString::fromStdString(playlist_->at(static_cast<std::size_t>(row))));
   }
   list_->viewport()->update();
 }

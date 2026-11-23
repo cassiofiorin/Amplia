@@ -76,14 +76,7 @@ void PlaylistDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     painter->drawText(durationRect, Qt::AlignRight | Qt::AlignVCenter, duration);
   }
 
-  // Posição na fila, colada na direita.
-  const int queuePos = index.data(kQueueRole).toInt();
-  if (queuePos > 0) {
-    const QRect badge(opt.rect.right() - queueWidth, opt.rect.top(), queueWidth - 4,
-                      opt.rect.height());
-    painter->setPen(selected ? queueColorSelected : queueColorOpt);
-    painter->drawText(badge, Qt::AlignRight | Qt::AlignVCenter, QString::number(queuePos));
-  }
+  // A posição na fila não é mais desenhada aqui: a fila virou lista própria (D-117).
 
   painter->restore();
 }
