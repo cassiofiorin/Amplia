@@ -2829,6 +2829,13 @@ void MainWindow::onTrackEnded() {
     return;
   }
   finishScrobble();
+  // Fila própria primeiro: quando ela esvazia, a reprodução volta à playlist (decisão
+  // tomada com o usuário — "seguir para a playlist carregada").
+  if (!pathQueue_.empty()) {
+    const std::string next = pathQueue_.front();
+    pathQueue_.erase(pathQueue_.begin());
+    if (openPath(QString::fromStdString(next))) return;
+  }
   if (playlist_->empty()) return;
   if (repeatMode_ == 2) {
     // Repetir a faixa: recomeça a mesma, mantendo a sessão de scrobble nova.
@@ -4171,13 +4178,9 @@ void MainWindow::startRadioStation(const QString& seedPath) {
     statusBar()->showMessage(tr("Nenhuma faixa parecida o bastante para a estação"), 4000);
     return;
   }
-  QStringList paths;
-  paths.reserve(static_cast<int>(picked.size()));
-  for (const std::string& path : picked) paths.append(QString::fromStdString(path));
-  addPaths(paths);
-  // Toca a primeira sugestão; o resto fica na fila natural da playlist.
-  const std::size_t first = playlist_->size() - picked.size();
-  playIndex(first);
+  // Fila própria: as sugestões não entram na playlist do usuário.
+  pathQueue_.assign(picked.begin() + 1, picked.end());
+  openPath(QString::fromStdString(picked.front()));
   statusBar()->showMessage(tr("Estação local: %1 faixa(s) a partir de “%2”")
                                .arg(picked.size())
                                .arg(tr("Mix pessoal")), 4000);
