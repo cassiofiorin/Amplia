@@ -2439,3 +2439,24 @@ A primeira rádio não depende de aprendizado: ela usa o que já existe no banco
   **acrescentam** ao fim da playlist — a lista do usuário nunca é substituída.
 - **Pulo** conta quando a faixa começou e saiu antes de 30 s por troca de faixa (Próxima,
   anterior, clique em outra); parar, terminar ou sair nos últimos segundos não contam.
+
+## D-117 — A fila é uma entidade, não uma marca na playlist
+
+A fila antiga marcava a linha da playlist com um número (`kQueueRole`). Isso não serve para o
+que a fila virou: ela recebe itens de três origens diferentes, e um deles pode nem estar na
+playlist.
+
+- **Modelo**: `QueueEntry { path, origin, seed }` e uma lista só (`pathQueue_`), com
+  `enqueuePaths(paths, origin, seed)` como único caminho de entrada. `origin` 0 = playlist,
+  1 = biblioteca, 2 = rádio.
+- **Interface**: bloco "Na fila (N)" abaixo da lista da playlist, com
+  `posição · artista — título · ORIGEM · m:ss`, e botão `Fila (N) ⌄/⌃` ao lado de
+  *Enfileirar* (desabilitado quando vazia). **Ctrl+Shift+Q** abre e fecha (Ctrl+Q é o
+  `QKeySequence::Quit`). `ui/queueVisible` guarda se ficou aberto.
+- **A marca numérica saiu** da playlist e do delegate: com a fila visível, o número na linha
+  virou ruído — a ordem está no bloco.
+- **Remoção é recusa**: apagar um item pela lista (Delete ou menu de contexto) grava
+  `kind=2` em `radio_events` **só quando a origem é rádio**. Alt+clique e "remover da fila"
+  na playlist são ação do usuário, não juízo sobre a escolha da estação.
+- A estação enfileira e o painel abre sozinho, porque é ali que o usuário vê o que vem
+  depois.
