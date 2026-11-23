@@ -23,7 +23,7 @@ class PreferencesDialog final : public QDialog {
  public:
   PreferencesDialog(bool shuffle, int level, bool closeToTray, bool restartOnPlay,
                     bool visualEnabled, int visualFps, double costP95Ms, double cpuPercent,
-                    const QString& playlistMode, bool xwaylandPosition,
+                    const QString& playlistMode, bool xwaylandPosition, bool libraryReopen,
                     const wamp::ScrobbleConfig& scrobble,
                     const QString& language,
                     QWidget* parent = nullptr);
@@ -46,6 +46,9 @@ class PreferencesDialog final : public QDialog {
   /// (janela própria, preparada para o porte de Windows).
   QString playlistMode() const;
   bool xwaylandPosition() const;
+
+  /// Reabrir a Biblioteca quando o Amplia iniciar (D-112).
+  bool libraryReopen() const;
   wamp::ScrobbleConfig scrobbleConfig() const;
 
   /// Idioma escolhido ("sistema", "pt_BR", "en"). Aplicar exige reabrir o app: o Qt não
@@ -73,6 +76,7 @@ class PreferencesDialog final : public QDialog {
   class QComboBox* languageBox_ = nullptr;
   class QComboBox* playlistModeBox_ = nullptr;
   QCheckBox* xwaylandBox_ = nullptr;
+  QCheckBox* libraryReopenBox_ = nullptr;
   QCheckBox* shuffleBox_ = nullptr;
   QCheckBox* trayBox_ = nullptr;
   QCheckBox* restartBox_ = nullptr;

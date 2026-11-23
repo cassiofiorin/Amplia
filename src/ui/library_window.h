@@ -10,6 +10,7 @@
 
 class QLabel;
 class QLineEdit;
+class QProgressBar;
 class QTableWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
@@ -32,10 +33,16 @@ class LibraryWindow final : public QWidget {
   void setStatus(const QString& text);
   void setSummary(const QString& text);
 
+  /// Progresso da análise local, para o painel de "Composições dinâmicas".
+  void setAnalysisProgress(int analysed, int total, qint64 milliseconds);
+
   wamp::LibraryView view() const;
   QString filter() const;
   /// Seleciona uma visão pelo índice da árvore (0 = todas). Usado também pelos testes.
   void selectView(int row);
+
+  /// Seleciona o nó "Composições dinâmicas" (painel de progresso da análise).
+  void selectDynamics();
 
  signals:
   /// Mudou a visão ou o texto de busca: a MainWindow refaz a consulta.
@@ -61,6 +68,14 @@ class LibraryWindow final : public QWidget {
 
   QTreeWidget* tree_ = nullptr;
   QTableWidget* table_ = nullptr;
+  QTreeWidgetItem* dynamicsItem_ = nullptr;
+  QWidget* searchBar_ = nullptr;
+  QWidget* dynamicsPanel_ = nullptr;
+  QLabel* dynamicsTitle_ = nullptr;
+  QLabel* dynamicsCount_ = nullptr;
+  QLabel* dynamicsHint_ = nullptr;
+  QProgressBar* dynamicsProgress_ = nullptr;
+  bool dynamicsActive_ = false;
   QLineEdit* search_ = nullptr;
   QLabel* summary_ = nullptr;
   QLabel* status_ = nullptr;

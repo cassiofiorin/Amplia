@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
     wamp::ScrobbleConfig on;
     on.announceNowPlaying = true;
     PreferencesDialog dialogWith(true, 60, true, true, true, 15, 0.0, 0.0,
-                                 QStringLiteral("externa"), false, on, QStringLiteral("sistema"));
+                                 QStringLiteral("externa"), false, false, on, QStringLiteral("sistema"));
     check(dialogWith.scrobbleConfig().announceNowPlaying, "preferências preservam \"ouvindo agora\" ligado");
     check(dialogWith.closeToTray(), "preferências preservam fechar para a bandeja ligado");
     check(dialogWith.restartOnPlay(), "preferências preservam play reiniciando a faixa");
@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
     wamp::ScrobbleConfig off;
     off.announceNowPlaying = false;
     PreferencesDialog dialogWithout(false, 40, false, false, false, 30, 0.0, 0.0,
-                                    QStringLiteral("integrada"), false, off, QStringLiteral("sistema"));
+                                    QStringLiteral("integrada"), false, false, off, QStringLiteral("sistema"));
     check(!dialogWithout.scrobbleConfig().announceNowPlaying, "preferências preservam \"ouvindo agora\" desligado");
     check(!dialogWithout.restartOnPlay(), "preferências preservam play sem reiniciar");
     check(dialogWithout.visualFps() == 30, "preferências preservam fps do visualizador");

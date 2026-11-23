@@ -28,7 +28,7 @@
 PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
                                      bool restartOnPlay, bool visualEnabled, int visualFps,
                                      double costP95Ms, double cpuPercent,
-                                     const QString& playlistMode, bool xwaylandPosition,
+                                     const QString& playlistMode, bool xwaylandPosition, bool libraryReopen,
                                      const wamp::ScrobbleConfig& scrobble, const QString& language,
                                      QWidget* parent)
     : QDialog(parent), net_(std::make_unique<wamp::Scrobbler>()) {
@@ -147,6 +147,12 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
     xwaylandBox_ = new QCheckBox(tr("Guardar a posição das janelas (usa XWayland)"), general);
     xwaylandBox_->setChecked(xwaylandPosition);
     generalLayout->addWidget(xwaylandBox_);
+
+    libraryReopenBox_ = new QCheckBox(tr("Lembrar estado da Biblioteca ao iniciar"), general);
+    libraryReopenBox_->setChecked(libraryReopen);
+    libraryReopenBox_->setToolTip(
+        tr("Se a Biblioteca estava aberta quando o Amplia fechou, ela reabre na próxima vez."));
+    generalLayout->addWidget(libraryReopenBox_);
     auto* xwaylandHint = new QLabel(
         tr("O compositor Wayland decide onde a janela abre e não aceita posição do programa. "
            "Com XWayland o Amplia guarda e devolve a posição da playlist e da Biblioteca. "
@@ -317,7 +323,7 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   connect(levelSlider_, &QSlider::valueChanged, this, &PreferencesDialog::updateLevelLabel);
   // Sem alteração não há o que gravar: o OK fica apagado até algo mudar (o aviso de
   // reinício que aparecia sem motivo era o sintoma disso).
-  for (QCheckBox* box : {shuffleBox_, trayBox_, restartBox_, xwaylandBox_, visualBox_, nowPlayingBox_,
+  for (QCheckBox* box : {shuffleBox_, trayBox_, restartBox_, xwaylandBox_, libraryReopenBox_, visualBox_, nowPlayingBox_,
                          lastfmBox_, listenbrainzBox_}) {
     if (box != nullptr) connect(box, &QCheckBox::toggled, this, &PreferencesDialog::updateOkState);
   }
@@ -490,6 +496,10 @@ void PreferencesDialog::testListenbrainz() {
   } else {
     listenbrainzStatus_->setText(tr("Token recusado: %1").arg(error));
   }
+}
+
+bool PreferencesDialog::libraryReopen() const {
+  return libraryReopenBox_ != nullptr && libraryReopenBox_->isChecked();
 }
 
 bool PreferencesDialog::xwaylandPosition() const {

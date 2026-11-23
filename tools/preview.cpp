@@ -10,6 +10,7 @@
 
 #include <cstdio>
 
+#include "check_style.h"
 #include "display_panel.h"
 #include "theme.h"
 #include "translator.h"
@@ -30,6 +31,7 @@
 int main(int argc, char** argv) {
   // Prévia respeita o idioma: AMPLIA_LANG=en renderiza a tela em inglês.
   QApplication app(argc, argv);
+  app.setStyle(new wamp::ui::CheckStyle(app.style()));
   wamp::ui::installTranslators(wamp::ui::languageFromSettings());
 
   // A prévia usa o esquema pedido (AMPLIA_THEME) para mostrar o desenho com as cores reais.
@@ -90,10 +92,22 @@ int main(int argc, char** argv) {
       std::printf("imagem do File Info em %s\n", qPrintable(out));
       return 0;
     }
+    if (QString::fromLocal8Bit(argv[i]) == QLatin1String("--prefs-checked")) {
+      // Variante com as caixas marcadas: confere o ✔ desenhado pelo CheckStyle.
+      wamp::ScrobbleConfig scrobble;
+      PreferencesDialog dialog(true, 50, true, true, true, 15, 0.0, 0.0,
+                               QStringLiteral("integrada"), true, false, scrobble,
+                               QStringLiteral("sistema"));
+      dialog.resize(dialog.sizeHint());
+      dialog.show();
+      app.processEvents();
+      dialog.grab().save(out);
+      return 0;
+    }
     if (QString::fromLocal8Bit(argv[i]) == QLatin1String("--prefs")) {
       wamp::ScrobbleConfig scrobble;
       PreferencesDialog dialog(true, 50, false, true, true, 15, 0.0, 0.0, QStringLiteral("integrada"),
-                           false, scrobble, QStringLiteral("sistema"));
+                           false, false, scrobble, QStringLiteral("sistema"));
       dialog.resize(dialog.sizeHint());
       dialog.show();
       app.processEvents();

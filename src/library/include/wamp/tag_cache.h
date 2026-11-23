@@ -74,7 +74,8 @@ class TagCache final {
   /// Guarda BPM/tonalidade de uma faixa e marca como analisada.
   void saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor);
   struct AnalysisStats {
-    int tracks = 0;
+    int totalTracks = 0;  ///< faixas na biblioteca
+    int tracks = 0;       ///< quantas já foram analisadas
     long long milliseconds = 0;
   };
   AnalysisStats analysisStats(std::string* error);

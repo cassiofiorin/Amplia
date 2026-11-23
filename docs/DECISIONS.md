@@ -2369,3 +2369,28 @@ Duas correções de desenho que vieram do uso:
   existir e por isso "não varria nada" quando chamada pela linha de comando ou por um
   atalho sem a Biblioteca aberta; agora relê as raízes do banco e só atualiza a interface
   se ela estiver aberta.
+
+## D-113 — ETA da indexação, painel dinâmico, memória da Biblioteca e ✔ desenhado
+
+- **ETA**: a barra de status mostra `Lendo metadados… 330/1500 — faltam 1 min — não feche`.
+  A taxa é uma média móvel exponencial (0,7/0,3) de faixas por segundo, porque a rede
+  oscila e a média de tudo deixaria o número preso numa fase lenta. **Sem ETA nos primeiros
+  25 s** — nessa janela a taxa ainda está subindo.
+- **"Composições dinâmicas"** virou o segundo nó da árvore da Biblioteca. Ele não lista
+  faixas: mostra o painel `Analisando suas músicas`, com `x de y analisadas (%)`, o tempo de
+  música analisado, a barra e o que falta (`Faltam N faixa(s) analisada(s) para liberar a
+  Rádio local`). O mínimo combinado é **40 faixas**; a filha "Rádio local" nasce quando ele
+  for atingido. A busca e a tabela somem nesse nó (não se aplicam).
+- **`library/reopen`** (Preferências ▸ Geral ▸ **"Lembrar estado da Biblioteca ao iniciar"**):
+  se estava aberta ao fechar, reabre na próxima abertura. Fica em Preferências porque é
+  comportamento, não ação sobre a seleção.
+- **✔ desenhado**: `src/ui/check_style.h/.cpp` (`CheckStyle : QProxyStyle`) pinta
+  `PE_IndicatorCheckBox` e `PE_IndicatorRadioButton` com as cores do tema — caixa com borda,
+  fundo `accent` quando marcada e ✔ escuro (`readableTextOn`), 45% de opacidade desabilitado.
+  Detalhe que custou uma rodada: **o QSS não pode declarar `QCheckBox::indicator`** — com
+  qualquer regra ali o `QStyleSheetStyle` assume o desenho do subcontrole e o proxy nunca é
+  chamado (a marca aparecia solta, sem caixa). O estilo também foi instalado no
+  `amplia-ui-preview`, senão as capturas mostravam o indicador nativo do Fusion.
+- Verificação: ETA medido numa reindexação de 1.500 faixas (`330/1500 — faltam 1 min`);
+  painel com `0 de 7650 analisadas (0%)` e a dica dos 40; ✔ conferido nas Preferências com o
+  tema grafite (fundo âmbar, marca escura).

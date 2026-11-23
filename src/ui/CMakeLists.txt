@@ -7,6 +7,7 @@ add_executable(wamp
   display_panel.h
   equalizer_dialog.cpp
   eq_curve_view.cpp
+  check_style.cpp
   library_window.cpp
   confirm_dialog.cpp
   library_window.h

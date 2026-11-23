@@ -532,6 +532,12 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   connect(analysisTimer, &QTimer::timeout, this, &MainWindow::saveTrackAnalysis);
   analysisTimer->start();
 
+  if (libraryReopen_) {
+    QSettings settings(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
+    if (settings.value(QStringLiteral("library/visible"), false).toBool()) {
+      QTimer::singleShot(300, this, [this] { openLibrary(); });
+    }
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_OPEN_LIBRARY")) {
     QTimer::singleShot(0, this, [this] { openLibrary(); });
   }
@@ -2691,7 +2697,7 @@ void MainWindow::openPreferences() {
           .toBool();
   PreferencesDialog dialog(shuffle_, qRound(shuffleLevel_ * 100), closeToTray_, restartOnPlay_,
                            visualEnabled_, visualFps_, visualCostP95Ms_, visualCpuPercent_,
-                           playlistMode_, xwaylandOn, scrobble,
+                           playlistMode_, xwaylandOn, libraryReopen_, scrobble,
                            wamp::ui::languageFromSettings(), this);
   connect(&dialog, &PreferencesDialog::calibrateRequested, this,
           [this, &dialog] { calibrateVisual(&dialog); });
@@ -2705,6 +2711,7 @@ void MainWindow::openPreferences() {
   // A escolha de posição é gravada antes de qualquer outro aviso: o bloco do idioma pode
   // reiniciar o app e sair da função, e era assim que a troca de posição se perdia.
   const bool xwaylandChanged = dialog.xwaylandPosition() != xwaylandOn;
+  libraryReopen_ = dialog.libraryReopen();
   if (xwaylandChanged) persistXwaylandChoice(dialog.xwaylandPosition());
 
   // Idioma só vale na próxima abertura: widgets já criados não são retraduzidos.
@@ -3271,6 +3278,7 @@ void MainWindow::loadSettings() {
   shuffleLevel_ = std::clamp(settings.value(QStringLiteral("play/shuffleLevel"), 50).toInt(), 0, 100) / 100.0;
   const int volume = std::clamp(settings.value(QStringLiteral("play/volume"), 80).toInt(), 0, 100);
   remaining_ = settings.value(QStringLiteral("play/remaining"), false).toBool();
+  libraryReopen_ = settings.value(QStringLiteral("library/reopen"), false).toBool();
   setPlaylistFontSize(settings.value(QStringLiteral("playlist/fontPx"), 11).toInt());
 
   easyMove_ = settings.value(QStringLiteral("window/easyMove"), false).toBool();
@@ -3485,6 +3493,7 @@ void MainWindow::saveSettings() {
     settings.setValue(QStringLiteral("window/compactHeight"), compactHeight_);
     settings.setValue(QStringLiteral("window/size"), size());
     settings.setValue(QStringLiteral("window/panelHeight"), integratedHeight_);
+  settings.setValue(QStringLiteral("library/reopen"), libraryReopen_);
   }
   geomLog(QStringLiteral("saveSettings: plataforma=%1 posiçãoSuportada=%2 maximizada=%3")
               .arg(QGuiApplication::platformName())
@@ -3759,6 +3768,9 @@ void MainWindow::updateMetadataStatus() {
   const std::size_t left = scanner_->pending();
   if (left == 0) {
     metadataTotal_ = 0;
+    metadataBatchStartMs_ = 0;
+    metadataLastMs_ = 0;
+    metadataRate_ = 0.0;
     queueLabel_->hide();
     if (library_) library_->setStatus(QString());
     return;
@@ -3767,10 +3779,32 @@ void MainWindow::updateMetadataStatus() {
   // somamos no enfileiramento (abaixo) em vez de adivinhar aqui.
   if (metadataTotal_ < left) metadataTotal_ = left;
   const std::size_t done = metadataTotal_ - left;
+
+  // ETA pela taxa medida, com média móvel: a rede oscila e a média de tudo deixaria o
+  // número preso numa fase lenta. Sem número nos primeiros 25 s — ali a taxa ainda está
+  // subindo e qualquer estimativa mente.
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  if (metadataBatchStartMs_ == 0) metadataBatchStartMs_ = now;
+  if (metadataLastMs_ > 0) {
+    const double dt = static_cast<double>(now - metadataLastMs_) / 1000.0;
+    const double instant = dt > 0.0 ? static_cast<double>(done - metadataLastDone_) / dt : 0.0;
+    metadataRate_ = metadataRate_ <= 0.0 ? instant : 0.7 * metadataRate_ + 0.3 * instant;
+  }
+  metadataLastMs_ = now;
+  metadataLastDone_ = static_cast<qint64>(done);
+
+  QString eta;
+  const qint64 elapsed = now - metadataBatchStartMs_;
+  if (elapsed > 25000 && metadataRate_ > 0.2) {
+    const qint64 seconds = static_cast<qint64>(static_cast<double>(left) / metadataRate_);
+    eta = seconds < 60 ? tr(" — falta menos de 1 min")
+                       : tr(" — faltam %1 min").arg(std::max<qint64>(1, seconds / 60));
+  }
+
   // Texto curto: a barra é estreita e o rótulo da versão ocupa a direita. O aviso
   // completo fica no tooltip, para não competir por espaço.
   const QString text =
-      tr("Lendo metadados… %1/%2 — não feche").arg(done).arg(metadataTotal_);
+      tr("Lendo metadados… %1/%2%3 — não feche").arg(done).arg(metadataTotal_).arg(eta);
   // Elide pelo espaço real: sem isso o texto escapa da geometria do rótulo e deixa
   // fragmentos na barra (visto ao lado da versão).
   const int available = queueLabel_->width() > 40 ? queueLabel_->width() - 8 : 320;
@@ -3837,6 +3871,7 @@ void MainWindow::openLibrary() {
   }
   library_->installEventFilter(this);  // para salvar a posição quando ela se mover
   refreshLibrary();
+  if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_DYNAMICS")) library_->selectDynamics();
   library_->show();
   library_->raise();
   library_->activateWindow();
@@ -3860,6 +3895,7 @@ QString MainWindow::librarySummary(const std::vector<wamp::LibraryEntry>& rows) 
   if (cache_ != nullptr) {
     std::string error;
     const wamp::TagCache::AnalysisStats stats = cache_->analysisStats(&error);
+    if (library_) library_->setAnalysisProgress(stats.tracks, stats.totalTracks, stats.milliseconds);
     if (stats.tracks > 0) {
       const qint64 analysedSeconds = stats.milliseconds / 1000;
       const QString analysedTime =

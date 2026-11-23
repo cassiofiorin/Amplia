@@ -11,6 +11,7 @@
 
 #include <memory>
 
+#include "check_style.h"
 #include "main_window.h"
 #include "translator.h"
 
@@ -44,6 +45,8 @@ int main(int argc, char** argv) {
   }
 
   QApplication app(argc, argv);
+  // Estilo só para checkbox/radio: o resto continua vindo do Qt.
+  app.setStyle(new wamp::ui::CheckStyle(app.style()));
   qInfo("amplia: plataforma %s", qPrintable(QGuiApplication::platformName()));
   QApplication::setApplicationName(QStringLiteral("Amplia"));
   QApplication::setApplicationDisplayName(QStringLiteral("Amplia"));

@@ -394,10 +394,8 @@ QString styleSheet(const Theme& t) {
   s += "QSlider::sub-page:vertical { background: " % hex(t.accent) % "; }\n";
   s += "QSlider::handle:vertical { background: " % hex(t.handle) %
        "; height: 10px; margin: 0 -5px; border-radius: 5px; }\n";
-  s += "QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid " % hex(t.border) %
-       "; background: " % hex(t.controlBg) % "; border-radius: 3px; }\n";
-  s += "QCheckBox::indicator:checked { background: " % hex(t.accent) % "; border-color: " %
-       hex(t.accent) % "; }\n";
+  // Sem regra para ::indicator: com uma regra aqui o QStyleSheetStyle assume o desenho e o
+  // CheckStyle nunca recebe o pedido (a marca aparecia solta, sem caixa).
   s += "QGroupBox { border: 1px solid " % hex(t.border) %
        "; border-radius: 6px; margin-top: 10px; padding-top: 6px; }\n";
   s += "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; "

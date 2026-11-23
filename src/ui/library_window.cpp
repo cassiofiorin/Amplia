@@ -5,6 +5,7 @@
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QMenuBar>
+#include <QProgressBar>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -110,6 +111,10 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     auto* item = new QTreeWidgetItem(local, QStringList{QString::fromUtf8(def.name)});
     item->setData(0, kViewRole, static_cast<int>(def.view));
   }
+  // Segunda seção da árvore: não lista faixas, mostra o estado da análise e o que já
+  // destravou (por enquanto só a Rádio local, que precisa de base analisada).
+  dynamicsItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Composições dinâmicas")});
+  dynamicsItem_->setData(0, kViewRole, -1);
   tree_->setCurrentItem(local->child(0));
   splitter->addWidget(tree_);
 
@@ -119,7 +124,9 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   rightLayout->setContentsMargins(0, 0, 0, 0);
   rightLayout->setSpacing(6);
 
-  auto* searchRow = new QHBoxLayout();
+  searchBar_ = new QWidget(right);
+  auto* searchRow = new QHBoxLayout(searchBar_);
+  searchRow->setContentsMargins(0, 0, 0, 0);
   search_ = new QLineEdit(right);
   search_->setPlaceholderText(tr("Buscar por título, artista ou álbum…"));
   search_->setClearButtonEnabled(true);
@@ -127,7 +134,6 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   searchRow->addWidget(new QLabel(tr("Buscar:"), right));
   searchRow->addWidget(search_, 1);
   searchRow->addWidget(clear);
-  rightLayout->addLayout(searchRow);
 
   table_ = new QTableWidget(right);
   table_->setColumnCount(8);
@@ -142,7 +148,29 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->horizontalHeader()->setStretchLastSection(false);
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
   table_->installEventFilter(this);
+  rightLayout->addWidget(searchBar_);
   rightLayout->addWidget(table_, 1);
+
+  dynamicsPanel_ = new QWidget(right);
+  auto* dynamicsLayout = new QVBoxLayout(dynamicsPanel_);
+  dynamicsLayout->setContentsMargins(0, 24, 0, 0);
+  dynamicsTitle_ = new QLabel(tr("Analisando suas músicas"), dynamicsPanel_);
+  dynamicsTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
+  dynamicsCount_ = new QLabel(dynamicsPanel_);
+  dynamicsProgress_ = new QProgressBar(dynamicsPanel_);
+  dynamicsProgress_->setRange(0, 100);
+  dynamicsProgress_->setTextVisible(false);
+  dynamicsHint_ = new QLabel(dynamicsPanel_);
+  dynamicsHint_->setObjectName(QStringLiteral("hint"));
+  dynamicsHint_->setWordWrap(true);
+  dynamicsLayout->addWidget(dynamicsTitle_);
+  dynamicsLayout->addWidget(dynamicsCount_);
+  dynamicsLayout->addWidget(dynamicsProgress_);
+  dynamicsLayout->addSpacing(8);
+  dynamicsLayout->addWidget(dynamicsHint_);
+  dynamicsLayout->addStretch(1);
+  dynamicsPanel_->hide();
+  rightLayout->addWidget(dynamicsPanel_, 1);
 
   auto* footer = new QHBoxLayout();
   summary_ = new QLabel(right);
@@ -175,7 +203,14 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 
   connect(tree_, &QTreeWidget::currentItemChanged, this,
           [this](QTreeWidgetItem* current, QTreeWidgetItem*) {
-            if (current == nullptr || current->data(0, kViewRole).isNull()) return;
+            if (current == nullptr) return;
+            const QVariant value = current->data(0, kViewRole);
+            dynamicsActive_ = !value.isNull() && value.toInt() == -1;
+            table_->setVisible(!dynamicsActive_);
+            if (searchBar_ != nullptr) searchBar_->setVisible(!dynamicsActive_);
+            dynamicsPanel_->setVisible(dynamicsActive_);
+            updateButtons();
+            if (dynamicsActive_ || value.isNull()) return;
             emit queryChanged();
           });
   connect(table_, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem* item) {
@@ -207,6 +242,10 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
           [this] { emit enqueueSelectionRequested(selectedPaths()); });
 
   updateButtons();
+}
+
+void LibraryWindow::selectDynamics() {
+  if (dynamicsItem_ != nullptr) tree_->setCurrentItem(dynamicsItem_);
 }
 
 void LibraryWindow::selectView(int row) {
@@ -297,6 +336,30 @@ void LibraryWindow::setStatus(const QString& text) {
 }
 
 void LibraryWindow::setSummary(const QString& text) { summary_->setText(text); }
+
+void LibraryWindow::setAnalysisProgress(int analysed, int total, qint64 milliseconds) {
+  const int percent = total > 0 ? static_cast<int>(100.0 * analysed / total) : 0;
+  dynamicsProgress_->setValue(percent);
+  const qint64 seconds = milliseconds / 1000;
+  dynamicsCount_->setText(tr("%1 de %2 analisadas (%3%) — %4h %5min de música")
+                              .arg(analysed)
+                              .arg(total)
+                              .arg(percent)
+                              .arg(seconds / 3600)
+                              .arg((seconds % 3600) / 60));
+  // A Rádio local precisa de um mínimo de faixas com BPM e tom para não repetir sempre
+  // as mesmas cinco músicas.
+  constexpr int kRadioMinimum = 40;
+  if (analysed >= kRadioMinimum) {
+    dynamicsTitle_->setText(tr("Base pronta para as composições dinâmicas"));
+    dynamicsHint_->setText(tr("A Rádio local entra na próxima etapa."));
+  } else {
+    dynamicsTitle_->setText(tr("Analisando suas músicas"));
+    dynamicsHint_->setText(tr("Faltam %1 faixa(s) analisada(s) para liberar a Rádio local. "
+                             "A análise acompanha o que você ouve.")
+                               .arg(kRadioMinimum - analysed));
+  }
+}
 
 QStringList LibraryWindow::selectedPaths() const {
   QStringList paths;

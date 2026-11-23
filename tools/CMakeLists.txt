@@ -28,6 +28,7 @@ add_executable(wamp-ui-preview
   ${CMAKE_SOURCE_DIR}/src/ui/icons.cpp
   ${CMAKE_SOURCE_DIR}/src/ui/playlist_delegate.cpp
   ${CMAKE_SOURCE_DIR}/src/ui/file_info_dialog.cpp
+  ${CMAKE_SOURCE_DIR}/src/ui/check_style.cpp
 )
 
 target_include_directories(wamp-ui-preview PRIVATE ${CMAKE_SOURCE_DIR}/src/ui)

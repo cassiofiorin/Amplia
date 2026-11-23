@@ -240,14 +240,19 @@ TagCache::AnalysisStats TagCache::analysisStats(std::string* error) {
     return stats;
   }
   sqlite3_stmt* statement = nullptr;
-  if (sqlite3_prepare_v2(db_, "SELECT count(*), coalesce(sum(duration_ms), 0) FROM tracks WHERE analyzed = 1;",
+  if (sqlite3_prepare_v2(db_,
+                         "SELECT count(*), "
+                         "coalesce(sum(CASE WHEN analyzed = 1 THEN 1 ELSE 0 END), 0), "
+                         "coalesce(sum(CASE WHEN analyzed = 1 THEN duration_ms ELSE 0 END), 0) "
+                         "FROM tracks;",
                          -1, &statement, nullptr) != SQLITE_OK) {
     if (error) *error = sqlite3_errmsg(db_);
     return stats;
   }
   if (sqlite3_step(statement) == SQLITE_ROW) {
-    stats.tracks = sqlite3_column_int(statement, 0);
-    stats.milliseconds = sqlite3_column_int64(statement, 1);
+    stats.totalTracks = sqlite3_column_int(statement, 0);
+    stats.tracks = sqlite3_column_int(statement, 1);
+    stats.milliseconds = sqlite3_column_int64(statement, 2);
   }
   sqlite3_finalize(statement);
   return stats;

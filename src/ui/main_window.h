@@ -337,6 +337,11 @@ class MainWindow final : public QMainWindow {
   int playlistFontPx_ = 11;
   bool stopAfterCurrent_ = false;
   bool easyMove_ = false;
+  bool libraryReopen_ = false;
+  qint64 metadataBatchStartMs_ = 0;  ///< início do lote atual (para o ETA)
+  qint64 metadataLastMs_ = 0;
+  qint64 metadataLastDone_ = 0;
+  double metadataRate_ = 0.0;        ///< faixas por segundo (média móvel)  ///< reabrir a Biblioteca ao iniciar (D-112)
   QAction* stopAfterAction_ = nullptr;
   QAction* easyMoveAction_ = nullptr;
   /// 0 = desligado, 1 = por faixa, 2 = por álbum.
