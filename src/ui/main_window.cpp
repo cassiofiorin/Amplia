@@ -531,11 +531,11 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
     saveSettings();
   };
   shortcut(QKeySequence(QStringLiteral("Ctrl+Shift+=")), biggerFont);
-  shortcut(QKeySequence(Qt::CTRL | Qt::Key_Equal), biggerFont);
-  shortcut(QKeySequence(Qt::CTRL | Qt::KeypadModifier | Qt::Key_Plus), biggerFont);
+  shortcut(QKeySequence(QStringLiteral("Ctrl+=")), biggerFont);
+  shortcut(QKeySequence(QStringLiteral("Ctrl+Num++")), biggerFont);
   shortcut(QKeySequence(QStringLiteral("Ctrl+Shift+-")), smallerFont);
-  shortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus), smallerFont);
-  shortcut(QKeySequence(Qt::CTRL | Qt::KeypadModifier | Qt::Key_Minus), smallerFont);
+  shortcut(QKeySequence(QStringLiteral("Ctrl+-")), smallerFont);
+  shortcut(QKeySequence(QStringLiteral("Ctrl+Num+-")), smallerFont);
   shortcut(QKeySequence(QStringLiteral("Ctrl+Shift+0")), [this] {
     setPlaylistFontSize(11);
     saveSettings();
@@ -2795,9 +2795,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
   }
 
   // Fechar a janela da playlist (X) só esconde; o botão PL acompanha.
-  if ((playlistWindow_ != nullptr && watched == playlistWindow_ ||
-       (library_ != nullptr && watched == library_.get())) &&
-      event->type() == QEvent::Move) {
+  const bool playlistMoved = playlistWindow_ != nullptr && watched == playlistWindow_;
+  const bool libraryMoved = library_ != nullptr && watched == library_.get();
+  if ((playlistMoved || libraryMoved) && event->type() == QEvent::Move) {
     scheduleSettingsSave();
   }
   if (playlistWindow_ != nullptr && watched == playlistWindow_ &&
@@ -2974,11 +2974,37 @@ void MainWindow::moveEvent(QMoveEvent* event) {
 
 void MainWindow::resizeEvent(QResizeEvent* event) {
   QMainWindow::resizeEvent(event);
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+    qInfo("resize: %dx%d -> %dx%d (aberta=%d modo=%s min=%d)",
+          event->oldSize().width(), event->oldSize().height(), event->size().width(),
+          event->size().height(), playlistOpen_ ? 1 : 0, qPrintable(playlistMode_),
+          minimumHeight());
+  }
   // Sem a playlist não existe quem absorva altura: esticar a janela deixaria um vão morto
   // embaixo do transporte. A altura é a do bloco compacto (o mesmo critério do Winamp,
   // cuja janela principal não é redimensionável).
   if (!playlistOpen_ && playlistIntegrated() && std::abs(height() - compactHeight_) > 1) {
+    if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) qInfo("clamp: volta ao compacto");
     resize(width(), compactHeight_);
+    return;
+  }
+  // Lista integrada e aberta: o piso é o DOBRO do compacto. Um pedido de resize vindo de
+  // fora do layout (compositor, troca de dono do painel) não pode espremer display e
+  // transporte — reasserção aqui, porque `setMinimumHeight` sozinho não segura o pedido.
+  if (playlistOpen_ && playlistIntegrated()) {
+    const int floorHeight = compactHeight_ * 2;
+    if (height() < floorHeight) {
+      const int target = std::max(floorHeight, compactHeight_ + integratedHeight_);
+      if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+        qInfo("piso: %d < %d, voltando para %d", height(), floorHeight, target);
+      }
+      resize(width(), target);
+      return;
+    }
+    // Esticou de propósito: lembra a altura para a próxima sessão.
+    if (height() > compactHeight_ + integratedHeight_) {
+      integratedHeight_ = std::clamp(height() - compactHeight_, 160, 900);
+    }
   }
 }
 
@@ -3888,21 +3914,21 @@ void MainWindow::setPlaylistMode(const QString& mode) {
 
 void MainWindow::setPlaylistVisible(bool visible) {
   if (playlistPanel_ == nullptr || playlistWindow_ == nullptr) return;
+  if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+    qInfo("setPlaylistVisible(%d) entrada: modo=%s altura=%d", visible ? 1 : 0,
+          qPrintable(playlistMode_), height());
+  }
   playlistOpen_ = visible;
   // O botão reflete o estado; emitir toggled aqui chamaria este método de novo.
   const QSignalBlocker blocker(playlistButton_);
   playlistButton_->setChecked(visible);
 
-  // Limites de altura dependem só do estado (integrada + lista aberta ou não). Fixar o
-  // máximo quando a lista fecha impedia o usuário de redimensionar qualquer coisa depois,
-  // e um mínimo esquecido de "compacto + 160" travava a janela grande com vão morto.
-  if (playlistIntegrated() && visible) {
-    setMinimumHeight(compactHeight_ + 160);
-    setMaximumHeight(QWIDGETSIZE_MAX);
-  } else {
-    setMinimumHeight(compactHeight_);
-    setMaximumHeight(QWIDGETSIZE_MAX);
-  }
+  // Piso de altura (decisão do usuário): com a lista integrada e aberta, o mínimo é o
+  // DOBRO do compacto — garante que display+transporte nunca sejam espremidos por uma
+  // sobra de layout/compositor. Fechada (ou em janela externa), o piso volta a ser o
+  // player sozinho. Fixar máximo nunca: era o que impedia redimensionar depois.
+  setMinimumHeight(playlistIntegrated() && visible ? compactHeight_ * 2 : compactHeight_);
+  setMaximumHeight(QWIDGETSIZE_MAX);
 
   if (playlistIntegrated()) {
     // Padrão: a lista é painel da principal e a janela cresce para baixo.
@@ -3948,6 +3974,7 @@ void MainWindow::setPlaylistVisible(bool visible) {
   if (!playlistIntegrated() && height() != compactHeight_) resize(width(), compactHeight_);
 
   if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_WINDOWS")) {
+    qInfo("setPlaylistVisible(%d) saída: altura=%d", visible ? 1 : 0, height());
     qInfo("janelas: modo=%s playlist visivel=%d principal=%dx%d", qPrintable(playlistMode_),
           playlistOpen_ ? 1 : 0, width(), height());
   }

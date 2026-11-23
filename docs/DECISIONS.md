@@ -2055,3 +2055,24 @@ ligar a opção, e aí o compositor centralizava as duas janelas.
   `AMPLIA_TEST_XWAYLAND_OFF` (grava `false` e reinicia de verdade).
 - Verificação da troca de backend: log mostra `plataforma xcb` na sessão antiga e
   `plataforma wayland` na nova, com `xwaylandPosition=false` no INI.
+
+## D-098 — Piso da janela integrada: o dobro do player compacto
+
+Ao voltar da janela externa para a integrada, a altura ia para `compacto + painel` e, alguns
+milissegundos depois, um `resize` de 582 → 282 chegava **de fora do layout** (a troca de dono
+do painel) e espremia display e transporte um sobre o outro. `setMinimumHeight` sozinho não
+segurava: o pedido não vem do layout, então Qt o aplica.
+
+- **Regra** (decisão do usuário): com a playlist **integrada e aberta**, o piso é **2× o
+  player compacto** (564 px com o compacto de 282) — garante display + transporte inteiros e
+  uma faixa de lista utilizável. Fechada, ou em janela externa, o piso volta ao compacto.
+- **Reasserção no `resizeEvent`**: se a altura cair abaixo do piso com a lista aberta, a
+  janela volta para `max(piso, compacto + altura da lista)`. É a única forma de segurar um
+  pedido que não passa pelo layout.
+- **Lembrar o que foi esticado**: quando o usuário aumenta a janela de propósito, a altura
+  extra vai para `integratedHeight_` (clamp 160–900) e é gravada em `window/panelHeight`.
+- O máximo **nunca** é fixado (`QWIDGETSIZE_MAX`): era o que impedia diminuir o reprodutor
+  depois de fechar a lista (D-097).
+- Medido: externa → integrada reaplica 564 e depois 582, com `piso: 282 < 564, voltando para
+  582` no log; integrada → externa volta a 282 (`min=282`).
+- Escape: `AMPLIA_DEBUG_WINDOWS=1` loga `resize:`, `piso:` e os estados de `setPlaylistVisible`.

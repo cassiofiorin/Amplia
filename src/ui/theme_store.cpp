@@ -12,11 +12,6 @@
 namespace wamp::ui {
 namespace {
 
-QString hexOr(const QString& text, const QColor& fallback) {
-  const QColor color(text.trimmed());
-  return (color.isValid() ? color : fallback).name(QColor::HexRgb);
-}
-
 }  // namespace
 
 QString themesDir() {

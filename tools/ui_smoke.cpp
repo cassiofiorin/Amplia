@@ -475,15 +475,20 @@ int main(int argc, char** argv) {
 
     const QRect bar = panel.barRect();
     const QPoint middle(bar.center().x(), bar.center().y());
-    QMouseEvent press(QEvent::MouseButtonPress, middle, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    const QPointF middleF(middle);
+    const QPointF middleGlobal = panel.mapToGlobal(middle);
+    QMouseEvent press(QEvent::MouseButtonPress, middleF, middleGlobal, Qt::LeftButton,
+                      Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(&panel, &press);
     check(asked >= 90000 && asked <= 110000, "clique no meio da barra pede ~50%");
-    QMouseEvent release(QEvent::MouseButtonRelease, middle, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    QMouseEvent release(QEvent::MouseButtonRelease, middleF, middleGlobal, Qt::LeftButton,
+                        Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(&panel, &release);
 
     const QRect clock = panel.clockRect();
-    QMouseEvent clockClick(QEvent::MouseButtonPress, clock.center(), Qt::LeftButton, Qt::LeftButton,
-                           Qt::NoModifier);
+    const QPointF clockF(clock.center());
+    QMouseEvent clockClick(QEvent::MouseButtonPress, clockF, panel.mapToGlobal(clock.center()),
+                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(&panel, &clockClick);
     check(toggled, "clique no relógio alterna decorrido/restante");
 
@@ -508,7 +513,8 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 3; ++i) {
       const QRect area = panel.tagRect(i);
       check(!area.isEmpty(), qPrintable(QStringLiteral("pílula %1 tem área").arg(i)));
-      QMouseEvent click(QEvent::MouseButtonPress, area.center(), Qt::LeftButton, Qt::LeftButton,
+      QMouseEvent click(QEvent::MouseButtonPress, QPointF(area.center()),
+                        panel.mapToGlobal(area.center()), Qt::LeftButton, Qt::LeftButton,
                         Qt::NoModifier);
       QApplication::sendEvent(&panel, &click);
     }
