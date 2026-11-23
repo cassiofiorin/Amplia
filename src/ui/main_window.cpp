@@ -2692,13 +2692,28 @@ void MainWindow::openPreferences() {
                            wamp::ui::languageFromSettings(), this);
   connect(&dialog, &PreferencesDialog::calibrateRequested, this,
           [this, &dialog] { calibrateVisual(&dialog); });
-  if (dialog.exec() != QDialog::Accepted) return;
+  const int dialogResult = dialog.exec();
+  geomLog(QStringLiteral("prefs: result=%1 xwaylandBox=%2 inicial=%3")
+              .arg(dialogResult)
+              .arg(dialog.xwaylandPosition() ? 1 : 0)
+              .arg(xwaylandOn ? 1 : 0));
+  if (dialogResult != QDialog::Accepted) return;
+
+  // A escolha de posição é gravada antes de qualquer outro aviso: o bloco do idioma pode
+  // reiniciar o app e sair da função, e era assim que a troca de posição se perdia.
+  const bool xwaylandChanged = dialog.xwaylandPosition() != xwaylandOn;
+  if (xwaylandChanged) persistXwaylandChoice(dialog.xwaylandPosition());
 
   // Idioma só vale na próxima abertura: widgets já criados não são retraduzidos.
   {
     QSettings settings(settingsFile(), QSettings::IniFormat);
     const QString chosen = dialog.language();
-    if (chosen != settings.value(QStringLiteral("general/language")).toString()) {
+    // Sem a chave gravada o idioma efetivo é "sistema": comparar com a string crua fazia
+    // o aviso de idioma aparecer para quem nunca mexeu nele — e quem reiniciava por ele
+    // perdia a troca de posição que vinha logo abaixo (o `return` pulava o resto).
+    const QString stored = settings.value(QStringLiteral("general/language")).toString().trimmed();
+    const QString current = stored.isEmpty() ? QStringLiteral("sistema") : stored;
+    if (chosen != current) {
       settings.setValue(QStringLiteral("general/language"), chosen);
       settings.sync();
       QMessageBox box(this);
@@ -2725,8 +2740,8 @@ void MainWindow::openPreferences() {
 
   if (dialog.playlistMode() != playlistMode_) setPlaylistMode(dialog.playlistMode());
 
-  if (dialog.xwaylandPosition() != xwaylandOn) {
-    persistXwaylandChoice(dialog.xwaylandPosition());
+
+  if (xwaylandChanged) {
     QMessageBox box(this);
     box.setIcon(QMessageBox::Question);
     box.setWindowTitle(tr("Posição das janelas"));
@@ -3029,6 +3044,7 @@ void MainWindow::showEvent(QShowEvent* event) {
 }
 
 void MainWindow::persistXwaylandChoice(bool value) {
+  geomLog(QStringLiteral("persist: xwaylandPosition=%1").arg(value ? 1 : 0));
   QSettings settings(settingsFile(), QSettings::IniFormat);
   settings.setValue(QStringLiteral("window/xwaylandPosition"), value);
   if (!value) {

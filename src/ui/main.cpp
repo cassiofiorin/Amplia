@@ -29,6 +29,8 @@ int main(int argc, char** argv) {
   // (o protocolo xdg_toplevel não tem pedido de posição), então quem marcou a opção nas
   // Preferências abre em XWayland. A variável precisa entrar antes do QApplication: é o
   // plugin de plataforma que a lê na construção.
+  // Antes de qualquer leitura: um INI com seções repetidas devolve valores trocados.
+  wamp::ui::sanitizeSettingsFile();
   if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM")) {
     QSettings early(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
     qInfo("amplia: xwaylandPosition na INI = %s",

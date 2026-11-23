@@ -2196,3 +2196,22 @@ seguinte reporta `load: plataforma=wayland salva=0 bytes` — não há nada para
 lugar onde a janela aparece depois disso é escolha do compositor, e no KWin o padrão para uma
 janela nova é o centro da tela (`1023,363` nesta máquina), que é justamente onde estava a
 posição salva nos testes — o que fazia a mudança parecer inócua.
+
+## D-105 — INI com seções repetidas "engolia" a preferência
+
+O sintoma foi "desmarco Guardar a posição, reinicio, e volta marcado". A causa não estava no
+código de gravação: o `amplia.ini` tinha **duas** seções `[%General]`. O `QSettings` lê esse
+arquivo em ordem e, com seção repetida, passa a devolver valor errado para chaves que
+deveriam estar em outra seção — inclusive `window/xwaylandPosition`, que continuava lendo
+`true` depois de gravada `false`. Como o app também salvava nesse arquivo, o defeito se
+retroalimentava.
+
+- `wamp::ui::sanitizeSettingsFile()` roda no `main()`, **antes** de qualquer leitura
+  (`QT_QPA_PLATFORM` inclusive): se encontra seção repetida, copia o arquivo para
+  `amplia.ini.bak`, lê todas as chaves com `QSettings` e regrava o INI limpo. Log:
+  `amplia: INI tinha secoes repetidas; regravado limpo (N chaves, copia em …)`.
+- O aviso de idioma ficou chato de disparar: comparar `chosen` com a string crua fazia
+  "sistema" (padrão do combo) parecer mudança quando a chave não existia. Agora a comparação
+  é com o valor efetivo — chave vazia equivale a `sistema`.
+- E a escolha de posição é **gravada antes** do bloco do idioma: se o usuário escolhesse
+  reiniciar por causa do idioma, o `return` daquele trecho pulava a troca de backend.

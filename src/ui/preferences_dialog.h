@@ -46,7 +46,6 @@ class PreferencesDialog final : public QDialog {
   /// (janela própria, preparada para o porte de Windows).
   QString playlistMode() const;
   bool xwaylandPosition() const;
-
   wamp::ScrobbleConfig scrobbleConfig() const;
 
   /// Idioma escolhido ("sistema", "pt_BR", "en"). Aplicar exige reabrir o app: o Qt não

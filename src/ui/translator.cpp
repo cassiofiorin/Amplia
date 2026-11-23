@@ -1,6 +1,9 @@
 #include "translator.h"
 
 #include <QCoreApplication>
+#include <QFile>
+#include <QMap>
+#include <QSet>
 #include <QLocale>
 #include <QSettings>
 #include <QStandardPaths>
@@ -85,4 +88,50 @@ QString languageLabel(const QString& id) {
   return id;
 }
 
+namespace {
+
+/// Seções repetidas quebram a leitura do QSettings: a segunda ocorrência ganha para
+/// algumas chaves e não para outras, e aí uma preferência gravada "não pega".
+bool hasDuplicateSections(const QString& body) {
+  QSet<QString> seen;
+  const QStringList lines = body.split(QLatin1Char('\n'));
+  for (const QString& line : lines) {
+    if (!line.startsWith(QLatin1Char('[')) || !line.endsWith(QLatin1Char(']'))) continue;
+    const QString name = line.toLower();
+    if (seen.contains(name)) return true;
+    seen.insert(name);
+  }
+  return false;
+}
+
+}  // namespace
+
+void sanitizeSettingsFile() {
+  const QString path = settingsFile();
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+  const QString body = QString::fromUtf8(file.readAll());
+  file.close();
+  if (!hasDuplicateSections(body)) return;
+
+  // Guarda o arquivo como estava: se a leitura do QSettings já tiver perdido algo, o
+  // usuário ainda consegue recuperar à mão.
+  const QString backup = path + QStringLiteral(".bak");
+  QFile::remove(backup);
+  QFile::copy(path, backup);
+
+  QSettings dirty(path, QSettings::IniFormat);
+  const QStringList keys = dirty.allKeys();
+  QMap<QString, QVariant> values;
+  for (const QString& key : keys) values.insert(key, dirty.value(key));
+
+  QFile::remove(path);
+  QSettings clean(path, QSettings::IniFormat);
+  for (auto it = values.constBegin(); it != values.constEnd(); ++it) clean.setValue(it.key(), it.value());
+  clean.sync();
+  qWarning("amplia: INI tinha secoes repetidas; regravado limpo (%d chaves, copia em %s)",
+           static_cast<int>(values.size()), qPrintable(backup));
+}
+
 }  // namespace wamp::ui
+

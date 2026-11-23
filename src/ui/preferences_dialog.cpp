@@ -20,6 +20,7 @@
 #include <QTabWidget>
 #include <QUrl>
 #include <QGroupBox>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "wamp/scrobbler.h"

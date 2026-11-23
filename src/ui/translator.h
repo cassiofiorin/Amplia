@@ -12,6 +12,10 @@ QString languageFromSettings();
 /// Mesmo caminho usado pela janela; exposto para o escape de reinício em testes.
 QString settingsFileForTests();
 
+/// Regrava o INI quando ele tem seções repetidas (QSettings passa a ler valor errado).
+/// Faz cópia do arquivo sujo ao lado antes de tocar nele.
+void sanitizeSettingsFile();
+
 /// Instala o tradutor do idioma pedido. Chamar **antes** de construir qualquer widget:
 /// as strings em `tr()` são resolvidas no momento em que o objeto nasce, não no show.
 void installTranslators(const QString& requested);
