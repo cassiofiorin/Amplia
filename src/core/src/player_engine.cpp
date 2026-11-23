@@ -65,7 +65,9 @@ struct PlayerEngine::Impl {
 
   // Estado da thread de controle.
   std::vector<float> chunk = std::vector<float>(kChunkFrames * kChannels, 0.0f);
-  bool prebuffered = false;
+  // Escrita pela thread de controle, lida pela UI (play/pause/stop): atomico para
+  // nao ser um data race — o valor e so um "ja liberei o audio".
+  std::atomic<bool> prebuffered{false};
 
   // Gapless: a próxima faixa é decodificada antes do fim da atual e entra no ring
   // sem parar o PipeWire. Os metadados só trocam quando o áudio dela começa a

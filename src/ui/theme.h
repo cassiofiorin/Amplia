@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Cassio Fiorin. Projeto privado (ver LICENSE na raiz do WAmp).
+// Copyright (c) 2026 Cassio Fiorin. GPL-3.0-or-later; ver COPYING.
 //
 // Esquema de cores do Amplia. Todos os widgets leem daqui em vez de espalhar literais:
 // trocar de esquema é trocar o objeto ativo e repintar.

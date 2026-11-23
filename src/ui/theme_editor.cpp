@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Cassio Fiorin. Projeto privado (ver LICENSE na raiz do Amplia).
+// Copyright (c) 2026 Cassio Fiorin. GPL-3.0-or-later; ver COPYING.
 
 #include "theme_editor.h"
 

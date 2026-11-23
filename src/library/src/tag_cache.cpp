@@ -269,8 +269,11 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
     }
     like.push_back('%');
     text = like;
+    // `ESCAPE` explicito: o texto ja vem com \ antes de % e _, mas sem a clausula o
+    // SQLite trata \ como literal e a busca por esses caracteres devolve tudo.
     const std::string clause =
-        "(title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1 OR album_artist LIKE ?1)";
+        "(title LIKE ?1 ESCAPE '\\' OR artist LIKE ?1 ESCAPE '\\'"
+        " OR album LIKE ?1 ESCAPE '\\' OR album_artist LIKE ?1 ESCAPE '\\')";
     where = where.empty() ? clause : "(" + where + ") AND " + clause;
   }
 

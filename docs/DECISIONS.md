@@ -2215,3 +2215,27 @@ retroalimentava.
   é com o valor efetivo — chave vazia equivale a `sistema`.
 - E a escolha de posição é **gravada antes** do bloco do idioma: se o usuário escolhesse
   reiniciar por causa do idioma, o `return` daquele trecho pulava a troca de backend.
+
+## D-106 — P0 da auditoria externa: três corridas e um bug de busca
+
+Uma auditoria externa apontou, e a leitura do código confirmou, quatro defeitos baratos de
+corrigir e caros de conviver:
+
+- **`prebuffered` era `bool` compartilhado**: a thread de controle escrevia (`player_engine.cpp:238`)
+  e a UI lia/escrevia nos comandos (play, stop, seek) sem sincronização. Virou
+  `std::atomic<bool>` — o valor é só "o áudio já foi liberado", então um atômico basta e
+  não custa nada no caminho de áudio.
+- **`Equalizer::reset()` mexia no estado dos filtros pela thread da UI** enquanto
+  `process()` rodava na thread de controle. Agora `reset()` apenas levanta
+  `resetRequested_` (atômico) e o `process()` atende no início do bloco: quem zera o estado
+  é sempre a thread que o usa.
+- **Limitador decaía por amostra de canal**: em estéreo o `*= limiterDecay_` rodava duas
+  vezes por quadro, soltando o pico na metade do tempo nominal. A queda passou para o fim
+  do quadro.
+- **Busca com `%` e `_`**: o texto era escapado com `\`, mas o `LIKE` não tinha cláusula
+  `ESCAPE`, então o SQLite tratava a barra como literal e a busca por esses caracteres não
+  achava nada. Medido num banco de teste: `LIKE '%\%%'` = 0 linhas; com `ESCAPE '\'` = 1.
+- **Cabeçalhos de licença**: `theme.h`, `theme.cpp`, `theme_editor.h` e `theme_editor.cpp`
+  diziam "Projeto privado (ver LICENSE na raiz do WAmp)" e apontavam para um arquivo que não
+  existe (é `COPYING`). Passaram para "GPL-3.0-or-later; ver COPYING", coerente com o repo
+  público.

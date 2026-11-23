@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <mutex>
 
 namespace wamp {
@@ -49,6 +50,8 @@ class Equalizer {
   double preamp() const;
 
   /// Zera o estado dos filtros; chamar em seek, troca de faixa e stop.
+  /// A UI chama da thread principal, o `process()` roda na thread de controle:
+  /// o pedido fica numa flag atomica e e atendido pela thread de audio.
   void reset();
 
   /// Processa amostras intercaladas, in-place.
@@ -71,6 +74,7 @@ class Equalizer {
 
   void rebuild(const std::array<double, kBands>& gainsDb, double preampDb);
 
+  std::atomic<bool> resetRequested_{false};
   mutable std::mutex mutex_;  // protege `pending_`
   Coefs pending_;
   Coefs ready_;               // cópia da thread de áudio

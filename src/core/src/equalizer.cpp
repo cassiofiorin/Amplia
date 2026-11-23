@@ -116,16 +116,20 @@ void Equalizer::setPreamp(double preampDb) {
 
 double Equalizer::preamp() const { return preampDb_; }
 
-void Equalizer::reset() {
-  for (auto& band : z1_) band = {0.0, 0.0};
-  for (auto& band : z2_) band = {0.0, 0.0};
-  limiterDetect_ = 0.0;
-}
+void Equalizer::reset() { resetRequested_.store(true); }
 
 void Equalizer::process(float* samples, int frames, int channels) {
   if (!enabled_ || samples == nullptr || frames <= 0) return;
   if (channels <= 0) return;
   if (channels > 2) channels = 2;
+
+  // Pedido de reset veio da UI (seek, troca de faixa, stop): zera aqui, na thread
+  // que mexe no estado dos filtros, em vez de a UI escrever no meio do process().
+  if (resetRequested_.exchange(false)) {
+    for (auto& band : z1_) band = {0.0, 0.0};
+    for (auto& band : z2_) band = {0.0, 0.0};
+    limiterDetect_ = 0.0;
+  }
 
   // Pega a tabela mais nova se ninguém estiver escrevendo nela; senão usa a anterior.
   if (mutex_.try_lock()) {
@@ -159,8 +163,10 @@ void Equalizer::process(float* samples, int frames, int channels) {
         sample *= kLimiterThreshold / limiterDetect_;
       }
       samples[base + static_cast<std::size_t>(channel)] = static_cast<float>(sample);
-      limiterDetect_ *= limiterDecay_;
     }
+    // A queda do limitador e por quadro, nao por amostra de canal: em estereo o
+    // decaimento (por amostra) rodava duas vezes e soltava o pico na metade do tempo.
+    limiterDetect_ *= limiterDecay_;
   }
 }
 
