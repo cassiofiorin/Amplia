@@ -98,6 +98,7 @@ bool TagCache::ensureSchema(std::string* error) {
       "ALTER TABLE tracks ADD COLUMN key_major INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN analyzed INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN bpm_confidence INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN skips INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN bpm_tag REAL NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN key_pc_tag INTEGER NOT NULL DEFAULT -1;",
       "ALTER TABLE tracks ADD COLUMN key_major_tag INTEGER NOT NULL DEFAULT 0;",
@@ -105,6 +106,13 @@ bool TagCache::ensureSchema(std::string* error) {
   for (const char* alter : columns) {
     sqlite3_exec(db_, alter, nullptr, nullptr, nullptr);  // erro = coluna já existe
   }
+  // Eventos da rádio: o contexto é o que dá sentido ao pulo (ver D-116).
+  sqlite3_exec(db_,
+               "CREATE TABLE IF NOT EXISTS radio_events ("
+               " path TEXT NOT NULL, kind INTEGER NOT NULL,"
+               " ctx_bpm INTEGER NOT NULL DEFAULT -1, ctx_key TEXT,"
+               " ctx_genre TEXT, ctx_artist TEXT, ts INTEGER NOT NULL);",
+               nullptr, nullptr, nullptr);
   return true;
 }
 
@@ -644,6 +652,71 @@ std::size_t TagCache::count() {
   }
   sqlite3_finalize(statement);
   return total;
+}
+
+std::vector<RadioCandidate> TagCache::radioPool(std::string* error) {
+  std::vector<RadioCandidate> pool;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco não aberto";
+    return pool;
+  }
+  // BPM/tom percebidos quando existem; senão o da tag. É a mesma precedência da interface.
+  const char* sql =
+      "SELECT path, coalesce(artist,''), coalesce(album,''), coalesce(genre,''),"
+      " coalesce(year,0),"
+      " CASE WHEN analyzed = 1 AND bpm > 0 THEN bpm ELSE bpm_tag END,"
+      " CASE WHEN analyzed = 1 AND key_pc >= 0 THEN key_pc ELSE key_pc_tag END,"
+      " CASE WHEN analyzed = 1 AND key_pc >= 0 THEN key_major ELSE key_major_tag END,"
+      " coalesce(skips,0), coalesce(playcount,0), coalesce(rating,0)"
+      " FROM tracks;";
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "consulta da rádio falhou";
+    return pool;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    RadioCandidate candidate;
+    candidate.path = columnText(statement, 0);
+    candidate.artist = columnText(statement, 1);
+    candidate.album = columnText(statement, 2);
+    candidate.genre = columnText(statement, 3);
+    candidate.year = sqlite3_column_int(statement, 4);
+    candidate.bpm = sqlite3_column_double(statement, 5);
+    candidate.keyPc = sqlite3_column_int(statement, 6);
+    candidate.keyMajor = sqlite3_column_int(statement, 7);
+    candidate.skips = sqlite3_column_int(statement, 8);
+    candidate.plays = sqlite3_column_int(statement, 9);
+    candidate.rating = sqlite3_column_int(statement, 10);
+    pool.push_back(std::move(candidate));
+  }
+  sqlite3_finalize(statement);
+  return pool;
+}
+
+void TagCache::recordRadioEvent(const std::string& path, int kind,
+                                const RadioContext& context) {
+  if (db_ == nullptr || path.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  const char* sql =
+      "INSERT INTO radio_events (path, kind, ctx_bpm, ctx_key, ctx_genre, ctx_artist, ts)"
+      " VALUES (?1, ?2, ?3, ?4, ?5, ?6, CAST(strftime('%s','now') AS INTEGER));";
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return;
+  bindText(statement, 1, path);
+  sqlite3_bind_int(statement, 2, kind);
+  sqlite3_bind_int(statement, 3, context.bpmBucket);
+  bindText(statement, 4, context.keyCamelot);
+  bindText(statement, 5, context.genre);
+  bindText(statement, 6, context.artist);
+  const bool ok = sqlite3_step(statement) == SQLITE_DONE;
+  sqlite3_finalize(statement);
+  if (!ok) return;
+  if (kind == 0 || kind == 2) {
+    sqlite3_prepare_v2(db_, "UPDATE tracks SET skips = skips + 1 WHERE path = ?1;", -1,
+                       &statement, nullptr);
+    bindText(statement, 1, path);
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);
+  }
 }
 
 }  // namespace wamp

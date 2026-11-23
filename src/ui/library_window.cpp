@@ -92,6 +92,17 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   connect(addFolderAction, &QAction::triggered, this, &LibraryWindow::addFolderRequested);
   connect(refreshAction, &QAction::triggered, this, &LibraryWindow::refreshRequested);
   connect(clearAction, &QAction::triggered, this, &LibraryWindow::clearRequested);
+  QAction* stationAction = optionsMenu->addAction(tr("Tocar estação local"));
+  stationAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+R")));
+  connect(stationAction, &QAction::triggered, this, [this] {
+    // Semente: a faixa selecionada (a tela de rádio não tem seleção, então a primeira).
+    QString seed;
+    if (table_ != nullptr && table_->currentRow() >= 0) {
+      QTableWidgetItem* item = table_->item(table_->currentRow(), 0);
+      if (item != nullptr) seed = item->data(Qt::UserRole).toString();
+    }
+    emit stationRequested(seed);
+  });
   connect(removeAction_, &QAction::triggered, this, [this] {
     const QStringList paths = selectedPaths();
     if (!paths.isEmpty()) emit removeRequested(paths);

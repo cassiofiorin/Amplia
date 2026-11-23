@@ -52,6 +52,8 @@ class LibraryWindow final : public QWidget {
   void playRequested(const QString& path);
   void playSelectionRequested(const QStringList& paths);
   void enqueueSelectionRequested(const QStringList& paths);
+  /// "Tocar estação local": a rádio usa a faixa tocando (ou a selecionada) como semente.
+  void stationRequested(const QString& seedPath);
   /// Clique na coluna de nota: 0 limpa, 1–5 grava.
   void ratingRequested(const QString& path, int rating);
   /// Delete na tabela: a MainWindow confirma em três camadas e tira da biblioteca.

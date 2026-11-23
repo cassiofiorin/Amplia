@@ -3862,6 +3862,8 @@ void MainWindow::openLibrary() {
               statusBar()->showMessage(
                   tr("%1 faixa(s) enfileirada(s)").arg(paths.size()), 2500);
             });
+    connect(library_.get(), &wamp::ui::LibraryWindow::stationRequested, this,
+            &MainWindow::startRadioStation);
   }
   if (windowPositionSupported()) {
     const QByteArray saved =
@@ -4090,6 +4092,61 @@ void MainWindow::addLibraryFolder() {
   }
   rescanLibrary();
   statusBar()->showMessage(tr("%1 faixa(s) na biblioteca").arg(files.size()), 6000);
+}
+
+void MainWindow::startRadioStation(const QString& seedPath) {
+  if (cache_ == nullptr) return;
+  std::string error;
+  const std::vector<wamp::RadioCandidate> pool = cache_->radioPool(&error);
+  if (pool.empty()) {
+    statusBar()->showMessage(tr("Biblioteca vazia: nada para sugerir ainda"), 4000);
+    return;
+  }
+
+  // Semente: a faixa tocando manda; sem reprodução, usa a que veio da Biblioteca.
+  QString seed = seedPath;
+  if (seed.isEmpty() && playlist_ != nullptr && !playlist_->items().empty()) {
+    const std::size_t index = playlist_->currentIndex();
+    if (index < playlist_->items().size()) {
+      seed = QString::fromStdString(playlist_->items().at(index));
+    }
+  }
+  if (seed.isEmpty()) seed = QString::fromStdString(pool.front().path);
+
+  wamp::RadioSeed model;
+  const std::string seedUtf8 = seed.toStdString();
+  for (const wamp::RadioCandidate& candidate : pool) {
+    if (candidate.path != seedUtf8) continue;
+    model.path = candidate.path;
+    model.artist = candidate.artist;
+    model.album = candidate.album;
+    model.genre = candidate.genre;
+    model.year = candidate.year;
+    model.bpm = candidate.bpm;
+    model.keyPc = candidate.keyPc;
+    model.keyMajor = candidate.keyMajor;
+    break;
+  }
+  if (model.path.empty()) {
+    statusBar()->showMessage(tr("A faixa escolhida não está na biblioteca"), 4000);
+    return;
+  }
+
+  const std::vector<std::string> picked = wamp::radioPick(model, pool, 20);
+  if (picked.empty()) {
+    statusBar()->showMessage(tr("Nenhuma faixa parecida o bastante para a estação"), 4000);
+    return;
+  }
+  QStringList paths;
+  paths.reserve(static_cast<int>(picked.size()));
+  for (const std::string& path : picked) paths.append(QString::fromStdString(path));
+  addPaths(paths);
+  // Toca a primeira sugestão; o resto fica na fila natural da playlist.
+  const std::size_t first = playlist_->size() - picked.size();
+  playIndex(first);
+  statusBar()->showMessage(tr("Estação local: %1 faixa(s) a partir de “%2”")
+                               .arg(picked.size())
+                               .arg(tr("Mix pessoal")), 4000);
 }
 
 void MainWindow::playFromLibrary(const QString& path) {
