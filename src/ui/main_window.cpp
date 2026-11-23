@@ -3878,9 +3878,8 @@ void MainWindow::openLibrary() {
     connect(library_.get(), &wamp::ui::LibraryWindow::enqueueSelectionRequested, this,
             [this](const QStringList& paths) {
               if (paths.isEmpty()) return;
-              addPaths(paths);
-              statusBar()->showMessage(
-                  tr("%1 faixa(s) enfileirada(s)").arg(paths.size()), 2500);
+              // Origem 1 = biblioteca: o bloco "Na fila" mostra de onde veio.
+              enqueuePaths(paths, 1);
             });
     connect(library_.get(), &wamp::ui::LibraryWindow::stationRequested, this,
             &MainWindow::startRadioStation);
