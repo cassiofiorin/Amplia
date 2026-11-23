@@ -70,6 +70,14 @@ class TagCache final {
   /// Apaga tracks, roots, scan_queue e a lista de ignorados.
   bool clearLibrary(std::string* error);
   std::vector<std::string> ignoredPaths(std::string* error);
+
+  /// Guarda BPM/tonalidade de uma faixa e marca como analisada.
+  void saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor);
+  struct AnalysisStats {
+    int tracks = 0;
+    long long milliseconds = 0;
+  };
+  AnalysisStats analysisStats(std::string* error);
   std::vector<std::string> roots(std::string* error);
 
   /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e

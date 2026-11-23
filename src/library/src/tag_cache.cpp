@@ -91,6 +91,10 @@ bool TagCache::ensureSchema(std::string* error) {
       "ALTER TABLE tracks ADD COLUMN rating INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN lastplay INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN lastupd INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN bpm REAL NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN key_pc INTEGER NOT NULL DEFAULT -1;",
+      "ALTER TABLE tracks ADD COLUMN key_major INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN analyzed INTEGER NOT NULL DEFAULT 0;",
   };
   for (const char* alter : columns) {
     sqlite3_exec(db_, alter, nullptr, nullptr, nullptr);  // erro = coluna já existe
@@ -193,6 +197,40 @@ bool TagCache::addRoot(const std::string& path, std::string* error) {
   sqlite3_finalize(statement);
   if (rc != SQLITE_DONE) { if (error) *error = sqlite3_errmsg(db_); return false; }
   return true;
+}
+
+void TagCache::saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor) {
+  if (db_ == nullptr || path.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  const char* sql =
+      "UPDATE tracks SET bpm = ?2, key_pc = ?3, key_major = ?4, analyzed = 1 WHERE path = ?1;";
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return;
+  bindText(statement, 1, path);
+  sqlite3_bind_double(statement, 2, static_cast<double>(bpm));
+  sqlite3_bind_int(statement, 3, keyPc);
+  sqlite3_bind_int(statement, 4, keyMajor);
+  sqlite3_step(statement);
+  sqlite3_finalize(statement);
+}
+
+TagCache::AnalysisStats TagCache::analysisStats(std::string* error) {
+  AnalysisStats stats;
+  if (db_ == nullptr) {
+    if (error) *error = "banco fechado";
+    return stats;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT count(*), coalesce(sum(duration_ms), 0) FROM tracks WHERE analyzed = 1;",
+                         -1, &statement, nullptr) != SQLITE_OK) {
+    if (error) *error = sqlite3_errmsg(db_);
+    return stats;
+  }
+  if (sqlite3_step(statement) == SQLITE_ROW) {
+    stats.tracks = sqlite3_column_int(statement, 0);
+    stats.milliseconds = sqlite3_column_int64(statement, 1);
+  }
+  sqlite3_finalize(statement);
+  return stats;
 }
 
 std::size_t TagCache::forgetTracks(const std::vector<std::string>& paths, std::string* error) {

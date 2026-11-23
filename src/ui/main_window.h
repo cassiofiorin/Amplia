@@ -225,6 +225,7 @@ class MainWindow final : public QMainWindow {
   void resumePendingScan();
   void openLibrary();
   void refreshLibrary();
+  void saveTrackAnalysis();
   QString librarySummary(const std::vector<wamp::LibraryEntry>& rows) const;
   void forgetLibraryTracks(const QStringList& paths);
   void clearLibrary();
@@ -257,6 +258,7 @@ class MainWindow final : public QMainWindow {
   QTimer* saveStateTimer_ = nullptr;
   QTimer* playcountTimer_ = nullptr;
   std::string playcountPath_;
+  std::string analysedPath_;  ///< último caminho com BPM/tonalidade gravados
   QTimer* eqSaveTimer_ = nullptr;
   QTimer* visualTimer_ = nullptr;
   bool visualEnabled_ = true;

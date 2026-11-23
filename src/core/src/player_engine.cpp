@@ -1,5 +1,7 @@
 #include "wamp/player_engine.h"
 
+#include "wamp/track_analysis.h"
+
 #include "wamp/equalizer.h"
 
 #include <algorithm>
@@ -51,6 +53,7 @@ struct PlayerEngine::Impl {
   // só copiando amostras.
   Equalizer equalizer;
   AudioAnalyzer analyzer;
+  TrackAnalyzer analysis;
 
   std::atomic<PlaybackState> state{PlaybackState::Idle};
   std::atomic<std::uint64_t> playedFrames{0};
@@ -279,6 +282,9 @@ struct PlayerEngine::Impl {
       if (got > 0) {
         equalizer.process(chunk.data(), got, kChannels);
         analyzer.push(chunk.data(), got, kChannels);
+        // A análise de BPM/tonalidade pega carona no mesmo bloco: não abre o arquivo
+        // de novo e só vale para o que o ouvinte realmente escutou.
+        analysis.push(chunk.data(), got, kChannels);
         ring.write(chunk.data(), static_cast<std::size_t>(got));
       } else if (got == 0) {
         if (!beginNextTrack()) eof.store(true);
@@ -337,6 +343,7 @@ bool PlayerEngine::load(const std::string& path) {
     impl_->ring.clear();
     impl_->equalizer.reset();
     impl_->analyzer.reset();  // sem isso o espectro congela no último bloco tocado
+    impl_->analysis.reset();
     impl_->playedFrames.store(0);
     impl_->eof.store(false);
     impl_->prebuffered = false;
@@ -426,6 +433,7 @@ void PlayerEngine::stop() {
     impl_->ring.clear();
     impl_->equalizer.reset();
     impl_->analyzer.reset();  // sem isso o espectro congela no último bloco tocado
+    impl_->analysis.reset();
     impl_->playedFrames.store(0);
     impl_->eof.store(false);
     impl_->prebuffered = false;
@@ -473,6 +481,8 @@ void PlayerEngine::seek(std::int64_t positionMs) {
   }
   impl_->cv.notify_all();
 }
+
+TrackAnalysis PlayerEngine::trackAnalysis() const { return impl_->analysis.result(); }
 
 PlaybackState PlayerEngine::state() const { return impl_->state.load(); }
 

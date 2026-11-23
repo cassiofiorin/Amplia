@@ -1,6 +1,7 @@
 add_library(wamp-core STATIC
   src/decoder_ffmpeg.cpp
   src/audio_analyzer.cpp
+  src/track_analysis.cpp
   src/equalizer.cpp
   src/eq_preset.cpp
   src/file_info.cpp

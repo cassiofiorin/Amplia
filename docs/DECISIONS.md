@@ -2304,3 +2304,29 @@ estado, tag anotada, e o binário publicado em Releases.
   completa (falta incremental, filtros e capa). O asset tem ~21 MB.
 - O que fica de fora do escopo declarado: skins `.wsz`, plugins `.so`, auto-tag e análise
   local (próximas etapas).
+
+## D-110 — Análise local preguiçosa de BPM e tonalidade
+
+A análise roda **só no que toca**, aproveitando o bloco que o decode já entregou — nada de
+varrer a biblioteca nem abrir arquivo duas vezes.
+
+- **Onde**: `TrackAnalyzer` (`src/core/include/wamp/track_analysis.h`) recebe o mesmo PCM do
+  visualizador na thread de controle; o custo por bloco é uma soma e uma média.
+- **BPM**: envelope de energia em hops de ~10 ms e autocorrelação das diferenças positivas
+  (ataques) para 60–200 BPM, acumulada num histograma a cada ~0,5 s. O pico passa por média
+  ponderada da vizinhança (o bin de 0,5 BPM oscila entre janelas).
+- **Tonalidade**: croma por FFT de **8192 amostras** — com 1024 os harmônicos caíam em
+  classes erradas e Lá maior saía como outra tonalidade (o teste de fumaça pegou). Correlação
+  com os perfis de Krumhansl–Kessler, 12 rotações × maior/menor.
+- **Fonte única de FFT**: `src/core/include/wamp/dsp_fft.h`; o visualizador passou a incluir a
+  mesma função em vez de manter a cópia local.
+- **Quando grava**: um timer de 20 s na janela principal olha a análise da faixa corrente e,
+  se houver ≥ 12 s de áudio, grava `bpm`, `key_pc`, `key_major` e `analyzed = 1` em `tracks`.
+  Um caminho já gravado nesta sessão não é regravado (repeat não conta de novo).
+- **Progresso**: o rodapé da Biblioteca mostra `— N analisada(s) (Xh Ymin)` a partir de
+  `analysisStats()` (contagem e soma de `duration_ms` das faixas analisadas).
+- Verificação no `amplia-smoke`: clique sintético de 120 BPM sai 116–124 e um acorde de Lá
+  maior é identificado como Lá maior; em uso real, uma faixa tocada 30 s gravou `117.0` e
+  `key_pc = 7 (Sol), maior`.
+- Fora desta fatia: colunas de BPM/tonalidade na tabela e filtros por elas (dependem dos
+  filtros combinados).

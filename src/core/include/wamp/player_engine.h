@@ -11,6 +11,8 @@
 
 namespace wamp {
 
+struct TrackAnalysis;
+
 /// Motor de reprodução: dono do decoder, do ring buffer e da saída de áudio.
 /// Toda a API é segura para chamar da thread da UI; os callbacks são disparados
 /// na thread de controle e o chamador deve fazer a marshaling (Qt: QMetaObject).
@@ -49,6 +51,9 @@ class PlayerEngine {
   std::int64_t positionMs() const;
   std::int64_t durationMs() const;
   TrackInfo track() const;
+
+  /// BPM/tonalidade acumulados desde o início desta faixa (análise local).
+  TrackAnalysis trackAnalysis() const;
   std::string lastError() const;
 
   /// 0.0 a 1.0. Aplicado na thread de áudio com suavização (ARCHITECTURE §4).

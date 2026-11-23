@@ -5,10 +5,13 @@
 // Verifica a máquina de estados do PlayerEngine: play, pause (a posição precisa
 // congelar) e retomada (a posição precisa voltar a subir). Sai com código 0 quando
 // tudo passa e 1 quando algo falha.
+#include "wamp/track_analysis.h"
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <vector>
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
@@ -815,5 +818,57 @@ int main(int argc, char** argv) {
   }
 
   std::printf("\n%s\n", failures == 0 ? "tudo certo" : "houve falhas");
+
+  // ── Análise local: BPM e tonalidade ────────────────────────────────────────────
+  // Clique a 120 BPM: impulso curto a cada 0,5 s por 20 s. O detector tem de achar
+  // 120 (ou o dobro/meio, que é o erro clássico de autocorrelação) sem inventar valor.
+  {
+    wamp::TrackAnalyzer analyzer;
+    analyzer.reset();
+    analyzer.setSampleRate(48000);
+    const int rate = 48000;
+    const int total = rate * 20;
+    std::vector<float> buffer;
+    buffer.reserve(4096);
+    int sinceClick = 0;
+    for (int i = 0; i < total; ++i) {
+      float sample = 0.0f;
+      if (sinceClick == 0) sample = 0.9f;              // ataque seco
+      else if (sinceClick < 48) sample = 0.9f * (1.0f - static_cast<float>(sinceClick) / 48.0f);
+      if (++sinceClick >= rate / 2) sinceClick = 0;    // 0,5 s = 120 BPM
+      buffer.push_back(sample);
+      if (buffer.size() == 1024) {
+        analyzer.push(buffer.data(), static_cast<int>(buffer.size()), 1);
+        buffer.clear();
+      }
+    }
+    const wamp::TrackAnalysis analysis = analyzer.result();
+    check(analysis.valid, "analise: 20 s de audio passam do minimo");
+    check(analysis.bpm > 116.0f && analysis.bpm < 124.0f, "analise: BPM de 120 e detectado");
+  }
+
+  // Lá maior sustentado (220, 277.18, 329.63 Hz): a tonalidade tem de sair Lá maior.
+  {
+    wamp::TrackAnalyzer analyzer;
+    analyzer.reset();
+    analyzer.setSampleRate(48000);
+    const int rate = 48000;
+    std::vector<float> chunk(1024);
+    for (int block = 0; block < 15 * rate / 1024; ++block) {
+      for (int i = 0; i < 1024; ++i) {
+        const double t = static_cast<double>(block * 1024 + i) / rate;
+        chunk[static_cast<std::size_t>(i)] =
+            static_cast<float>(0.25 * (std::sin(2.0 * M_PI * 220.0 * t) +
+                                       std::sin(2.0 * M_PI * 277.18 * t) +
+                                       std::sin(2.0 * M_PI * 329.63 * t)));
+      }
+      analyzer.push(chunk.data(), 1024, 1);
+    }
+    const wamp::TrackAnalysis analysis = analyzer.result();
+    check(analysis.valid, "analise: acorde de 15 s e valido");
+    check(analysis.keyPitchClass == 9 && analysis.keyMajor == 1,
+          "analise: acorde de La maior vira La maior");
+  }
+
   return failures == 0 ? 0 : 1;
 }

@@ -214,6 +214,7 @@ void warnAboutNetworkDrop(QWidget* parent, const QList<QUrl>& urls, int rejected
 #include "wamp/metadata_scanner.h"
 #include "wamp/tag_cache.h"
 #include "wamp/player_engine.h"
+#include "wamp/track_analysis.h"
 #include "wamp/playlist.h"
 #include "wamp/replay_gain.h"
 
@@ -529,6 +530,13 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // Escape de depuração: salva a janela auxiliar da playlist (sem capturar a tela).
   // Depuração: abrir a Biblioteca e fotografá-la, para testar sem teclado (a sessão de
   // teste não injeta atalhos).
+  // A análise local é "preguiçosa": só roda para o que toca. A cada 20 s olhamos se já
+  // há material suficiente (12 s) para gravar BPM/tonalidade no banco.
+  auto* analysisTimer = new QTimer(this);
+  analysisTimer->setInterval(20000);
+  connect(analysisTimer, &QTimer::timeout, this, &MainWindow::saveTrackAnalysis);
+  analysisTimer->start();
+
   if (qEnvironmentVariableIsSet("AMPLIA_OPEN_LIBRARY")) {
     QTimer::singleShot(0, this, [this] { openLibrary(); });
   }
@@ -3857,11 +3865,24 @@ QString MainWindow::librarySummary(const std::vector<wamp::LibraryEntry>& rows) 
   const qint64 seconds = totalMs / 1000;
   const QString time = QStringLiteral("%1h %2min").arg(seconds / 3600).arg((seconds % 3600) / 60);
   const double megabytes = static_cast<double>(totalBytes) / (1024.0 * 1024.0);
-  // Mesmo espírito do rodapé do ML: quantidade, tempo total e tamanho em disco.
-  return tr("%1 faixa(s) — %2 — %3 MB")
-      .arg(rows.size())
-      .arg(time)
-      .arg(QString::number(megabytes, 'f', megabytes >= 1024 ? 0 : 1));
+  QString summary = tr("%1 faixa(s) — %2 — %3 MB")
+                        .arg(rows.size())
+                        .arg(time)
+                        .arg(QString::number(megabytes, 'f', megabytes >= 1024 ? 0 : 1));
+  // Progresso da análise local (BPM/tonalidade): só aparece quando há o que mostrar.
+  if (cache_ != nullptr) {
+    std::string error;
+    const wamp::TagCache::AnalysisStats stats = cache_->analysisStats(&error);
+    if (stats.tracks > 0) {
+      const qint64 analysedSeconds = stats.milliseconds / 1000;
+      const QString analysedTime =
+          analysedSeconds >= 3600
+              ? tr("%1h %2min").arg(analysedSeconds / 3600).arg((analysedSeconds % 3600) / 60)
+              : tr("%1min").arg(std::max<qint64>(1, analysedSeconds / 60));
+      summary += tr(" — %1 analisada(s) (%2)").arg(stats.tracks).arg(analysedTime);
+    }
+  }
+  return summary;
 }
 
 void MainWindow::refreshLibrary() {
@@ -3941,6 +3962,19 @@ void MainWindow::clearLibrary() {
   cache_->flush();
   refreshLibrary();
   statusBar()->showMessage(tr("Biblioteca limpa — adicione uma pasta para começar de novo"), 6000);
+}
+
+void MainWindow::saveTrackAnalysis() {
+  if (cache_ == nullptr || engine_ == nullptr) return;
+  const wamp::TrackInfo info = engine_->track();
+  if (info.path.empty()) return;
+  if (info.path == analysedPath_) return;  // já gravado nesta passagem
+  const wamp::TrackAnalysis analysis = engine_->trackAnalysis();
+  if (!analysis.valid || analysis.seconds < 12.0) return;
+  cache_->saveAnalysis(info.path, analysis.bpm, analysis.keyPitchClass, analysis.keyMajor);
+  cache_->flush();
+  analysedPath_ = info.path;
+  refreshLibrary();
 }
 
 void MainWindow::rescanLibrary() {
