@@ -2076,3 +2076,28 @@ segurava: o pedido não vem do layout, então Qt o aplica.
 - Medido: externa → integrada reaplica 564 e depois 582, com `piso: 282 < 564, voltando para
   582` no log; integrada → externa volta a 282 (`min=282`).
 - Escape: `AMPLIA_DEBUG_WINDOWS=1` loga `resize:`, `piso:` e os estados de `setPlaylistVisible`.
+
+## D-099 — "Reiniciar agora" reinicia de verdade: `execv`, não processo destacado
+
+Ligar a posição em XWayland exige um processo novo: o backend é escolhido quando o
+`QApplication` é construído, então recriar a janela no mesmo processo não muda nada (D-097).
+
+O caminho anterior disparava um processo **destacado** (`/bin/sh -c 'sleep 1; exec …'`). Dentro
+do Flatpak isso não sobrevive: quando a instância sai, o `bwrap` derruba o que sobrou, então o
+filho morria junto — na prática, escolher "Reiniciar agora" fechava o app e nada voltava, e a
+preferência parecia não funcionar.
+
+- **Agora o restart é `execv`**: mesmo PID e mesmo sandbox, a imagem do processo é trocada
+  pelo mesmo binário. `main()` roda de novo, lê a INI e escolhe o backend.
+- Antes do `execv`: `saveSettings()` (geometria e modo já gravados) e
+  `qunsetenv("QT_QPA_PLATFORM")` — sem isso o filho herdaria `xcb` e desligar a opção não
+  teria efeito.
+- Se o `execv` falhar, cai no caminho antigo de processo destacado (melhor que ficar sem
+  janela) e registra o `strerror`.
+- Os escapes de teste (`AMPLIA_TEST_XWAYLAND_ON/OFF`) ficaram **idempotentes**: depois do
+  `execv` o ambiente é herdado, então eles só reiniciam quando o valor realmente muda —
+  antes entravam em laço de reinício.
+- Medido: ligando, `plataforma wayland` → `plataforma xcb` (uma única transição, uma
+  instância); desligando, `xcb` → `wayland`. Geometria sobrevive a `flatpak kill`:
+  `save: gravando posição 340,400` e, na volta, `restore: geometria salva aplicada em
+  340,428` com o X reportando `340,400` (28 px do quadro).

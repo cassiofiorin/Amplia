@@ -17,6 +17,8 @@
 #include <QPainter>
 #include <QProgressDialog>
 #include <QTimer>
+
+#include <cerrno>
 #include "round_button.h"
 
 #include "format_support.h"
@@ -64,6 +66,8 @@
 #include <QSystemTrayIcon>
 #include <QStringList>
 #include <QTimer>
+
+#include <cerrno>
 #include <QUrl>
 #include <QWindow>
 #include <QVBoxLayout>
@@ -384,13 +388,21 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // por script no Wayland sem interação).
   // Depuração: troca o modo da playlist em tempo de execução (a sessão de teste não
   // consegue clicar no combo de Preferências).
+  // Escapes de teste do backend. Depois do `execv` o ambiente é herdado, então eles
+  // precisam ser idempotentes: se o valor já é o desejado, não reinicia de novo.
+  auto restartWithValue = [this](bool value) {
+    QSettings settings(settingsFile(), QSettings::IniFormat);
+    const bool current = settings.value(QStringLiteral("window/xwaylandPosition"), false).toBool();
+    if (current == value) return;
+    settings.setValue(QStringLiteral("window/xwaylandPosition"), value);
+    settings.sync();
+    restartWithPlatformChange();
+  };
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_ON")) {
+    QTimer::singleShot(1500, this, [restartWithValue] { restartWithValue(true); });
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_OFF")) {
-    QTimer::singleShot(1500, this, [this] {
-      QSettings settings(settingsFile(), QSettings::IniFormat);
-      settings.setValue(QStringLiteral("window/xwaylandPosition"), false);
-      settings.sync();
-      restartWithPlatformChange();
-    });
+    QTimer::singleShot(1500, this, [restartWithValue] { restartWithValue(false); });
   }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_TOGGLE_TOP")) {
     QTimer::singleShot(1500, this, [this] {
@@ -2949,9 +2961,20 @@ void MainWindow::restartWithPlatformChange() {
   // main() e escolhe o backend. Limpa a variável que o próprio app pôs, senão o filho
   // herda xcb e a preferência desligada não teria efeito.
   qunsetenv("QT_QPA_PLATFORM");
-  const QString program = QCoreApplication::applicationFilePath();
+
+  // `execv` troca a imagem do processo: mesmo PID, mesmo sandbox do Flatpak. Um processo
+  // destacado morreria junto com a instância quando ela saísse (o bwrap derruba o que
+  // sobrou), e era por isso que "Reiniciar agora" parecia não reiniciar nada.
+  const QByteArray program = QCoreApplication::applicationFilePath().toLocal8Bit();
+  QByteArray arg0 = program;
+  char* argv[] = {arg0.data(), nullptr};
+  ::execv(program.constData(), argv);
+
+  // Se o exec falhar, cai no caminho antigo (ainda melhor que ficar sem janela).
+  qWarning("amplia: execv falhou (%s); tentando processo destacado", ::strerror(errno));
   QProcess::startDetached(QStringLiteral("/bin/sh"),
-                          {QStringLiteral("-c"), QStringLiteral("sleep 1; exec \"$0\""), program});
+                          {QStringLiteral("-c"), QStringLiteral("sleep 1; exec \"$0\""),
+                           QString::fromLocal8Bit(program)});
   QCoreApplication::quit();
 }
 
