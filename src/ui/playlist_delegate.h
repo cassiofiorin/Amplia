@@ -11,6 +11,10 @@ inline constexpr int kDurationRole = Qt::UserRole + 2;
 /// Role com 1 quando o arquivo não abriu ("missing file"): o rótulo sai em âmbar.
 inline constexpr int kMissingRole = Qt::UserRole + 4;
 
+/// Role com a origem do item na fila ("PLAYLIST", "BIBLIOTECA", "RÁDIO"). O bloco da
+/// fila usa o mesmo delegate da playlist e mostra a origem antes do tempo.
+inline constexpr int kOriginRole = Qt::UserRole + 5;
+
 /// Desenha a linha da playlist em colunas: número da faixa num gutter à esquerda,
 /// título no meio (elidido), duração alinhada à direita e, colado na borda, o número
 /// da posição na fila quando a faixa está enfileirada.

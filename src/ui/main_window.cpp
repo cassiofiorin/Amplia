@@ -971,6 +971,7 @@ void MainWindow::buildUi() {
   queueList_->setMaximumHeight(96);
   // Mesmo desenho da lista de cima: fonte e cor do texto vêm do tema, sem cor própria.
   queueList_->setFont(list_->font());
+  queueList_->setItemDelegate(new PlaylistDelegate(queueList_));
   queueList_->setStyleSheet(QStringLiteral("QListWidget { background: transparent; border: none; }"
                                            "QListWidget::item { color: %1; padding: 1px 2px; }")
                                 .arg(wamp::ui::activeTheme().windowText.name()));
@@ -3810,9 +3811,9 @@ void MainWindow::refreshQueuePanel() {
                                               : tr("PLAYLIST");
     const qint64 seconds = info.durationMs / 1000;
     const QString duration = QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
-    queueList_->addItem(tr("%1 · %2 · %3 · %4")
-                            .arg(i + 1)
-                            .arg(title, origin, duration));
+    auto* row = new QListWidgetItem(title, queueList_);
+    row->setData(kDurationRole, duration);
+    row->setData(kOriginRole, origin);
   }
   queueHeader_->setText(tr("Na fila (%1)").arg(pathQueue_.size()));
   if (queueToggle_ != nullptr) {

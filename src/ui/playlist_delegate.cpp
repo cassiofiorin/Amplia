@@ -44,6 +44,7 @@ void PlaylistDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
   const int gutter = digit * digits + 12;
   const int queueWidth = digit * 3 + 4;
   const int durationWidth = fm.horizontalAdvance(QStringLiteral("00:00:00")) + 10;
+  const int originWidth = 86;
 
   painter->save();
   painter->setClipRect(opt.rect);
@@ -57,7 +58,8 @@ void PlaylistDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
                     QString::number(index.row() + 1));
 
   // Rótulo: elide no meio para preservar "Artista" e o fim do título.
-  const QRect labelRect = opt.rect.adjusted(gutter, 0, -(queueWidth + durationWidth + 6), 0);
+  const int originExtra = index.data(kOriginRole).toString().isEmpty() ? 0 : originWidth;
+  const QRect labelRect = opt.rect.adjusted(gutter, 0, -(queueWidth + durationWidth + originExtra + 6), 0);
   // Texto da linha selecionada na cor do estilo: com stylesheet a paleta não acompanha
   // o fundo desenhado, e HighlightedText sairia escuro sobre o destaque.
   // "Missing file": o aviso já vem no texto (⚠), aqui só damos a cor de alerta.
@@ -66,6 +68,15 @@ void PlaylistDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
   painter->setPen(labelColor);
   painter->drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
                     fm.elidedText(label, Qt::ElideMiddle, labelRect.width()));
+
+  // Origem na fila ("RÁDIO"), na coluna antes do tempo.
+  const QString origin = index.data(kOriginRole).toString();
+  if (!origin.isEmpty()) {
+    const QRect originRect(opt.rect.right() - queueWidth - durationWidth - originWidth, opt.rect.top(),
+                           originWidth - 8, opt.rect.height());
+    painter->setPen(selected ? numberColorSelected : numberColorOpt);
+    painter->drawText(originRect, Qt::AlignRight | Qt::AlignVCenter, origin);
+  }
 
   // Duração, alinhada à direita da sua coluna: some quando a tag ainda não chegou.
   const QString duration = index.data(kDurationRole).toString();

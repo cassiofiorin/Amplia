@@ -159,6 +159,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->horizontalHeader()->setStretchLastSection(false);
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
   table_->installEventFilter(this);
+  table_->viewport()->installEventFilter(this);
   rightLayout->addWidget(searchBar_);
   rightLayout->addWidget(table_, 1);
 
