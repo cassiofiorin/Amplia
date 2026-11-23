@@ -2149,3 +2149,28 @@ estável nas duas, `507x282` (cliente) fechada e `507x582` aberta.
   desligar a opção não fazia efeito.
 - **Escape novo `AMPLIA_TEST_XWAYLAND_DIALOG=0|1`**: percorre o mesmo caminho do diálogo
   (grava/ limpa + reinicia), para testar ligar e desligar de ponta a ponta sem clique.
+
+## D-103 — Diário de geometria e o ajuste ao mínimo antes de mostrar
+
+Não consegui reproduzir "abre no centro" nesta máquina: com `xcb`, os dois modos (integrada
+e externa) voltam para a posição movida, em vários ciclos e tanto com `flatpak kill` quanto
+com fechar pela janela. Como o sintoma depende do ambiente, o app passou a **registrar** o
+que decide, num arquivo pequeno (`AppDataLocation/geometry.log`, teto de 64 KB):
+
+```
+abrir: plataforma=xcb pref=1
+load: plataforma=xcb salva=66 bytes
+pos: após mostrar 280,198 (plataforma xcb)
+saveSettings: plataforma=xcb posiçãoSuportada=1 maximizada=0
+save: cliente=280,170 quadro=280,170 tamanho=514x282
+pos: após 2s 280,170 tamanho 514x282
+close: plataforma=xcb banda=0 saindo=0
+```
+
+Se `abrir:` vier com `plataforma=wayland` e `pref=1`, o reinício não trocou o backend; se
+`pos: após 2s` diferir do `save:` anterior, quem moveu a janela foi o gerenciador.
+
+Junto: **ajuste ao mínimo antes de mostrar** — uma geometria salva por uma versão anterior
+(507 px) era menor que o novo mínimo (514 px), então a janela crescia no `showEvent` e o
+gerenciador podia reposicioná-la; agora o `resize` ao mínimo acontece ainda no
+`loadSettings`, mantendo o canto.

@@ -16,6 +16,7 @@
 #include <QElapsedTimer>
 #include <QPainter>
 #include <QProgressDialog>
+#include <QTextStream>
 #include <QTimer>
 
 #include <cerrno>
@@ -34,6 +35,7 @@
 #include <QDirIterator>
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QDragEnterEvent>
@@ -66,6 +68,7 @@
 #include <QStatusBar>
 #include <QSystemTrayIcon>
 #include <QStringList>
+#include <QTextStream>
 #include <QTimer>
 
 #include <cerrno>
@@ -83,6 +86,24 @@ namespace {
 
 // O Wayland não deixa o cliente posicionar janela: o compositor decide. Só tentamos
 // salvar/restaurar posição onde isso existe de fato (X11/XWayland).
+namespace {
+
+/// Diário de geometria. Vai para um arquivo pequeno no diretório de dados porque o
+/// sintoma "abre no centro" depende do ambiente do usuário (compositor, backend, ordem de
+/// mapeamento) e não se reproduz aqui. Cap de 64 KB: o arquivo é rotacionado sozinho.
+void geomLog(const QString& line) {
+  const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+  if (dir.isEmpty()) return;
+  QDir().mkpath(dir);
+  QFile file(dir + QStringLiteral("/geometry.log"));
+  if (file.size() > 64 * 1024) file.remove();
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) return;
+  QTextStream out(&file);
+  out << QDateTime::currentDateTime().toString(Qt::ISODate) << ' ' << line << '\n';
+}
+
+}  // namespace
+
 bool windowPositionSupported() {
   const QString platform = QGuiApplication::platformName();
   return !platform.contains(QLatin1String("wayland"), Qt::CaseInsensitive);
@@ -387,6 +408,23 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // Quem acabou de trocar de backend precisa de uma confirmação visível — sem isso a
   // primeira abertura em XWayland (centrada, porque ainda não existe posição gravada)
   // parece que a opção não funcionou.
+  // Duas leituras: logo após o mapeamento e dois segundos depois. Se a segunda diferir, o
+  // gerenciador de janelas moveu a janela por conta própria (é o que faz parecer "centro").
+  QTimer::singleShot(0, this, [this] {
+    geomLog(QStringLiteral("pos: após mostrar %1,%2 (plataforma %3)")
+                .arg(x()).arg(y()).arg(QGuiApplication::platformName()));
+  });
+  QTimer::singleShot(2000, this, [this] {
+    geomLog(QStringLiteral("pos: após 2s %1,%2 tamanho %3x%4")
+                .arg(x()).arg(y()).arg(width()).arg(height()));
+  });
+  geomLog(QStringLiteral("abrir: plataforma=%1 pref=%2")
+              .arg(QGuiApplication::platformName())
+              .arg(QSettings(settingsFile(), QSettings::IniFormat)
+                       .value(QStringLiteral("window/xwaylandPosition"), false)
+                       .toBool()
+                       ? 1
+                       : 0));
   if (qEnvironmentVariableIsSet("AMPLIA_BACKEND_SWITCHED")) {
     const bool xcb = QGuiApplication::platformName().contains(QStringLiteral("xcb"));
     qInfo("amplia: backend trocado para %s", xcb ? "xcb" : QGuiApplication::platformName().toUtf8().constData());
@@ -3005,6 +3043,10 @@ void MainWindow::restartWithPlatformChange() {
   // Marca a troca para a sessão nova: ela avisa na barra de status e registra a posição
   // assim que aparece, para não parecer que a opção "não pegou" na primeira tentativa.
   qputenv("AMPLIA_BACKEND_SWITCHED", "1");
+  geomLog(QStringLiteral("restart: trocando backend; pref=%1").arg(
+      QSettings(settingsFile(), QSettings::IniFormat)
+          .value(QStringLiteral("window/xwaylandPosition"), false)
+          .toBool() ? QStringLiteral("xcb") : QStringLiteral("wayland")));
 
   // `execv` troca a imagem do processo: mesmo PID, mesmo sandbox do Flatpak. Um processo
   // destacado morreria junto com a instância quando ela saísse (o bwrap derruba o que
@@ -3076,6 +3118,10 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+  geomLog(QStringLiteral("close: plataforma=%1 banda=%2 saindo=%3")
+              .arg(QGuiApplication::platformName())
+              .arg(closeToTray_ ? 1 : 0)
+              .arg(quitting_ ? 1 : 0));
   // Fechar escondendo para a bandeja não interrompe nada — a indexação segue lá.
   const bool hidingToTray =
       closeToTray_ && !quitting_ && tray_ != nullptr && tray_->isVisible();
@@ -3265,9 +3311,17 @@ void MainWindow::loadSettings() {
   // Posições só fazem sentido onde a plataforma permite (ver windowPositionSupported).
   const QByteArray savedGeometry = settings.value(QStringLiteral("window/geometry")).toByteArray();
   const bool hasSavedGeometry = windowPositionSupported() && !savedGeometry.isEmpty();
+  geomLog(QStringLiteral("load: plataforma=%1 salva=%2 bytes")
+              .arg(QGuiApplication::platformName())
+              .arg(savedGeometry.size()));
   const int savedX = settings.value(QStringLiteral("window/posX"), INT_MIN).toInt();
   const int savedY = settings.value(QStringLiteral("window/posY"), INT_MIN).toInt();
-  if (hasSavedGeometry && restoreGeometry(savedGeometry)) {
+  const bool restored = hasSavedGeometry && restoreGeometry(savedGeometry);
+  if (hasSavedGeometry && !restored) {
+    geomLog(QStringLiteral("load: restoreGeometry recusou o blob (plataforma %1)")
+                .arg(QGuiApplication::platformName()));
+  }
+  if (restored) {
     if (savedX != INT_MIN && savedY != INT_MIN &&
         std::abs(x() - savedX) > 4 && qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
       // Só registra: o `restoreGeometry` já aplica a posição, e corrigir com `move()`
@@ -3290,6 +3344,14 @@ void MainWindow::loadSettings() {
     // sessão com a lista aberta.
     if (!settings.value(QStringLiteral("playlist/visible"), false).toBool()) {
       resize(width, compactHeight_);
+    }
+    // Geometria antiga pode ser mais estreita que o mínimo atual: crescer no showEvent faria
+    // o gerenciador de janelas reposicionar a janela (parecia "abrir no centro"). Ajusta
+    // agora, mantendo o canto superior esquerdo.
+    if (this->width() < minimumWidth() || this->height() < minimumHeight()) {
+      resize(std::max(this->width(), minimumWidth()), std::max(this->height(), minimumHeight()));
+      geomLog(QStringLiteral("load: ajustado ao minimo %1x%2 em %3,%4")
+                  .arg(this->width()).arg(this->height()).arg(x()).arg(y()));
     }
   }
 
@@ -3399,6 +3461,10 @@ void MainWindow::saveSettings() {
     settings.setValue(QStringLiteral("window/size"), size());
     settings.setValue(QStringLiteral("window/panelHeight"), integratedHeight_);
   }
+  geomLog(QStringLiteral("saveSettings: plataforma=%1 posiçãoSuportada=%2 maximizada=%3")
+              .arg(QGuiApplication::platformName())
+              .arg(windowPositionSupported() ? 1 : 0)
+              .arg(isMaximized() ? 1 : 0));
   if (windowPositionSupported() && !isMaximized() && !isFullScreen()) {
     if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
       qInfo("save: gravando posição %d,%d %dx%d", this->x(), this->y(), this->width(),
@@ -3411,10 +3477,13 @@ void MainWindow::saveSettings() {
     // Coordenadas do cliente (x()/y()), que é o que `move()` posiciona. Usar o quadro aqui
     // criava deriva de um título de janela por sessão (o cliente era movido para o y do
     // quadro e o quadro recalculado 28 px acima na abertura seguinte).
-    if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
-      qInfo("save: cliente em %d,%d quadro em %d,%d", x(), y(), frameGeometry().x(),
-            frameGeometry().y());
-    }
+    geomLog(QStringLiteral("save: cliente=%1,%2 quadro=%3,%4 tamanho=%5x%6")
+                .arg(x())
+                .arg(y())
+                .arg(frameGeometry().x())
+                .arg(frameGeometry().y())
+                .arg(width())
+                .arg(height()));
     // (0,0) é o que o Qt reporta antes de o gerenciador posicionar a janela; gravar isso
     // faria a próxima sessão abrir no canto.
     if (x() != 0 || y() != 0) {
