@@ -41,6 +41,9 @@ struct TrackInfo {
   int sampleRate = 0;  ///< taxa original, apenas para exibição
   int channels = 0;    ///< canais originais, apenas para exibição
   int bitrate = 0;     ///< kbps
+  float bpmTag = 0.0f;    ///< TBPM/bpm da tag (0 = ausente)
+  int keyPcTag = -1;      ///< classe de altura da tag (0–11, -1 = ausente)
+  int keyMajorTag = 0;    ///< 1 = maior, 0 = menor (só vale com keyPcTag >= 0)
 
   std::string displayTitle() const {
     if (title.empty()) return path;

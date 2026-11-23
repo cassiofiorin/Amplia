@@ -95,6 +95,9 @@ bool TagCache::ensureSchema(std::string* error) {
       "ALTER TABLE tracks ADD COLUMN key_pc INTEGER NOT NULL DEFAULT -1;",
       "ALTER TABLE tracks ADD COLUMN key_major INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN analyzed INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN bpm_tag REAL NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN key_pc_tag INTEGER NOT NULL DEFAULT -1;",
+      "ALTER TABLE tracks ADD COLUMN key_major_tag INTEGER NOT NULL DEFAULT 0;",
   };
   for (const char* alter : columns) {
     sqlite3_exec(db_, alter, nullptr, nullptr, nullptr);  // erro = coluna já existe
@@ -558,8 +561,10 @@ void TagCache::store(const TrackInfo& info) {
 
   const char* sql =
       "INSERT INTO tracks (path, size, mtime, title, artist, album, album_artist, genre,"
-      " track_no, year, duration_ms, sample_rate, channels, bitrate, dateadded, lastupd)"
-      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(strftime('%s','now') AS INTEGER), ?)"
+      " track_no, year, duration_ms, sample_rate, channels, bitrate,"
+      " bpm_tag, key_pc_tag, key_major_tag, dateadded, lastupd)"
+      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
+      " CAST(strftime('%s','now') AS INTEGER), ?)"
       " ON CONFLICT(path) DO UPDATE SET"
       " size = excluded.size, mtime = excluded.mtime, title = excluded.title,"
       " artist = excluded.artist, album = excluded.album,"
@@ -567,6 +572,8 @@ void TagCache::store(const TrackInfo& info) {
       " track_no = excluded.track_no, year = excluded.year,"
       " duration_ms = excluded.duration_ms, sample_rate = excluded.sample_rate,"
       " channels = excluded.channels, bitrate = excluded.bitrate,"
+      " bpm_tag = excluded.bpm_tag, key_pc_tag = excluded.key_pc_tag,"
+      " key_major_tag = excluded.key_major_tag,"
       " lastupd = excluded.lastupd;";
   sqlite3_stmt* statement = nullptr;
   if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return;
@@ -586,9 +593,12 @@ void TagCache::store(const TrackInfo& info) {
   sqlite3_bind_int(statement, 12, info.sampleRate);
   sqlite3_bind_int(statement, 13, info.channels);
   sqlite3_bind_int(statement, 14, info.bitrate);
+  sqlite3_bind_double(statement, 15, static_cast<double>(info.bpmTag));
+  sqlite3_bind_int(statement, 16, info.keyPcTag);
+  sqlite3_bind_int(statement, 17, info.keyMajorTag);
   const std::int64_t modified =
       (info.modifiedMs > 0 ? info.modifiedMs : fileModifiedMs(info.path)) / 1000;
-  sqlite3_bind_int64(statement, 15, modified);
+  sqlite3_bind_int64(statement, 18, modified);
   sqlite3_step(statement);
   sqlite3_finalize(statement);
 

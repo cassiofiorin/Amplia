@@ -41,6 +41,47 @@ int toYear(const std::string& text) {
   }
 }
 
+/// Primeiro valor não vazio entre várias grafias de chave de metadado.
+std::string firstOf(AVDictionary* fmt, AVDictionary* st, std::initializer_list<const char*> keys) {
+  for (const char* key : keys) {
+    const std::string value = firstTag(fmt, st, key);
+    if (!value.empty()) return value;
+  }
+  return std::string();
+}
+
+/// "8A"/"8B" (Camelot), "Am"/"F#m"/"G" (nota) → classe de altura + modo. Devolve -1 se não
+/// reconhecer; a rádio usa a tag quando existe e a estimativa quando não.
+int parseKeyTag(const std::string& text, bool* major) {
+  static const char* kNotes[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+  static const char* kFlat[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+  std::string value = text;
+  for (char& c : value) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+  if (value.size() >= 2 && (value.back() == 'A' || value.back() == 'B')) {
+    const bool isMajor = value.back() == 'B';
+    const int camelot = std::atoi(value.c_str());
+    if (camelot >= 1 && camelot <= 12) {
+      // Camelot: 8B = Dó maior, 8A = Lá menor; a roda anda de quinta em quinta.
+      static const int kCamelotMajor[12] = {7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5, 0};
+      static const int kCamelotMinor[12] = {4, 11, 6, 1, 8, 3, 10, 5, 0, 7, 2, 9};
+      *major = isMajor;
+      return isMajor ? kCamelotMajor[camelot - 1] : kCamelotMinor[camelot - 1];
+    }
+  }
+  const bool minor = value.size() >= 2 && value.back() == 'M' && value[value.size() - 2] != 'A';
+  std::string note = value;
+  if (minor && note.size() >= 2) note.pop_back();
+  if (note == "DO") note = "C";
+  if (note.find("MAJ") != std::string::npos) note = note.substr(0, note.find("MAJ"));
+  for (int i = 0; i < 12; ++i) {
+    if (note == kNotes[i] || note == kFlat[i]) {
+      *major = !minor;
+      return i;
+    }
+  }
+  return -1;
+}
+
 }  // namespace
 
 void fillTrackInfo(AVFormatContext* format, AVStream* stream, AVCodecContext* codec,
@@ -59,6 +100,27 @@ void fillTrackInfo(AVFormatContext* format, AVStream* stream, AVCodecContext* co
   info->year = toYear(firstTag(fmt, st, "date"));
   if (info->year == 0) info->year = toYear(firstTag(fmt, st, "year"));
   info->trackNo = toInt(firstTag(fmt, st, "track"));
+
+  // BPM e tom das tags: entram como valor do arquivo (a estimativa é outra coluna). As
+  // grafias variam por container — ID3v2 usa TBPM/TKEY, MP4 usa tmpo/key, Vorbis usa BPM/KEY.
+  const std::string bpmText = firstOf(fmt, st, {"TBPM", "tbpm", "BPM", "bpm", "tmpo", "TEMPO"});
+  if (!bpmText.empty()) {
+    try {
+      info->bpmTag = static_cast<float>(std::stof(bpmText));
+    } catch (...) {
+      info->bpmTag = 0.0f;
+    }
+    if (info->bpmTag < 20.0f || info->bpmTag > 400.0f) info->bpmTag = 0.0f;
+  }
+  const std::string keyText = firstOf(fmt, st, {"TKEY", "tkey", "KEY", "key", "INITIALKEY"});
+  if (!keyText.empty()) {
+    bool major = true;
+    const int pc = parseKeyTag(keyText, &major);
+    if (pc >= 0) {
+      info->keyPcTag = pc;
+      info->keyMajorTag = major ? 1 : 0;
+    }
+  }
 
   if (format != nullptr && format->pb != nullptr) {
     const std::int64_t size = avio_size(format->pb);
