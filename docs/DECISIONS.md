@@ -2402,3 +2402,18 @@ Duas correções de desenho que vieram do uso:
   dele que se precisa ao comparar coleções; os dias dão a escala.
 - **Tamanho** troca de unidade acima de 1 GB (`63 GB` em vez de `64531 MB`), com uma casa
   decimal abaixo de 10 GB. Formatação por `QLocale()` para usar a vírgula decimal do idioma.
+
+## D-115 — "BPM percebido" e "Tom percebido"
+
+A medição do app não é o BPM notado da partitura: é o **tactus** — o nível de pulso que uma
+pessoa bate o pé ouvindo. Numa faixa de 150 BPM com metade das batidas preenchidas na
+introdução, o que se percebe ali é ~75; numa seção em tercina o pulso parece outro sem que o
+tempo tenha mudado. Chamar aquilo de "BPM calculado" sugeria precisão que o método não tem.
+
+- Rótulos: **"BPM percebido"** e **"Tom percebido"** no grupo *Análise local* do Alt+3; a
+  legenda "estimado ao tocar — não é gravado nas tags" continua.
+- O campo **BPM** em *Metadados* segue sendo a tag `TBPM` — valor do arquivo, gravável.
+- Banco: `bpm` = tag; `bpm_perceived`, `bpm_confidence` (0–100) e `bpm_candidates`
+  (`"150:0.62,75:0.28"`) entram junto da revisão do estimador.
+- Listas por energia/clima usam o percebido; grid de DJ usa a tag. Os dois convivem, com
+  nomes distintos, em vez de um sobrescrever o outro.

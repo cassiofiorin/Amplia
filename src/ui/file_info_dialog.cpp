@@ -256,7 +256,7 @@ void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int key
   static const int kMinorCode[12] = {5, 12, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10};
 
   const bool hasBpm = valid && bpm > 0;
-  analysisBpmLabel_->setText(tr("BPM calculado: %1")
+  analysisBpmLabel_->setText(tr("BPM percebido: %1")
                                  .arg(hasBpm ? QString::number(bpm) : QStringLiteral("—")));
 
   QString keyText = QStringLiteral("—");
@@ -268,7 +268,7 @@ void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int key
                   .arg(code)
                   .arg(keyMajor != 0 ? QStringLiteral("B") : QStringLiteral("A"));
   }
-  analysisKeyLabel_->setText(tr("Tom analisado: %1").arg(keyText));
+  analysisKeyLabel_->setText(tr("Tom percebido: %1").arg(keyText));
 }
 
 bool FileInfoDialog::safeSaveEnabled() const { return safeSaveBox_->isChecked(); }
