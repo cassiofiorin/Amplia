@@ -972,9 +972,8 @@ void MainWindow::buildUi() {
   // Mesmo desenho da lista de cima: fonte e cor do texto vêm do tema, sem cor própria.
   queueList_->setFont(list_->font());
   queueList_->setItemDelegate(new PlaylistDelegate(queueList_));
-  queueList_->setStyleSheet(QStringLiteral("QListWidget { background: transparent; border: none; }"
-                                           "QListWidget::item { color: %1; padding: 1px 2px; }")
-                                .arg(wamp::ui::activeTheme().windowText.name()));
+  queueList_->setStyleSheet(QStringLiteral("QListWidget { background: %1; border: none; }")
+                                .arg(wamp::ui::activeTheme().listBg.name()));
   queueList_->setContextMenuPolicy(Qt::CustomContextMenu);
   connect(queueList_, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
     const QModelIndex index = queueList_->indexAt(pos);

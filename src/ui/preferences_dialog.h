@@ -86,6 +86,7 @@ class PreferencesDialog final : public QDialog {
   QString initialLanguage_;
   QString initialPlaylistMode_;
   bool initialXwayland_ = false;
+  bool initialLibraryReopen_ = false;
   bool initialShuffle_ = false;
   bool initialTray_ = false;
   bool initialRestart_ = false;

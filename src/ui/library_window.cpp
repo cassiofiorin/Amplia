@@ -411,7 +411,9 @@ void LibraryWindow::updateButtons() {
 }
 
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
-  if (watched == table_ && event->type() == QEvent::MouseButtonPress) {
+  const bool fromTable =
+      watched == table_ || watched == table_->viewport();
+  if (fromTable && event->type() == QEvent::MouseButtonPress) {
     auto* mouse = static_cast<QMouseEvent*>(event);
     // Alt+clique enfileira a faixa sob o cursor, como na playlist — sem mexer na seleção.
     if (mouse->button() == Qt::LeftButton && mouse->modifiers().testFlag(Qt::AltModifier)) {

@@ -520,6 +520,7 @@ void PreferencesDialog::captureInitial() {
   initialLanguage_ = language();
   initialPlaylistMode_ = playlistMode();
   initialXwayland_ = xwaylandPosition();
+  initialLibraryReopen_ = libraryReopen();
   initialShuffle_ = shuffleEnabled();
   initialTray_ = closeToTray();
   initialRestart_ = restartOnPlay();
@@ -541,7 +542,8 @@ void PreferencesDialog::updateOkState() {
 
   const wamp::ScrobbleConfig scrobble = scrobbleConfig();
   const bool dirty = language() != initialLanguage_ || playlistMode() != initialPlaylistMode_ ||
-                     xwaylandPosition() != initialXwayland_ || shuffleEnabled() != initialShuffle_ ||
+                     xwaylandPosition() != initialXwayland_ ||
+                     libraryReopen() != initialLibraryReopen_ || shuffleEnabled() != initialShuffle_ ||
                      closeToTray() != initialTray_ || restartOnPlay() != initialRestart_ ||
                      shuffleLevel() != initialLevel_ || visualEnabled() != initialVisual_ ||
                      visualFps() != initialFps_ || scrobble.announceNowPlaying != initialNowPlaying_ ||
