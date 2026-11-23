@@ -27,10 +27,11 @@ add_executable(wamp-ui-preview
   ${CMAKE_SOURCE_DIR}/src/ui/theme_editor.cpp
   ${CMAKE_SOURCE_DIR}/src/ui/icons.cpp
   ${CMAKE_SOURCE_DIR}/src/ui/playlist_delegate.cpp
+  ${CMAKE_SOURCE_DIR}/src/ui/file_info_dialog.cpp
 )
 
 target_include_directories(wamp-ui-preview PRIVATE ${CMAKE_SOURCE_DIR}/src/ui)
-target_link_libraries(wamp-ui-preview PRIVATE wamp-core wamp-scrobble Qt6::Widgets)
+target_link_libraries(wamp-ui-preview PRIVATE wamp-core wamp-scrobble wamp-tags Qt6::Widgets)
 target_compile_options(wamp-ui-preview PRIVATE -Wall -Wextra)
 
 set_target_properties(wamp-ui-preview PROPERTIES OUTPUT_NAME amplia-ui-preview)

@@ -14,6 +14,7 @@
 #include "theme.h"
 #include "translator.h"
 #include "equalizer_dialog.h"
+#include "file_info_dialog.h"
 #include "preferences_dialog.h"
 #include "theme_editor.h"
 #include "theme_store.h"
@@ -77,6 +78,18 @@ int main(int argc, char** argv) {
 
   // Preferências: confere o diálogo (abas, agrupamentos) sem abrir janela.
   for (int i = 1; i < argc; ++i) {
+    if (QString::fromLocal8Bit(argv[i]) == QLatin1String("--fileinfo")) {
+      // Amostra do Alt+3 com o grupo "Análise local" preenchido, para conferir o desenho
+      // sem precisar de arquivo real nem de banco.
+      wamp::ui::FileInfoDialog dialog({std::string("/tmp/amostra-faixa-exemplo.mp3")}, 0, false);
+      dialog.setAnalysis(true, 117, 7, 1);
+      dialog.resize(dialog.sizeHint());
+      dialog.show();
+      app.processEvents();
+      dialog.grab().save(out);
+      std::printf("imagem do File Info em %s\n", qPrintable(out));
+      return 0;
+    }
     if (QString::fromLocal8Bit(argv[i]) == QLatin1String("--prefs")) {
       wamp::ScrobbleConfig scrobble;
       PreferencesDialog dialog(true, 50, false, true, true, 15, 0.0, 0.0, QStringLiteral("integrada"),

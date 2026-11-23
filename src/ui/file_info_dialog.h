@@ -25,6 +25,10 @@ class FileInfoDialog final : public QDialog {
   FileInfoDialog(std::vector<std::string> paths, std::size_t index, bool safeSave,
                  QWidget* parent = nullptr);
 
+  /// Valores da análise local (banco), só para leitura: a estimativa não é gravada nas
+  /// tags. `valid == false` mostra "—".
+  void setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor);
+
   /// Preferência de gravação segura, para a janela principal guardar.
   bool safeSaveEnabled() const;
 
@@ -80,6 +84,8 @@ class FileInfoDialog final : public QDialog {
   QLabel* readonlyLabel_ = nullptr;
   QPushButton* okButton_ = nullptr;
   QLabel* replayGainLabel_ = nullptr;
+  QLabel* analysisBpmLabel_ = nullptr;
+  QLabel* analysisKeyLabel_ = nullptr;
   QLabel* warningLabel_ = nullptr;
   QCheckBox* safeSaveBox_ = nullptr;
 

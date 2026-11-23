@@ -78,6 +78,9 @@ class TagCache final {
     long long milliseconds = 0;
   };
   AnalysisStats analysisStats(std::string* error);
+
+  /// Valores da análise local de um caminho. Devolve `false` se a faixa não está no banco.
+  bool analysisFor(const std::string& path, float* bpm, int* keyPc, int* keyMajor, bool* valid);
   std::vector<std::string> roots(std::string* error);
 
   /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e

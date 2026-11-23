@@ -2330,3 +2330,23 @@ varrer a biblioteca nem abrir arquivo duas vezes.
   `key_pc = 7 (Sol), maior`.
 - Fora desta fatia: colunas de BPM/tonalidade na tabela e filtros por elas (dependem dos
   filtros combinados).
+
+## D-111 — Análise local visível no Alt+3, só leitura
+
+O Alt+3 já tem um campo **BPM**, que é a tag `TBPM` — editável e gravada no arquivo. A
+estimativa da análise é outra coisa: vem do banco, é medida enquanto a faixa toca e **não
+vai para as tags**. Por isso o grupo novo fica separado, abaixo do Replay Gain:
+
+- **BPM calculado** e **Tom analisado** (`Lá menor (8A)`), este com o código Camelot entre
+  parênteses, que é a notação usada em playlist.
+- Legenda "estimado ao tocar — não é gravado nas tags" dentro do grupo, para não sugerir que
+  o OK do diálogo salva aquele número.
+- Sem análise: `—`. O grupo aparece sempre; esconder faria parecer que a faixa "não tem
+  análise" por erro.
+- Fonte: `TagCache::analysisFor(path, &bpm, &keyPc, &keyMajor, &valid)`, consultado ao abrir a
+  janela em `MainWindow::showFileInfo()`.
+- Precedência combinada com o usuário: **tag vence** para o número que vale (`TBPM` quando
+  existe); a estimativa é o que aparece neste grupo. Divergência acima de 8 BPM será
+  mostrada quando a leitura de `TKEY` entrar.
+- `tools/preview.cpp --fileinfo` passou a renderizar o diálogo com valores de amostra (o alvo
+  ganhou `src/ui/file_info_dialog.cpp` e `wamp-tags`), para conferir o desenho sem arquivo.

@@ -1870,6 +1870,17 @@ void MainWindow::openFileInfo() {
   const bool safeSave = settings.value(QStringLiteral("fileinfo/safeSave"), true).toBool();
 
   wamp::ui::FileInfoDialog dialog(playlist_->items(), index, safeSave, this);
+  // Análise local (banco): só leitura. Se a faixa nunca tocou o suficiente, o grupo mostra
+  // "—" — e o BPM do cabeçalho continua sendo a tag TBPM.
+  if (cache_ != nullptr) {
+    float analysedBpm = 0.0f;
+    int keyPc = -1;
+    int keyMajor = 0;
+    bool analysed = false;
+    if (cache_->analysisFor(playlist_->items().at(index), &analysedBpm, &keyPc, &keyMajor, &analysed)) {
+      dialog.setAnalysis(analysed, static_cast<int>(std::lround(analysedBpm)), keyPc, keyMajor);
+    }
+  }
   connect(&dialog, &wamp::ui::FileInfoDialog::fileSaved, this, &MainWindow::onFileSaved);
   dialog.exec();
   settings.setValue(QStringLiteral("fileinfo/safeSave"), dialog.safeSaveEnabled());

@@ -213,6 +213,26 @@ void TagCache::saveAnalysis(const std::string& path, float bpm, int keyPc, int k
   sqlite3_finalize(statement);
 }
 
+bool TagCache::analysisFor(const std::string& path, float* bpm, int* keyPc, int* keyMajor,
+                           bool* valid) {
+  if (db_ == nullptr || path.empty()) return false;
+  sqlite3_stmt* statement = nullptr;
+  const char* sql = "SELECT bpm, key_pc, key_major, analyzed FROM tracks WHERE path = ?1;";
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return false;
+  bindText(statement, 1, path);
+  bool found = false;
+  if (sqlite3_step(statement) == SQLITE_ROW) {
+    // A linha existe mesmo sem análise: o Alt+3 mostra "—" em vez de esconder o grupo.
+    if (bpm != nullptr) *bpm = static_cast<float>(sqlite3_column_double(statement, 0));
+    if (keyPc != nullptr) *keyPc = sqlite3_column_int(statement, 1);
+    if (keyMajor != nullptr) *keyMajor = sqlite3_column_int(statement, 2);
+    if (valid != nullptr) *valid = sqlite3_column_int(statement, 3) != 0;
+    found = true;
+  }
+  sqlite3_finalize(statement);
+  return found;
+}
+
 TagCache::AnalysisStats TagCache::analysisStats(std::string* error) {
   AnalysisStats stats;
   if (db_ == nullptr) {
