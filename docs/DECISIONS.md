@@ -2239,3 +2239,22 @@ corrigir e caros de conviver:
   diziam "Projeto privado (ver LICENSE na raiz do WAmp)" e apontavam para um arquivo que não
   existe (é `COPYING`). Passaram para "GPL-3.0-or-later; ver COPYING", coerente com o repo
   público.
+
+## D-107 — O I/O do decoder sai do mutex de estado
+
+O `decoder->read()` rodava segurando o `mutex` do engine. Num arquivo local isso é
+imperceptível; num NAS com a rede travada, a leitura demora e **qualquer** comando de UI —
+play, pause, volume, consulta de estado — ficava esperando o mesmo mutex. O sintoma que o
+usuário via era "o player congela ao apertar pause".
+
+- O `decoder` ganhou um mutex próprio (`decoderMutex`), separado do mutex de estado: a
+  thread de controle o segura **só** durante `read()`, e a UI nunca fica presa atrás de I/O
+  para mudar o estado de reprodução.
+- Quem abre, posiciona ou troca o decoder (`load`, `seek`, `stop`, o restart de EOF do
+  `play`) passa a adquirir o `decoderMutex` em volta da operação de arquivo.
+- Ordem de aquisição é sempre **estado → decoder**, nunca o contrário; é o que evita
+  deadlock entre a UI e a thread de controle.
+- **Residual conhecido**: `seek` e `load` ainda esperam uma leitura em andamento terminar —
+  é aceitável (o usuário pediu troca de posição/faixa) e bem diferente de travar o
+  play/pause. A solução completa é o decoder pertencer à thread de controle, com fila de
+  comandos; fica registrada como evolução, não como pendência desta fatia.
