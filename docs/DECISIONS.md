@@ -2417,3 +2417,25 @@ tempo tenha mudado. Chamar aquilo de "BPM calculado" sugeria precisão que o mé
   (`"150:0.62,75:0.28"`) entram junto da revisão do estimador.
 - Listas por energia/clima usam o percebido; grid de DJ usa a tag. Os dois convivem, com
   nomes distintos, em vez de um sobrescrever o outro.
+
+## D-116 — Rádio local: pontuação por tags, estação e eventos de contexto
+
+A primeira rádio não depende de aprendizado: ela usa o que já existe no banco.
+
+- **Pontuação** (`src/library/src/radio.cpp`): artista 0,30 · álbum 0,25 · gênero 0,10 ·
+  ano 0,10 (decaimento de 12 anos) · BPM 0,15 com **dobra/metade** (razão normalizada para
+  0,75–1,5) · tom 0,15 pela roda de Camelot (igual 1,0, relativo 0,7, vizinho ±1 0,6) ·
+  nota 0,03 · ouvidas 0,02.
+- **Pulos reduzem sem excluir**: `nota *= 0,55 + 0,45 × aceitação`, com aceitação de Laplace
+  `(1 + fim) / (2 + fim + pulos)`. É o caso do disco agitado que tem uma faixa acústica: ela
+  perde peso no contexto errado e volta no certo.
+- **Diversidade**: no máximo um artista a cada 5 escolhas e uma "descoberta" (faixas com até
+  3 execuções) a cada 7.
+- **Sementes**: `radio_events(path, kind, ctx_bpm, ctx_key, ctx_genre, ctx_artist, ts)` —
+  `kind` 0 = pulou, 1 = ouviu até o fim, 2 = removeu da fila (recusa explícita). O contador
+  `skips` na faixa é o resumo; a tabela guarda o contexto de cada evento.
+- **Estação enfileira**: *Biblioteca ▸ Opções ▸ Tocar estação local* (`Ctrl+Shift+R`) e o
+  botão **"Tocar essa estação local"** no rodapé da Biblioteca geram 20 faixas e as
+  **acrescentam** ao fim da playlist — a lista do usuário nunca é substituída.
+- **Pulo** conta quando a faixa começou e saiu antes de 30 s por troca de faixa (Próxima,
+  anterior, clique em outra); parar, terminar ou sair nos últimos segundos não contam.

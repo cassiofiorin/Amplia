@@ -83,6 +83,7 @@ class LibraryWindow final : public QWidget {
   QLabel* status_ = nullptr;
   QPushButton* playButton_ = nullptr;
   QPushButton* queueButton_ = nullptr;
+  QPushButton* stationButton_ = nullptr;
   QAction* removeAction_ = nullptr;
 };
 
