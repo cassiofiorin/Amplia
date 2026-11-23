@@ -419,6 +419,13 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
     settings.sync();
     restartWithPlatformChange();
   };
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_DIALOG")) {
+    const bool value = qEnvironmentVariableIntValue("AMPLIA_TEST_XWAYLAND_DIALOG") != 0;
+    QTimer::singleShot(1500, this, [this, value] {
+      persistXwaylandChoice(value);
+      restartWithPlatformChange();
+    });
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_XWAYLAND_ON")) {
     QTimer::singleShot(1500, this, [restartWithValue] { restartWithValue(true); });
   }
@@ -2672,9 +2679,7 @@ void MainWindow::openPreferences() {
   if (dialog.playlistMode() != playlistMode_) setPlaylistMode(dialog.playlistMode());
 
   if (dialog.xwaylandPosition() != xwaylandOn) {
-    QSettings settings(settingsFile(), QSettings::IniFormat);
-    settings.setValue(QStringLiteral("window/xwaylandPosition"), dialog.xwaylandPosition());
-    settings.sync();
+    persistXwaylandChoice(dialog.xwaylandPosition());
     QMessageBox box(this);
     box.setIcon(QMessageBox::Question);
     box.setWindowTitle(tr("Posição das janelas"));
@@ -2974,6 +2979,21 @@ void MainWindow::schedulePendingPlaylistOpen() {
 void MainWindow::showEvent(QShowEvent* event) {
   QMainWindow::showEvent(event);
   schedulePendingPlaylistOpen();
+}
+
+void MainWindow::persistXwaylandChoice(bool value) {
+  QSettings settings(settingsFile(), QSettings::IniFormat);
+  settings.setValue(QStringLiteral("window/xwaylandPosition"), value);
+  if (!value) {
+    // Desligar a opção é também "esquecer o que estava guardado": deixar a geometria antiga
+    // no arquivo fazia a janela voltar ao mesmo lugar assim que o XWayland fosse reativado,
+    // e no modo externo dava a impressão de que a opção não tinha efeito.
+    for (const char* key : {"window/geometry", "window/playlistGeometry",
+                            "window/libraryGeometry", "window/posX", "window/posY"}) {
+      settings.remove(QLatin1String(key));
+    }
+  }
+  settings.sync();
 }
 
 void MainWindow::restartWithPlatformChange() {

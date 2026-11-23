@@ -308,11 +308,31 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   scrobblingLayout->addWidget(note);
 
   auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+  buttons_ = buttons;
   connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
   connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
   layout->addWidget(buttons);
 
   connect(levelSlider_, &QSlider::valueChanged, this, &PreferencesDialog::updateLevelLabel);
+  // Sem alteração não há o que gravar: o OK fica apagado até algo mudar (o aviso de
+  // reinício que aparecia sem motivo era o sintoma disso).
+  for (QCheckBox* box : {shuffleBox_, trayBox_, restartBox_, xwaylandBox_, visualBox_, nowPlayingBox_,
+                         lastfmBox_, listenbrainzBox_}) {
+    if (box != nullptr) connect(box, &QCheckBox::toggled, this, &PreferencesDialog::updateOkState);
+  }
+  for (QSlider* slider : {levelSlider_, fpsSlider_}) {
+    if (slider != nullptr) connect(slider, &QSlider::valueChanged, this, &PreferencesDialog::updateOkState);
+  }
+  for (QLineEdit* edit : {lastfmKey_, lastfmSecret_, listenbrainzToken_}) {
+    if (edit != nullptr) connect(edit, &QLineEdit::textChanged, this, &PreferencesDialog::updateOkState);
+  }
+  if (languageBox_ != nullptr) {
+    connect(languageBox_, &QComboBox::currentIndexChanged, this, &PreferencesDialog::updateOkState);
+  }
+  if (playlistModeBox_ != nullptr) {
+    connect(playlistModeBox_, &QComboBox::currentIndexChanged, this, &PreferencesDialog::updateOkState);
+  }
+  captureInitial();
   connect(shuffleBox_, &QCheckBox::toggled, this, [this](bool on) {
     levelSlider_->setEnabled(on);
     levelLabel_->setEnabled(on);
@@ -483,4 +503,45 @@ QString PreferencesDialog::playlistMode() const {
 QString PreferencesDialog::language() const {
   return languageBox_ != nullptr ? languageBox_->currentData().toString()
                                  : QStringLiteral("sistema");
+}
+
+void PreferencesDialog::captureInitial() {
+  initialLanguage_ = language();
+  initialPlaylistMode_ = playlistMode();
+  initialXwayland_ = xwaylandPosition();
+  initialShuffle_ = shuffleEnabled();
+  initialTray_ = closeToTray();
+  initialRestart_ = restartOnPlay();
+  initialLevel_ = shuffleLevel();
+  initialVisual_ = visualEnabled();
+  initialFps_ = visualFps();
+  const wamp::ScrobbleConfig scrobble = scrobbleConfig();
+  initialScrobble_ = scrobble;
+  initialNowPlaying_ = scrobble.announceNowPlaying;
+  initialLastfm_ = scrobble.lastfmEnabled;
+  initialListenbrainz_ = scrobble.listenbrainzEnabled;
+  updateOkState();
+}
+
+void PreferencesDialog::updateOkState() {
+  if (buttons_ == nullptr) return;
+  QPushButton* ok = buttons_->button(QDialogButtonBox::Ok);
+  if (ok == nullptr) return;
+
+  const wamp::ScrobbleConfig scrobble = scrobbleConfig();
+  const bool dirty = language() != initialLanguage_ || playlistMode() != initialPlaylistMode_ ||
+                     xwaylandPosition() != initialXwayland_ || shuffleEnabled() != initialShuffle_ ||
+                     closeToTray() != initialTray_ || restartOnPlay() != initialRestart_ ||
+                     shuffleLevel() != initialLevel_ || visualEnabled() != initialVisual_ ||
+                     visualFps() != initialFps_ || scrobble.announceNowPlaying != initialNowPlaying_ ||
+                     scrobble.lastfmEnabled != initialLastfm_ ||
+                     scrobble.listenbrainzEnabled != initialListenbrainz_ ||
+                     QString::fromStdString(scrobble.lastfmApiKey) !=
+                         QString::fromStdString(initialScrobble_.lastfmApiKey) ||
+                     QString::fromStdString(scrobble.lastfmSharedSecret) !=
+                         QString::fromStdString(initialScrobble_.lastfmSharedSecret) ||
+                     QString::fromStdString(scrobble.listenbrainzToken) !=
+                         QString::fromStdString(initialScrobble_.listenbrainzToken);
+  // O botão fica visível, mas apagado: nada mudou, não há o que aplicar.
+  ok->setEnabled(dirty);
 }

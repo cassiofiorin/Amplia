@@ -64,6 +64,9 @@ class PreferencesDialog final : public QDialog {
 
  private:
   void updateLevelLabel();
+  /// Fotografa os valores ao abrir e reavalia o "OK" a cada mudança.
+  void captureInitial();
+  void updateOkState();
   void updateScrobbleState();
   void connectLastfm();
   void testListenbrainz();
@@ -76,6 +79,23 @@ class PreferencesDialog final : public QDialog {
   QCheckBox* restartBox_ = nullptr;
   QSlider* levelSlider_ = nullptr;
   QLabel* levelLabel_ = nullptr;
+  class QDialogButtonBox* buttons_ = nullptr;
+  QString initialLanguage_;
+  QString initialPlaylistMode_;
+  bool initialXwayland_ = false;
+  bool initialShuffle_ = false;
+  bool initialTray_ = false;
+  bool initialRestart_ = false;
+  bool initialNowPlaying_ = false;
+  bool initialLastfm_ = false;
+  bool initialListenbrainz_ = false;
+  bool initialVisual_ = false;
+  int initialLevel_ = 0;
+  int initialFps_ = 0;
+  QString initialKey_;
+  QString initialSecret_;
+  QString initialToken_;
+  wamp::ScrobbleConfig initialScrobble_;
   QLabel* hintLabel_ = nullptr;
 
   QCheckBox* nowPlayingBox_ = nullptr;

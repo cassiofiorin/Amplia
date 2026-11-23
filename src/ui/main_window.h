@@ -220,6 +220,7 @@ class MainWindow final : public QMainWindow {
   /// Reinício de verdade (novo processo): a plataforma só pode ser trocada antes do
   /// QApplication, então reconstruir a janela no mesmo processo não mudaria nada.
   void restartWithPlatformChange();
+  void persistXwaylandChoice(bool value);
   void armPlaycount(const std::string& path);
   void resumePendingScan();
   void openLibrary();

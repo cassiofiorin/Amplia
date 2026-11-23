@@ -2135,3 +2135,17 @@ estável nas duas, `507x282` (cliente) fechada e `507x582` aberta.
   uma segunda passada em Preferências.
 - **(0,0) não é posição**: o Qt reporta 0,0 antes de o gerenciador posicionar; `saveSettings`
   ignora esse par para não abrir no canto na sessão seguinte.
+
+## D-102 — "OK" só quando há mudança; desligar a posição apaga o que estava guardado
+
+- **Preferências sem alteração**: o diálogo fotografa os valores ao abrir
+  (`captureInitial()`) e reavalia a cada mudança de checkbox, slider, combo ou campo de texto
+  (`updateOkState()`). O **OK fica visível e apagado** enquanto nada mudou — antes um clique
+  sem alteração ainda disparava o aviso de reinício.
+- **Desligar a posição esquecia o arquivo**: `persistXwaylandChoice(false)` remove
+  `window/geometry`, `window/playlistGeometry`, `window/libraryGeometry`, `window/posX` e
+  `window/posY`. Sem isso a geometria antiga ficava no INI e voltava a valer assim que o
+  XWayland fosse reativado — no modo externo (janela desacoplada) dava a impressão de que
+  desligar a opção não fazia efeito.
+- **Escape novo `AMPLIA_TEST_XWAYLAND_DIALOG=0|1`**: percorre o mesmo caminho do diálogo
+  (grava/ limpa + reinicia), para testar ligar e desligar de ponta a ponta sem clique.
