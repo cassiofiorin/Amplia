@@ -260,6 +260,9 @@ class MainWindow final : public QMainWindow {
   /// Bloco "Na fila": mostra/esconde e redesenha a partir de pathQueue_.
   void toggleQueuePanel();
   void refreshQueuePanel();
+
+  /// Remove da fila; quando veio da rádio, grava o evento de recusa (kind=2).
+  void rejectQueuedItem(std::size_t index);
   QString rowLabel(const std::string& path, bool current) const;
   QString durationText(const std::string& path) const;
   void startReading();

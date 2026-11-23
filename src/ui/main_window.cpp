@@ -539,6 +539,13 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
       QTimer::singleShot(300, this, [this] { openLibrary(); });
     }
   }
+  if (QSettings(settingsFile(), QSettings::IniFormat)
+          .value(QStringLiteral("ui/queueVisible"), false)
+          .toBool() &&
+      queuePanel_ != nullptr) {
+    queuePanel_->setVisible(true);
+    refreshQueuePanel();
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_TEST_QUEUE")) {
     QTimer::singleShot(1200, this, [this] {
       QStringList paths;
@@ -961,6 +968,17 @@ void MainWindow::buildUi() {
   queueList_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   queueList_->setSelectionMode(QAbstractItemView::SingleSelection);
   queueList_->setMaximumHeight(96);
+  queueList_->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(queueList_, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+    const QModelIndex index = queueList_->indexAt(pos);
+    if (!index.isValid()) return;
+    QMenu menu(queueList_);
+    QAction* remove = menu.addAction(tr("Remover da fila"));
+    if (menu.exec(queueList_->viewport()->mapToGlobal(pos)) == remove) {
+      rejectQueuedItem(static_cast<std::size_t>(index.row()));
+    }
+  });
+  queueList_->installEventFilter(this);
   queueLayout->addWidget(queueList_);
   queuePanel_->hide();
   panelLayout->addWidget(queuePanel_);
@@ -2937,6 +2955,14 @@ void MainWindow::showListMenu(const QPoint& globalPos) {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == queueList_ && event->type() == QEvent::KeyPress) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    if ((key->key() == Qt::Key_Delete || key->key() == Qt::Key_Backspace) &&
+        queueList_->currentRow() >= 0) {
+      rejectQueuedItem(static_cast<std::size_t>(queueList_->currentRow()));
+      return true;
+    }
+  }
   // Arrastar de qualquer ponto: o painel do display e o fundo da janela iniciam o
   // movimento do sistema. Botões, sliders e a lista ficam de fora para não roubar o clique.
   if (easyMove_ && event->type() == QEvent::MouseButtonPress && QApplication::activeModalWidget() == nullptr) {
@@ -3514,6 +3540,8 @@ void MainWindow::saveSettings() {
   if (volumeSlider_ != nullptr) settings.setValue(QStringLiteral("play/volume"), volumeSlider_->value());
   settings.setValue(QStringLiteral("play/remaining"), remaining_);
   settings.setValue(QStringLiteral("playlist/fontPx"), playlistFontPx_);
+  settings.setValue(QStringLiteral("ui/queueVisible"),
+                    queuePanel_ != nullptr && queuePanel_->isVisible());
   settings.setValue(QStringLiteral("window/easyMove"), easyMove_);
   if (playlistWindow_ != nullptr && playlistWindow_->isVisible()) {
     settings.setValue(QStringLiteral("window/playlistWidth"), playlistWindow_->width());
@@ -3721,6 +3749,34 @@ void MainWindow::setRestartHandler(std::function<void()> handler) {
 void MainWindow::showPlaylist(bool visible) {
   playlistAutoShown_ = true;  // escolha explícita: o auto-mostrar não mexe mais
   setPlaylistVisible(visible);
+}
+
+void MainWindow::rejectQueuedItem(std::size_t index) {
+  if (index >= pathQueue_.size()) return;
+  const QueueEntry entry = pathQueue_[index];
+  // Recusa explícita: só a rádio aprende com isso (é ela que escolheu a faixa).
+  if (entry.origin == 2 && cache_ != nullptr) {
+    wamp::RadioContext context;
+    wamp::TrackInfo info;
+    if (cache_->lookupFast(entry.path, &info)) {
+      context.genre = info.genre;
+      context.artist = info.artist;
+    }
+    float bpm = 0.0f;
+    int keyPc = -1;
+    int keyMajor = 0;
+    bool analysed = false;
+    if (cache_->analysisFor(entry.path, &bpm, &keyPc, &keyMajor, &analysed) && analysed) {
+      context.bpmBucket = wamp::radioBpmBucket(bpm);
+      context.keyCamelot = wamp::radioCamelot(keyPc, keyMajor);
+    } else if (info.bpmTag > 0.0f) {
+      context.bpmBucket = wamp::radioBpmBucket(info.bpmTag);
+      context.keyCamelot = wamp::radioCamelot(info.keyPcTag, info.keyMajorTag);
+    }
+    cache_->recordRadioEvent(entry.path, 2, context);
+  }
+  pathQueue_.erase(pathQueue_.begin() + static_cast<std::ptrdiff_t>(index));
+  refreshQueuePanel();
 }
 
 void MainWindow::toggleQueuePanel() {
