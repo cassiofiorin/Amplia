@@ -31,6 +31,9 @@ int main(int argc, char** argv) {
   // plugin de plataforma que a lê na construção.
   if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM")) {
     QSettings early(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
+    qInfo("amplia: xwaylandPosition na INI = %s",
+          early.value(QStringLiteral("window/xwaylandPosition"), false).toBool() ? "true"
+                                                                              : "false");
     if (early.value(QStringLiteral("window/xwaylandPosition"), false).toBool()) {
       qputenv("QT_QPA_PLATFORM", "xcb");
       qInfo("amplia: XWayland pedido pela preferência (arquivo %s)",
