@@ -539,6 +539,20 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
       QTimer::singleShot(300, this, [this] { openLibrary(); });
     }
   }
+  if (qEnvironmentVariableIsSet("AMPLIA_TEST_QUEUE")) {
+    QTimer::singleShot(1200, this, [this] {
+      QStringList paths;
+      for (int i = 0; i < std::min(3, list_->count()); ++i) {
+        if (QListWidgetItem* item = list_->item(i)) {
+          paths.append(item->data(Qt::UserRole).toString());
+        }
+      }
+      enqueuePaths(paths, 0);
+      qInfo("amplia: teste fila com %zu item(s)", pathQueue_.size());
+      if (queuePanel_ != nullptr) queuePanel_->setVisible(true);
+      refreshQueuePanel();
+    });
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_OPEN_LIBRARY")) {
     QTimer::singleShot(0, this, [this] { openLibrary(); });
   }
@@ -1863,11 +1877,8 @@ void MainWindow::jumpQueue(const QString& path) {
   const std::string native = path.toStdString();
   for (std::size_t i = 0; i < playlist_->size(); ++i) {
     if (playlist_->at(i) != native) continue;
-    if (!playlist_->queuePosition(i)) {
-      playlist_->enqueue(i);
-      refreshQueue();
-      updateNextUp();
-    }
+    enqueuePaths({path}, 0);
+    updateNextUp();
     statusBar()->showMessage(tr("Enfileirada: %1").arg(baseName(native)), 3000);
     return;
   }
@@ -2892,15 +2903,9 @@ void MainWindow::onTrackEnded() {
 void MainWindow::toggleQueue(int row) {
   if (row < 0 || static_cast<std::size_t>(row) >= playlist_->size()) return;
   const std::size_t index = static_cast<std::size_t>(row);
-  if (playlist_->queuePosition(index) > 0) {
-    playlist_->removeFromQueue(index);
-    statusBar()->showMessage(tr("Fora da fila"), 2000);
-  } else {
-    playlist_->enqueue(index);
-    statusBar()->showMessage(
-        tr("Enfileirada na posição %1").arg(playlist_->queueSize()), 2000);
+  if (QListWidgetItem* item = list_->item(row)) {
+    enqueuePaths({item->data(Qt::UserRole).toString()}, 0);
   }
-  refreshQueue();
   updateNextUp();
 }
 
@@ -4262,6 +4267,9 @@ void MainWindow::startRadioStation(const QString& seedPath) {
   for (std::size_t i = 1; i < picked.size(); ++i) {
     pathQueue_.push_back({picked[i], 2, model.path});
   }
+  refreshQueuePanel();
+  if (queuePanel_ != nullptr) queuePanel_->setVisible(true);
+  refreshQueuePanel();
   openPath(QString::fromStdString(picked.front()));
   statusBar()->showMessage(tr("Estação local: %1 faixa(s) a partir de “%2”")
                                .arg(picked.size())
