@@ -153,7 +153,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 
   dynamicsPanel_ = new QWidget(right);
   auto* dynamicsLayout = new QVBoxLayout(dynamicsPanel_);
-  dynamicsLayout->setContentsMargins(0, 24, 0, 0);
+  dynamicsLayout->setContentsMargins(100, 24, 0, 0);
   dynamicsTitle_ = new QLabel(tr("Analisando suas músicas"), dynamicsPanel_);
   dynamicsTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
   dynamicsCount_ = new QLabel(dynamicsPanel_);
@@ -175,6 +175,9 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   auto* footer = new QHBoxLayout();
   summary_ = new QLabel(right);
   summary_->setObjectName(QStringLiteral("hint"));
+  // Respiro à esquerda: o resumo ficava colado na linha do divisor e "embolava" com a
+  // árvore ao lado.
+  footer->addSpacing(100);
   footer->addWidget(summary_, 1);
   playButton_ = new QPushButton(tr("Tocar"), right);
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
