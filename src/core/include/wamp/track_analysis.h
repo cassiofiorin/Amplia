@@ -13,6 +13,7 @@ struct TrackAnalysis {
   float bpm = 0.0f;        ///< 0 = não deu para estimar
   int keyPitchClass = -1;  ///< 0 = C … 11 = B; -1 = desconhecida
   int keyMajor = 0;        ///< 1 = maior, 0 = menor
+  float confidence = 0.0f; ///< 0–100: massa do grupo métrico dominante
   double seconds = 0.0;    ///< quanto áudio já entrou
 };
 

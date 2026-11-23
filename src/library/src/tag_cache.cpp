@@ -1,5 +1,7 @@
 #include "wamp/tag_cache.h"
 
+#include <algorithm>
+
 #include <sqlite3.h>
 
 #include <utility>
@@ -95,6 +97,7 @@ bool TagCache::ensureSchema(std::string* error) {
       "ALTER TABLE tracks ADD COLUMN key_pc INTEGER NOT NULL DEFAULT -1;",
       "ALTER TABLE tracks ADD COLUMN key_major INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN analyzed INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE tracks ADD COLUMN bpm_confidence INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN bpm_tag REAL NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN key_pc_tag INTEGER NOT NULL DEFAULT -1;",
       "ALTER TABLE tracks ADD COLUMN key_major_tag INTEGER NOT NULL DEFAULT 0;",
@@ -202,25 +205,27 @@ bool TagCache::addRoot(const std::string& path, std::string* error) {
   return true;
 }
 
-void TagCache::saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor) {
+void TagCache::saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor,
+                            int confidence) {
   if (db_ == nullptr || path.empty()) return;
   sqlite3_stmt* statement = nullptr;
-  const char* sql =
-      "UPDATE tracks SET bpm = ?2, key_pc = ?3, key_major = ?4, analyzed = 1 WHERE path = ?1;";
+  const char* sql = "UPDATE tracks SET bpm = ?2, key_pc = ?3, key_major = ?4, "
+                    "bpm_confidence = ?5, analyzed = 1 WHERE path = ?1;";
   if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return;
   bindText(statement, 1, path);
   sqlite3_bind_double(statement, 2, static_cast<double>(bpm));
   sqlite3_bind_int(statement, 3, keyPc);
   sqlite3_bind_int(statement, 4, keyMajor);
+  sqlite3_bind_int(statement, 5, std::clamp(confidence, 0, 100));
   sqlite3_step(statement);
   sqlite3_finalize(statement);
 }
 
 bool TagCache::analysisFor(const std::string& path, float* bpm, int* keyPc, int* keyMajor,
-                           bool* valid) {
+                           bool* valid, int* confidence) const {
   if (db_ == nullptr || path.empty()) return false;
   sqlite3_stmt* statement = nullptr;
-  const char* sql = "SELECT bpm, key_pc, key_major, analyzed FROM tracks WHERE path = ?1;";
+  const char* sql = "SELECT bpm, key_pc, key_major, analyzed, bpm_confidence FROM tracks WHERE path = ?1;";
   if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) return false;
   bindText(statement, 1, path);
   bool found = false;
@@ -230,6 +235,7 @@ bool TagCache::analysisFor(const std::string& path, float* bpm, int* keyPc, int*
     if (keyPc != nullptr) *keyPc = sqlite3_column_int(statement, 1);
     if (keyMajor != nullptr) *keyMajor = sqlite3_column_int(statement, 2);
     if (valid != nullptr) *valid = sqlite3_column_int(statement, 3) != 0;
+    if (confidence != nullptr) *confidence = sqlite3_column_int(statement, 4);
     found = true;
   }
   sqlite3_finalize(statement);

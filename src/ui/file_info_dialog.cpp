@@ -244,7 +244,8 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   updateSaveability();
 }
 
-void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor) {
+void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor,
+                                 int confidence) {
   // Nomes em português e o código Camelot entre parênteses: é o que o pessoal de
   // playlist usa na prática ("Lá menor (8A)").
   static const QStringList names = {
@@ -256,8 +257,10 @@ void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int key
   static const int kMinorCode[12] = {5, 12, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10};
 
   const bool hasBpm = valid && bpm > 0;
-  analysisBpmLabel_->setText(tr("BPM percebido: %1")
-                                 .arg(hasBpm ? QString::number(bpm) : QStringLiteral("—")));
+  const QString bpmText = hasBpm ? QString::number(bpm) : QStringLiteral("—");
+  analysisBpmLabel_->setText(
+      confidence > 0 ? tr("BPM percebido: %1 (confiança %2%)").arg(bpmText).arg(confidence)
+                     : tr("BPM percebido: %1").arg(bpmText));
 
   QString keyText = QStringLiteral("—");
   if (valid && keyPitchClass >= 0 && keyPitchClass < 12) {

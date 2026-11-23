@@ -124,8 +124,20 @@ void TrackAnalyzer::analyzeWindow() {
   }
 
   const double hopSeconds = static_cast<double>(hopFrames_) / static_cast<double>(sampleRate_);
-  int bestLag = 0;
-  double bestValue = 0.0;
+
+  // Três melhores picos, não só o vencedor: uma janela com metade das batidas preenchidas
+  // dá pico na metade do tempo e, guardando só ele, o tempo "verdadeiro" desaparecia.
+  std::array<int, 3> peakLag{{0, 0, 0}};
+  std::array<double, 3> peakValue{{0.0, 0.0, 0.0}};
+  auto offer = [&](int lag, double value) {
+    if (value <= peakValue[2]) return;
+    peakLag[2] = lag;
+    peakValue[2] = value;
+    for (int slot = 2; slot > 0 && peakValue[slot] > peakValue[slot - 1]; --slot) {
+      std::swap(peakValue[slot], peakValue[slot - 1]);
+      std::swap(peakLag[slot], peakLag[slot - 1]);
+    }
+  };
   for (int lag = 1; lag < kCorrelationHops / 2; ++lag) {
     const double bpm = 60.0 / (hopSeconds * static_cast<double>(lag));
     if (bpm < kMinBpm || bpm > kMaxBpm) continue;
@@ -139,17 +151,25 @@ void TrackAnalyzer::analyzeWindow() {
     }
     if (denA <= 1e-9 || denB <= 1e-9) continue;
     const double value = num / std::sqrt(denA * denB);
-    if (value > bestValue) {
-      bestValue = value;
-      bestLag = lag;
-    }
+    // Prior log-normal em torno de 120 BPM: desempata, não decide. Sem ele, conteúdo
+    // esparso escolhe o pico mais alto mesmo quando é metade do tempo percebido.
+    const double octaves = std::log2(bpm / 120.0);
+    offer(lag, value * std::exp(-0.5 * (octaves / 0.6) * (octaves / 0.6)));
   }
-  if (bestLag > 0 && bestValue > 0.12) {
-    const double bpm = 60.0 / (hopSeconds * static_cast<double>(bestLag));
+
+  int peaks = 0;
+  for (int slot = 0; slot < 3; ++slot) {
+    if (peakLag[slot] <= 0 || peakValue[slot] <= 0.12) continue;
+    double bpm = 60.0 / (hopSeconds * static_cast<double>(peakLag[slot]));
+    // Dobra/metade: 150 e 75 são o mesmo pulso em níveis métricos diferentes, e somar
+    // os dois cruamente produzia médias sem significado (112).
+    while (bpm >= 140.0) bpm /= 2.0;
+    while (bpm < 70.0) bpm *= 2.0;
     const std::size_t bin = static_cast<std::size_t>((bpm - kMinBpm) / kBinStep + 0.5);
-    if (bin < tempoWeights_.size()) tempoWeights_[bin] += bestValue;
-    ++tempoWindows_;
+    if (bin < tempoWeights_.size()) tempoWeights_[bin] += peakValue[slot];
+    ++peaks;
   }
+  if (peaks > 0) ++tempoWindows_;
 
   // Croma da janela mais recente.
   // 8192 amostras: com 1024 bins de ~47 Hz os harmônicos de um acorde caíam em classes
@@ -183,6 +203,7 @@ TrackAnalysis TrackAnalyzer::result() const {
   TrackAnalysis analysis;
   analysis.seconds = seconds_;
   analysis.valid = seconds_ >= 12.0;
+  analysis.confidence = 0.0f;
 
   if (tempoWindows_ >= 2) {
     std::size_t best = 0;
@@ -192,6 +213,12 @@ TrackAnalysis TrackAnalyzer::result() const {
     double total = 0.0;
     for (double weight : tempoWeights_) total += weight;
     if (total > 0.0 && tempoWeights_[best] / total > 0.2) {
+      double mass = 0.0;
+      for (std::size_t i = (best >= 8 ? best - 8 : 0);
+           i <= std::min(best + 8, tempoWeights_.size() - 1); ++i) {
+        mass += tempoWeights_[i];
+      }
+      analysis.confidence = static_cast<float>(100.0 * mass / total);
       // Média ponderada da vizinhança: o pico de 0,5 BPM oscila entre janelas.
       double num = 0.0;
       double den = 0.0;

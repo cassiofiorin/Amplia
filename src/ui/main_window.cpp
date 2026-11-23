@@ -1867,8 +1867,11 @@ void MainWindow::openFileInfo() {
     int keyPc = -1;
     int keyMajor = 0;
     bool analysed = false;
-    if (cache_->analysisFor(playlist_->items().at(index), &analysedBpm, &keyPc, &keyMajor, &analysed)) {
-      dialog.setAnalysis(analysed, static_cast<int>(std::lround(analysedBpm)), keyPc, keyMajor);
+    int analysedConfidence = 0;
+    if (cache_->analysisFor(playlist_->items().at(index), &analysedBpm, &keyPc, &keyMajor,
+                            &analysed, &analysedConfidence)) {
+      dialog.setAnalysis(analysed, static_cast<int>(std::lround(analysedBpm)), keyPc, keyMajor,
+                         analysedConfidence);
     }
   }
   connect(&dialog, &wamp::ui::FileInfoDialog::fileSaved, this, &MainWindow::onFileSaved);
@@ -4008,7 +4011,8 @@ void MainWindow::saveTrackAnalysis() {
   if (info.path == analysedPath_) return;  // já gravado nesta passagem
   const wamp::TrackAnalysis analysis = engine_->trackAnalysis();
   if (!analysis.valid || analysis.seconds < 12.0) return;
-  cache_->saveAnalysis(info.path, analysis.bpm, analysis.keyPitchClass, analysis.keyMajor);
+  cache_->saveAnalysis(info.path, analysis.bpm, analysis.keyPitchClass, analysis.keyMajor,
+                       static_cast<int>(analysis.confidence));
   cache_->flush();
   analysedPath_ = info.path;
   refreshLibrary();

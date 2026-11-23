@@ -72,7 +72,8 @@ class TagCache final {
   std::vector<std::string> ignoredPaths(std::string* error);
 
   /// Guarda BPM/tonalidade de uma faixa e marca como analisada.
-  void saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor);
+  void saveAnalysis(const std::string& path, float bpm, int keyPc, int keyMajor,
+                    int confidence);
   struct AnalysisStats {
     int totalTracks = 0;  ///< faixas na biblioteca
     int tracks = 0;       ///< quantas já foram analisadas
@@ -81,7 +82,8 @@ class TagCache final {
   AnalysisStats analysisStats(std::string* error);
 
   /// Valores da análise local de um caminho. Devolve `false` se a faixa não está no banco.
-  bool analysisFor(const std::string& path, float* bpm, int* keyPc, int* keyMajor, bool* valid);
+  bool analysisFor(const std::string& path, float* bpm, int* keyPc, int* keyMajor,
+                       bool* valid, int* confidence = nullptr) const;
   std::vector<std::string> roots(std::string* error);
 
   /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e

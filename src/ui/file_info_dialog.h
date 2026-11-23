@@ -27,7 +27,8 @@ class FileInfoDialog final : public QDialog {
 
   /// Valores da análise local (banco), só para leitura: a estimativa não é gravada nas
   /// tags. `valid == false` mostra "—".
-  void setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor);
+  void setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor,
+                   int confidence = 0);
 
   /// Preferência de gravação segura, para a janela principal guardar.
   bool safeSaveEnabled() const;
