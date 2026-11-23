@@ -379,7 +379,26 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
     }
   }
   compactHeight_ = std::max(kCompactFloor, sizeHint().height());
-  setMinimumSize(400, compactHeight_);
+  // O player é de largura fixa: display (453) + coluna (46) + margens. Abaixo disso os
+  // widgets passam a se sobrepor, então o mínimo acompanha o tamanho natural do bloco.
+  const int naturalWidth = std::max(480, sizeHint().width());
+  setMinimumSize(naturalWidth, compactHeight_);
+
+  // Quem acabou de trocar de backend precisa de uma confirmação visível — sem isso a
+  // primeira abertura em XWayland (centrada, porque ainda não existe posição gravada)
+  // parece que a opção não funcionou.
+  if (qEnvironmentVariableIsSet("AMPLIA_BACKEND_SWITCHED")) {
+    const bool xcb = QGuiApplication::platformName().contains(QStringLiteral("xcb"));
+    qInfo("amplia: backend trocado para %s", xcb ? "xcb" : QGuiApplication::platformName().toUtf8().constData());
+    QTimer::singleShot(600, this, [this, xcb] {
+      statusBar()->showMessage(xcb ? tr("Posição das janelas ativa — arraste o player para o lugar")
+                                   : tr("Modo Wayland: a posição é decidida pelo sistema"),
+                               6000);
+      // Grava já a posição de abertura: a partir daqui ela é a referência da sessão.
+      if (xcb) QTimer::singleShot(1500, this, [this] { scheduleSettingsSave(); });
+    });
+    qunsetenv("AMPLIA_BACKEND_SWITCHED");
+  }
   loadSettings();
   schedulePendingPlaylistOpen();
   loadEqualizer();
@@ -2963,6 +2982,9 @@ void MainWindow::restartWithPlatformChange() {
   // main() e escolhe o backend. Limpa a variável que o próprio app pôs, senão o filho
   // herda xcb e a preferência desligada não teria efeito.
   qunsetenv("QT_QPA_PLATFORM");
+  // Marca a troca para a sessão nova: ela avisa na barra de status e registra a posição
+  // assim que aparece, para não parecer que a opção "não pegou" na primeira tentativa.
+  qputenv("AMPLIA_BACKEND_SWITCHED", "1");
 
   // `execv` troca a imagem do processo: mesmo PID, mesmo sandbox do Flatpak. Um processo
   // destacado morreria junto com a instância quando ela saísse (o bwrap derruba o que
@@ -3369,8 +3391,16 @@ void MainWindow::saveSettings() {
     // Coordenadas do cliente (x()/y()), que é o que `move()` posiciona. Usar o quadro aqui
     // criava deriva de um título de janela por sessão (o cliente era movido para o y do
     // quadro e o quadro recalculado 28 px acima na abertura seguinte).
-    settings.setValue(QStringLiteral("window/posX"), x());
-    settings.setValue(QStringLiteral("window/posY"), y());
+    if (qEnvironmentVariableIsSet("AMPLIA_DEBUG_GEOM")) {
+      qInfo("save: cliente em %d,%d quadro em %d,%d", x(), y(), frameGeometry().x(),
+            frameGeometry().y());
+    }
+    // (0,0) é o que o Qt reporta antes de o gerenciador posicionar a janela; gravar isso
+    // faria a próxima sessão abrir no canto.
+    if (x() != 0 || y() != 0) {
+      settings.setValue(QStringLiteral("window/posX"), x());
+      settings.setValue(QStringLiteral("window/posY"), y());
+    }
   }
   if (windowPositionSupported() && playlistWindow_ != nullptr && playlistOpen) {
     settings.setValue(QStringLiteral("window/playlistGeometry"), playlistWindow_->saveGeometry());

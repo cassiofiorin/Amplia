@@ -2120,3 +2120,18 @@ Dois defeitos somados, nenhum na preferência:
 
 Medido em três aberturas seguidas, com a lista fechada e com ela aberta: `420,260`
 estável nas duas, `507x282` (cliente) fechada e `507x582` aberta.
+
+## D-101 — Largura mínima e a primeira abertura depois de trocar de backend
+
+- **Largura mínima = largura natural do bloco** (`max(480, sizeHint().width())`, na prática
+  514 com o quadro). Antes o mínimo era 400 px e, ao espremer, display/transporte/coluna se
+  sobrepunham. Como o player é de largura fixa (display 453 + coluna 46 + margens), o mínimo
+  acompanha o natural em vez de tentar reflow.
+- **Troca de backend confirmada na tela**: `restartWithPlatformChange()` marca
+  `AMPLIA_BACKEND_SWITCHED`; a sessão nova mostra na barra de status "Posição das janelas
+  ativa — arraste o player para o lugar" (ou "Modo Wayland: a posição é decidida pelo
+  sistema") e, 1,5 s depois, agenda um save. Assim a **primeira** abertura em XWayland já
+  registra a posição onde a janela apareceu, em vez de parecer que a opção não pegou e exigir
+  uma segunda passada em Preferências.
+- **(0,0) não é posição**: o Qt reporta 0,0 antes de o gerenciador posicionar; `saveSettings`
+  ignora esse par para não abrir no canto na sessão seguinte.
