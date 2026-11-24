@@ -57,6 +57,9 @@
 #include <QMetaObject>
 #include <QMimeData>
 #include <QKeyEvent>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMouseEvent>
 #include <QScreen>
 #include <QShortcut>
@@ -3529,6 +3532,26 @@ void MainWindow::loadSettings() {
             8000);
       }
     }
+
+    // Fila da sessão anterior (a estação vem junto: a semente está em cada entrada). A
+    // faixa atual já voltou em pausa no bloco acima — repor a fila não toca nada, só
+    // devolve o "o que vem depois". O painel abre depois, conforme `ui/queueVisible`.
+    const QString queueJson = settings.value(QStringLiteral("queue/items")).toString();
+    if (!queueJson.isEmpty()) {
+      const QJsonDocument queueDoc = QJsonDocument::fromJson(queueJson.toUtf8());
+      if (queueDoc.isArray()) {
+        pathQueue_.clear();
+        for (const QJsonValue& value : queueDoc.array()) {
+          const QJsonObject row = value.toObject();
+          const QString path = row.value(QStringLiteral("path")).toString();
+          if (path.isEmpty()) continue;
+          const int origin = std::clamp(row.value(QStringLiteral("origin")).toInt(0), 0, 2);
+          pathQueue_.push_back({path.toStdString(), origin,
+                                row.value(QStringLiteral("seed")).toString().toStdString()});
+        }
+        refreshQueuePanel();
+      }
+    }
   }
   settingsLoaded_ = true;
 }
@@ -3641,6 +3664,29 @@ void MainWindow::saveSettings() {
   } else if (savePlaylist) {
     settings.remove(QStringLiteral("playlist/items"));
     settings.remove(QStringLiteral("playlist/current"));
+  }
+  // Fila: o que ainda não tocou sobrevive à sessão — é ela que carrega a estação (a
+  // semente vai em cada entrada). JSON numa chave só: caminho de música aceita qualquer
+  // caractere, e separador textual (':', '|', tab) quebraria num nome real.
+  // Mesma regra da playlist: aberto com arquivos na linha de comando, a fila em memória
+  // começou vazia e gravar isso apagaria a estação da sessão anterior.
+  if (sessionRestored_) {
+    if (!pathQueue_.empty()) {
+      QJsonArray rows;
+      for (const QueueEntry& entry : pathQueue_) {
+        QJsonObject row;
+        row.insert(QStringLiteral("path"), QString::fromStdString(entry.path));
+        row.insert(QStringLiteral("origin"), entry.origin);
+        if (!entry.seed.empty()) {
+          row.insert(QStringLiteral("seed"), QString::fromStdString(entry.seed));
+        }
+        rows.append(row);
+      }
+      settings.setValue(QStringLiteral("queue/items"),
+                        QString::fromUtf8(QJsonDocument(rows).toJson(QJsonDocument::Compact)));
+    } else {
+      settings.remove(QStringLiteral("queue/items"));
+    }
   }
   if (scrobbler_) {
     const wamp::ScrobbleConfig scrobble = scrobbler_->config();

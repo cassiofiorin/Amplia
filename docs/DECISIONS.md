@@ -2460,3 +2460,23 @@ playlist.
   na playlist são ação do usuário, não juízo sobre a escolha da estação.
 - A estação enfileira e o painel abre sozinho, porque é ali que o usuário vê o que vem
   depois.
+
+## D-118 — A fila sobrevive ao fechamento, em pausa
+
+A fila era só memória: fechar o app com uma estação pela metade perdia as sugestões
+pendentes (a playlist restaurava, o "o que vem depois" não). Agora ela vai para a INI.
+
+- **Formato**: uma chave, `queue/items`, com JSON compacto de `[{path, origin, seed}]`.
+  Uma chave por item (`queue/0/path`…) faria a INI crescer em pares desnecessários, e
+  separador textual (`:`, `|`, tab) quebraria num caminho real — JSON é o único que aceita
+  qualquer nome de arquivo sem escape próprio.
+- **Escrita**: só quando `sessionRestored_` — a mesma regra da playlist. Aberto com
+  arquivos na linha de comando, a fila em memória começou vazia e gravar isso apagaria a
+  estação da sessão anterior. Fila vazia **remove** a chave: estação terminada não volta.
+- **Leitura**: em `restoreSession_`, reconstrói `pathQueue_` com origem e semente e chama
+  `refreshQueuePanel()`. A faixa atual é a mesma da playlist, que volta em pausa
+  (`openPath(..., false)`); a fila só é reposta — **nada toca**. O painel abre depois,
+  conforme `ui/queueVisible` (D-117).
+- **A estação é a fila**: a semente vai em cada entrada, então restaurar a fila restaura a
+  estação — inclusive `rejectQueuedItem` continua gravando `kind=2` com o contexto certo
+  depois de um reinício.

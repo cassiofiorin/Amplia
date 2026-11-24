@@ -154,7 +154,9 @@ por vez, na barra de status). Nada bloqueia a janela — dá para tocar enquanto
 lido.
 
 A fila (botão **Enfileirar**) toca antes de seguir a ordem da playlist — é a "JTF" do
-Winamp. O contador aparece na barra de status.
+Winamp. O contador aparece na barra de status. Ela sobrevive ao fechamento: na abertura
+seguinte a playlist volta em pausa e o bloco **Na fila** continua de onde parou, inclusive
+quando veio de uma estação.
 
 ### Scrobbling
 
