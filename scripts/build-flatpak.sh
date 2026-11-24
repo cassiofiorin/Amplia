@@ -38,7 +38,12 @@ else
 fi
 
 echo "flatpak-builder: ${runner[*]}"
+# AMPLIA_BUILD_JOBS limita a paralelização: em máquina com pouca memória livre o ninja
+# padrão (nproc) estoura e o build morre com SIGKILL (código 137).
+jobs=()
+if [[ -n "${AMPLIA_BUILD_JOBS:-}" ]]; then jobs=(--jobs="$AMPLIA_BUILD_JOBS"); fi
+
 exec "${runner[@]}" \
-  --user --install --force-clean --disable-rofiles-fuse \
+  --user --install --force-clean --disable-rofiles-fuse "${jobs[@]}" \
   --state-dir="$work/state" \
   "$work/build" "$manifest"
