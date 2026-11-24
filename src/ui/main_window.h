@@ -297,6 +297,15 @@ class MainWindow final : public QMainWindow {
 
   /// Acrescenta à fila (sem tocar na playlist) e atualiza o bloco/contagem.
   void enqueuePaths(const QStringList& paths, int origin, const std::string& seed = {});
+  /// Insere na posição `at` (0 = topo; fora do intervalo = fim). O arrasto usa isso para
+  /// a faixa cair onde foi solta, não sempre no fim.
+  void enqueuePathsAt(const QStringList& paths, int origin, int at, const std::string& seed = {});
+  /// Move as linhas da fila para a posição `at` (reordenar arrastando).
+  void moveQueueRows(const QList<int>& rows, int at);
+  /// Move as linhas da playlist para a posição `at`, mantendo a faixa atual.
+  void movePlaylistRows(const QList<int>& rows, int at);
+  /// Acrescenta à playlist na posição `at` (arrastar para um ponto da lista, não só para o fim).
+  void insertDroppedAt(const QStringList& paths, int at);
 
   /// Bloco "Na fila": mostra/esconde e redesenha a partir de pathQueue_.
   void toggleQueuePanel();

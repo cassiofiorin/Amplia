@@ -59,6 +59,8 @@ class LibraryTable final : public QTableWidget {
     for (const QString& path : paths) urls << QUrl::fromLocalFile(path);
     data->setUrls(urls);
     data->setText(paths.join('\n'));
+    // A fila lê isto para saber que o arrasto veio da Biblioteca (origem BIBLIOTECA).
+    data->setData("application/x-amplia-source", "library");
     return data;
   }
 };

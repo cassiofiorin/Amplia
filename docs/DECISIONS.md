@@ -2709,3 +2709,30 @@ O menu também lê e relê tags, sem sair da Biblioteca:
 A fila virou alvo de arrasto também: soltar ali enfileira com origem `BIBLIOTECA` (era o
 buraco que sobrava do arrasto), e o menu da fila ganhou **Ver tag** e **Atualizar tag** além
 de "Remover da fila" — os dois lugares onde a faixa aparece respondem ao mesmo conjunto.
+
+## D-128 — Arrastar reordena para onde soltar, e a fila vazia pode ficar à vista (0.9.3-rc3)
+
+O arrasto tinha três buracos: soltar sempre acrescentava no fim, a fila só aparecia com
+algum item e o cursor virava 🚫 ao arrastar linhas (a view não aceitava o arrasto, então o
+Qt desenhava "proibido").
+
+- **Posição do drop manda.** Tanto a playlist quanto a fila calculam o índice com
+  `indexAt(pos)` e inserem/movem ali (`insertDroppedAt`, `moveQueueRows`,
+  `movePlaylistRows`); fora de uma linha, cai no fim. Reordenar na playlist preserva a
+  faixa tocando: o caminho atual é achado de novo depois da mudança.
+- **Origem do arrasto vai no mime.** `application/x-amplia-playlist-rows`,
+  `application/x-amplia-queue-rows` e `application/x-amplia-source` (library / playlist /
+  queue) dizem o que está sendo movido; as URLs continuam no mime, então a faixa também
+  cai no gerenciador de arquivos e em outros programas. Fila para playlist move (sai da
+  fila), Biblioteca para fila copia (origem `PLAYLIST` ou `BIBLIOTECA`).
+- **O cursor segue o jogo.** `setDragDropMode(QAbstractItemView::DragDrop)` nas duas listas
+  é o que troca o 🚫 pelo ícone de mover/copiar; o `defaultDropAction` diz qual aparece.
+- **A view tem a última palavra sobre as linhas.** Ao terminar um arrasto aceito como
+  Move, o `QAbstractItemView` apaga as linhas de origem do próprio modelo — como a lista é
+  reconstruída do vetor (`pathQueue_`, `playlist_`), isso deixava uma linha faltando até o
+  próximo refresh. A solução foi repovoar num `QTimer::singleShot(0, …)`, depois que a
+  view termina o serviço; as linhas voltam na ordem do vetor e o resultado é imediato.
+- **A caixa da fila deixou de depender do número.** `queueToggle_` fica sempre habilitado e
+  alterna `queuePanelUserHidden_`; a fila vazia mostra um convite ("A fila está vazia —
+  solte faixas aqui.") em vez de sumir. Enfileirar abre a caixa, porque quem enfileira quer
+  ver a fila.

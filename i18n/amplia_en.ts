@@ -4,6 +4,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>Na fila (0) — solte faixas aqui.</source>
+        <translation>Queue (0) — drop tracks here.</translation>
+    </message>
+    <message>
         <source>%1 arquivo(s) vieram de um atalho de rede</source>
         <translation>%1 file(s) came from a network shortcut</translation>
     </message>

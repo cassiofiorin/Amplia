@@ -20,6 +20,7 @@
 #include <QTimer>
 
 #include <cerrno>
+#include <memory>
 #include <climits>
 #include "round_button.h"
 
@@ -35,6 +36,7 @@
 #include <QCollator>
 #include <QCryptographicHash>
 #include <QDesktopServices>
+#include <QDrag>
 #include <QDirIterator>
 #include <QApplication>
 #include <QCoreApplication>
@@ -160,6 +162,84 @@ QStringList expandAudioPaths(const QStringList& paths, int* folders, int* ignore
   }
   return result;
 }
+
+}  // namespace
+
+namespace {
+
+// Formatos próprios do arrasto interno. As URLs carregam os caminhos (é o que a playlist
+// e os outros programas entendem); a lista de linhas diz *de onde* veio, para o alvo
+// saber se está movendo dentro da própria lista ou recebendo de outra.
+constexpr char kMimePlaylistRows[] = "application/x-amplia-playlist-rows";
+constexpr char kMimeQueueRows[] = "application/x-amplia-queue-rows";
+constexpr char kMimeSource[] = "application/x-amplia-source";
+
+QString encodeRows(const QList<int>& rows) {
+  QStringList parts;
+  parts.reserve(rows.size());
+  for (int row : rows) parts.append(QString::number(row));
+  return parts.join(QLatin1Char(','));
+}
+
+QList<int> decodeRows(const QByteArray& raw) {
+  QList<int> rows;
+  const QStringList parts = QString::fromUtf8(raw).split(QLatin1Char(','), Qt::SkipEmptyParts);
+  for (const QString& part : parts) {
+    bool ok = false;
+    const int row = part.toInt(&ok);
+    if (ok && row >= 0) rows.append(row);
+  }
+  std::sort(rows.begin(), rows.end());
+  return rows;
+}
+
+/// Mime de uma lista de faixas: caminhos como URL, as linhas de origem e quem está
+/// arrastando. `source` vale "library", "playlist" ou "queue".
+QMimeData* tracksMimeData(const QListWidget* view, const QList<QListWidgetItem*>& items,
+                          const char* format, const char* source) {
+  QStringList paths;
+  QList<int> rows;
+  for (QListWidgetItem* item : items) {
+    if (item == nullptr) continue;
+    const QString path = item->data(Qt::UserRole).toString();
+    if (path.isEmpty()) continue;
+    paths.append(path);
+    rows.append(view->row(item));
+  }
+  if (paths.isEmpty()) return nullptr;
+  auto* data = new QMimeData;
+  QList<QUrl> urls;
+  urls.reserve(paths.size());
+  for (const QString& path : paths) urls.append(QUrl::fromLocalFile(path));
+  data->setUrls(urls);
+  data->setText(paths.join(QLatin1Char('\n')));
+  data->setData(format, encodeRows(rows).toUtf8());
+  data->setData(kMimeSource, source);
+  return data;
+}
+
+/// A playlist arrasta URLs (dá para soltar na fila, na Biblioteca ou no gerenciador de
+/// arquivos) e leva as linhas junto, para reordenar quando o alvo é ela mesma.
+class PlaylistWidget final : public QListWidget {
+ public:
+  using QListWidget::QListWidget;
+
+ protected:
+  QMimeData* mimeData(const QList<QListWidgetItem*>& items) const override {
+    return tracksMimeData(this, items, kMimePlaylistRows, "playlist");
+  }
+};
+
+/// A fila faz o mesmo com as próprias linhas: reordenar é mover dentro dela.
+class QueueWidget final : public QListWidget {
+ public:
+  using QListWidget::QListWidget;
+
+ protected:
+  QMimeData* mimeData(const QList<QListWidgetItem*>& items) const override {
+    return tracksMimeData(this, items, kMimeQueueRows, "queue");
+  }
+};
 
 }  // namespace
 
@@ -549,6 +629,7 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
           .value(QStringLiteral("ui/queueVisible"), false)
           .toBool() &&
       queuePanel_ != nullptr) {
+    queuePanelUserHidden_ = false;
     queuePanel_->setVisible(true);
     refreshQueuePanel();
   }
@@ -955,7 +1036,7 @@ void MainWindow::buildUi() {
   display_->installEventFilter(this);
   central->installEventFilter(this);
 
-  list_ = new QListWidget(playlistPanel_);
+  list_ = new PlaylistWidget(playlistPanel_);
   setPlaylistFontSize(playlistFontPx_);
   delegate_ = new PlaylistDelegate(list_);
   list_->setItemDelegate(delegate_);
@@ -963,6 +1044,12 @@ void MainWindow::buildUi() {
   list_->setSelectionMode(QAbstractItemView::ExtendedSelection);
   list_->setAcceptDrops(true);  // o drop é tratado pelo eventFilter da viewport
   list_->viewport()->setAcceptDrops(true);
+  // Arrastar linhas: reordenar dentro da lista e mandar faixas para a fila. O modo
+  // DragDrop (em vez de NoDragDrop) é o que troca o cursor de "proibido" pelo de mover.
+  list_->setDragEnabled(true);
+  list_->setDragDropMode(QAbstractItemView::DragDrop);
+  list_->setDefaultDropAction(Qt::MoveAction);
+  list_->setDropIndicatorShown(true);
   // Alt+clique esquerdo enfileira (como o JTFE do Winamp); clique direito abre o menu.
   list_->viewport()->installEventFilter(this);
   // Enter toca a selecionada, Delete remove — atalhos da lista do Winamp.
@@ -982,10 +1069,17 @@ void MainWindow::buildUi() {
   queueHeader_->setObjectName(QStringLiteral("queueHeader"));
   queueHeader_->setStyleSheet(QStringLiteral("color: %1;").arg(wamp::ui::activeTheme().windowText.name()));
   queueLayout->addWidget(queueHeader_);
-  queueList_ = new QListWidget(queuePanel_);
+
+  queueList_ = new QueueWidget(queuePanel_);
   queueList_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   queueList_->setSelectionMode(QAbstractItemView::SingleSelection);
   queueList_->setMaximumHeight(96);
+  queueList_->setDragEnabled(true);
+  queueList_->setAcceptDrops(true);
+  queueList_->viewport()->setAcceptDrops(true);
+  queueList_->setDragDropMode(QAbstractItemView::DragDrop);
+  queueList_->setDefaultDropAction(Qt::MoveAction);
+  queueList_->setDropIndicatorShown(true);
   // Mesmo desenho da lista de cima: fonte e cor do texto vêm do tema, sem cor própria.
   queueList_->setFont(list_->font());
   queueList_->setItemDelegate(new PlaylistDelegate(queueList_));
@@ -1022,6 +1116,7 @@ void MainWindow::buildUi() {
   queueList_->viewport()->setAcceptDrops(true);
   queueLayout->addWidget(queueList_);
   queuePanel_->hide();
+  queuePanelUserHidden_ = true;
   panelLayout->addWidget(queuePanel_);
 
   // Ações com atalho vivem num lugar só: dois QAction com o mesmo atalho fariam o Qt
@@ -3137,11 +3232,25 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
       auto* drag = static_cast<QDragMoveEvent*>(event);
       if (drag->mimeData()->hasUrls()) {
-        drag->acceptProposedAction();
+        // Soltar aqui enfileira; mover linhas dentro da fila reordena.
+        drag->setDropAction(drag->mimeData()->hasFormat(kMimeQueueRows) ? Qt::MoveAction
+                                                                        : Qt::CopyAction);
+        drag->accept();
         return true;
       }
     } else if (event->type() == QEvent::Drop) {
       auto* drop = static_cast<QDropEvent*>(event);
+      const QModelIndex index = queueList_->indexAt(drop->position().toPoint());
+      const int at = index.isValid() ? index.row() : static_cast<int>(pathQueue_.size());
+      if (drop->mimeData()->hasFormat(kMimeQueueRows)) {
+        drop->setDropAction(Qt::MoveAction);
+        drop->accept();
+        moveQueueRows(decodeRows(drop->mimeData()->data(kMimeQueueRows)), at);
+        // A view ainda mexe nas linhas ao fim do arrasto; repovoar depois dela deixa a
+        // fila coerente com o vetor na hora, sem esperar o próximo evento.
+        QTimer::singleShot(0, this, [this] { refreshQueuePanel(); });
+        return true;
+      }
       QStringList paths;
       int rejected = 0;
       const QList<QUrl> urls = drop->mimeData()->urls();
@@ -3154,8 +3263,12 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         }
       }
       if (!paths.isEmpty()) {
-        drop->acceptProposedAction();
-        enqueuePaths(paths, 1);
+        // "playlist" mantém a origem PLAYLIST; o resto entra como BIBLIOTECA.
+        const QString source = QString::fromUtf8(drop->mimeData()->data(kMimeSource));
+        const int origin = source == QLatin1String("playlist") ? 0 : 1;
+        drop->setDropAction(Qt::CopyAction);
+        drop->accept();
+        enqueuePathsAt(paths, origin, at);
         warnAboutNetworkDrop(this, urls, rejected);
         return true;
       }
@@ -3172,11 +3285,48 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
       auto* drag = static_cast<QDragMoveEvent*>(event);
       if (drag->mimeData()->hasUrls()) {
-        drag->acceptProposedAction();
+        const bool own = drag->mimeData()->hasFormat(kMimePlaylistRows);
+        // Linhas da própria playlist: reordena. De fora: acrescenta/copia.
+        drag->setDropAction(own ? Qt::MoveAction : Qt::CopyAction);
+        drag->accept();
         return true;
       }
     } else if (event->type() == QEvent::Drop) {
       auto* drop = static_cast<QDropEvent*>(event);
+      const QModelIndex index = list_->indexAt(drop->position().toPoint());
+      const int at = index.isValid() ? index.row() : static_cast<int>(list_->count());
+      if (drop->mimeData()->hasFormat(kMimePlaylistRows)) {
+        drop->setDropAction(Qt::MoveAction);
+        drop->accept();
+        movePlaylistRows(decodeRows(drop->mimeData()->data(kMimePlaylistRows)), at);
+        QTimer::singleShot(0, this, [this] {
+          rebuildPlaylist();
+          updateNextUp();
+        });
+        return true;
+      }
+      if (drop->mimeData()->hasFormat(kMimeQueueRows)) {
+        // Da fila para a playlist: as faixas entram onde foram soltas e saem da fila.
+        const QList<int> rows = decodeRows(drop->mimeData()->data(kMimeQueueRows));
+        QStringList paths;
+        for (int row : rows) {
+          if (row >= 0 && static_cast<std::size_t>(row) < pathQueue_.size()) {
+            paths << QString::fromStdString(pathQueue_[static_cast<std::size_t>(row)].path);
+          }
+        }
+        if (!paths.isEmpty()) {
+          drop->setDropAction(Qt::MoveAction);
+          drop->accept();
+          for (auto it = rows.rbegin(); it != rows.rend(); ++it) {
+            if (*it >= 0 && static_cast<std::size_t>(*it) < pathQueue_.size()) {
+              pathQueue_.erase(pathQueue_.begin() + *it);
+            }
+          }
+          refreshQueuePanel();
+          insertDroppedAt(paths, at);
+          return true;
+        }
+      }
       QStringList paths;
       int rejected = 0;
       const QList<QUrl> urls = drop->mimeData()->urls();
@@ -3189,8 +3339,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         }
       }
       if (!paths.isEmpty()) {
-        drop->acceptProposedAction();
-        handleDroppedPaths(paths);
+        drop->setDropAction(Qt::CopyAction);
+        drop->accept();
+        insertDroppedAt(paths, at);
         warnAboutNetworkDrop(this, urls, rejected);
         return true;
       }
@@ -3991,8 +4142,7 @@ void MainWindow::rejectQueuedItem(std::size_t index) {
 
 void MainWindow::toggleQueuePanel() {
   if (queuePanel_ == nullptr) return;
-  queuePanelUserHidden_ = queuePanel_->isVisible();
-  queuePanel_->setVisible(!queuePanelUserHidden_);
+  queuePanelUserHidden_ = !queuePanelUserHidden_;
   refreshQueuePanel();
 }
 
@@ -4016,26 +4166,127 @@ void MainWindow::refreshQueuePanel() {
     const qint64 seconds = info.durationMs / 1000;
     const QString duration = QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
     auto* row = new QListWidgetItem(title, queueList_);
+    row->setData(Qt::UserRole, QString::fromStdString(entry.path));
     row->setData(kDurationRole, duration);
     row->setData(kOriginRole, origin);
   }
-  queueHeader_->setText(tr("Na fila (%1)").arg(pathQueue_.size()));
+  const bool empty = pathQueue_.empty();
+  // Vazia, o convite fica no cabeçalho — a lista continua ali, porque é ela que recebe
+  // o arrasto (esconder a lista esconderia o alvo do drop).
+  queueHeader_->setText(empty ? tr("Na fila (0) — solte faixas aqui.")
+                              : tr("Na fila (%1)").arg(pathQueue_.size()));
   if (queueToggle_ != nullptr) {
-    queueToggle_->setText(queuePanel_->isVisible()
-                              ? tr("Fila (%1) ⌃").arg(pathQueue_.size())
-                              : tr("Fila (%1) ⌄").arg(pathQueue_.size()));
-    queueToggle_->setEnabled(!pathQueue_.empty());
+    const bool open = !queuePanelUserHidden_;
+    queueToggle_->setText(open ? tr("Fila (%1) ⌃").arg(pathQueue_.size())
+                               : tr("Fila (%1) ⌄").arg(pathQueue_.size()));
+    // O botão abre e fecha a caixa mesmo vazia: a visibilidade não depende do número.
+    queueToggle_->setEnabled(true);
   }
-  if (pathQueue_.empty()) queuePanel_->hide();
+  queuePanel_->setVisible(!queuePanelUserHidden_);
 }
 
 void MainWindow::enqueuePaths(const QStringList& paths, int origin, const std::string& seed) {
+  enqueuePathsAt(paths, origin, -1, seed);
+}
+
+void MainWindow::enqueuePathsAt(const QStringList& paths, int origin, int at,
+                                const std::string& seed) {
+  if (at < 0 || static_cast<std::size_t>(at) > pathQueue_.size()) {
+    at = static_cast<int>(pathQueue_.size());
+  }
+  auto position = pathQueue_.begin() + at;
   for (const QString& path : paths) {
     if (path.isEmpty()) continue;
-    pathQueue_.push_back({path.toStdString(), origin, seed});
+    position = pathQueue_.insert(position, {path.toStdString(), origin, seed}) + 1;
   }
+  // Quem enfileira quer ver a fila: abrir a caixa é parte da resposta.
+  queuePanelUserHidden_ = false;
   refreshQueuePanel();
   statusBar()->showMessage(tr("%1 faixa(s) na fila").arg(pathQueue_.size()), 3000);
+}
+
+void MainWindow::moveQueueRows(const QList<int>& rows, int at) {
+  if (rows.isEmpty() || pathQueue_.empty()) return;
+  const int total = static_cast<int>(pathQueue_.size());
+  if (at < 0 || at > total) at = total;
+  std::vector<std::size_t> moving;
+  moving.reserve(static_cast<std::size_t>(rows.size()));
+  for (int row : rows) {
+    if (row >= 0 && row < total) moving.push_back(static_cast<std::size_t>(row));
+  }
+  if (moving.empty()) return;
+  // Quantas linhas movidas estavam antes do destino: o índice cai depois de removê-las.
+  int before = 0;
+  for (std::size_t row : moving) {
+    if (static_cast<int>(row) < at) ++before;
+  }
+  std::vector<QueueEntry> taken;
+  taken.reserve(moving.size());
+  for (std::size_t row : moving) taken.push_back(pathQueue_[row]);
+  for (auto it = moving.rbegin(); it != moving.rend(); ++it) {
+    pathQueue_.erase(pathQueue_.begin() + static_cast<long>(*it));
+  }
+  int target = at - before;
+  if (target < 0) target = 0;
+  if (static_cast<std::size_t>(target) > pathQueue_.size()) target = static_cast<int>(pathQueue_.size());
+  pathQueue_.insert(pathQueue_.begin() + target, taken.begin(), taken.end());
+  refreshQueuePanel();
+  queueList_->setCurrentRow(target);
+}
+
+void MainWindow::insertDroppedAt(const QStringList& paths, int at) {
+  if (paths.isEmpty()) return;
+  const int before = static_cast<int>(playlist_->size());
+  handleDroppedPaths(paths);  // acrescenta no fim: expande pastas, ordena e não toca
+  const int after = static_cast<int>(playlist_->size());
+  if (after <= before) return;
+  if (at < 0) at = before;
+  if (at >= after) return;  // caiu no fim: já está no lugar
+  QList<int> rows;
+  for (int row = before; row < after; ++row) rows.append(row);
+  movePlaylistRows(rows, at);
+}
+
+void MainWindow::movePlaylistRows(const QList<int>& rows, int at) {
+  if (rows.isEmpty()) return;
+  std::vector<std::string> items = playlist_->items();
+  const int total = static_cast<int>(items.size());
+  if (at < 0 || at > total) at = total;
+  std::vector<std::size_t> moving;
+  moving.reserve(static_cast<std::size_t>(rows.size()));
+  for (int row : rows) {
+    if (row >= 0 && row < total) moving.push_back(static_cast<std::size_t>(row));
+  }
+  if (moving.empty()) return;
+  const std::size_t current = playlist_->currentIndex();
+  const std::string playing = playlist_->hasCurrent() ? playlist_->at(current) : std::string();
+  int before = 0;
+  for (std::size_t row : moving) {
+    if (static_cast<int>(row) < at) ++before;
+  }
+  std::vector<std::string> taken;
+  taken.reserve(moving.size());
+  for (std::size_t row : moving) taken.push_back(items[row]);
+  for (auto it = moving.rbegin(); it != moving.rend(); ++it) {
+    items.erase(items.begin() + static_cast<long>(*it));
+  }
+  int target = at - before;
+  if (target < 0) target = 0;
+  if (static_cast<std::size_t>(target) > items.size()) target = static_cast<int>(items.size());
+  items.insert(items.begin() + target, taken.begin(), taken.end());
+
+  std::size_t nextCurrent = static_cast<std::size_t>(target);
+  if (!playing.empty()) {
+    const auto found = std::find(items.begin(), items.end(), playing);
+    if (found != items.end()) {
+      nextCurrent = static_cast<std::size_t>(found - items.begin());
+    }
+  }
+  playlist_->setItems(std::move(items), playing.empty() ? wamp::Playlist::kNone : nextCurrent);
+  playlistDirty_ = true;
+  rebuildPlaylist();
+  list_->setCurrentRow(playing.empty() ? -1 : static_cast<int>(nextCurrent));
+  updateNextUp();
 }
 
 void MainWindow::queueSelected() {
