@@ -104,6 +104,9 @@ class LibraryWindow final : public QWidget {
   bool eventFilter(QObject* watched, QEvent* event) override;
 
  private:
+  /// Menu do clique direito na tabela (tocar, enfileirar, estação, copiar, abrir pasta,
+  /// remover). Declarado privado: só o próprio `customContextMenuRequested` o chama.
+  void showContextMenu(const QPoint& position);
   void updateButtons();
   QStringList selectedPaths() const;
   void updateHumorValues();

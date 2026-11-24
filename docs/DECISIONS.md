@@ -2671,3 +2671,27 @@ foram escritos como texto de origem, não traduzidos um do outro —, então o r
 
 O slogan ganhou a palavra que faltava: "Um novo player **com inspiração na** alma do
 Winamp". Não há código do Winamp no projeto, nem cópia, nem porta: há inspiração de alma.
+
+## D-127 — O mouse da Biblioteca: clique direito abre a faixa, arrastar carrega URL (0.9.1)
+
+Dois gestos que todo mundo tenta primeiro não funcionavam na Biblioteca, e o conserto é
+menor do que o sintoma sugere:
+
+- **Clique direito sem menu.** A tabela nunca teve `Qt::CustomContextMenu`: o botão direito
+  caía no comportamento padrão do `QTableWidget`, que não abre nada. Agora abre o menu da
+  faixa, e o clique fora da seleção **seleciona a linha primeiro** — é o que se espera de
+  lista no desktop. Itens: Tocar, Enfileirar, Tocar estação dessa música, Copiar
+  caminho(s), Abrir pasta, Remover da biblioteca. A remoção continua sendo confirmada em
+  três camadas pela `MainWindow`, como o Delete.
+- **Arrastar que não arrasta.** O `QTableWidget` padrão arrasta *os próprios itens* — um
+  `QMimeData` interno com o papel `application/x-qabstractitemmodeldatalist`. A playlist
+  aceita **URLs** (`text/uri-list`, é o que o gerenciador de arquivos também manda), então
+  o drop era recusado sem aviso. A tabela passou a ser `LibraryTable`, uma subclasse que
+  sobrescreve `mimeData()` para emitir `QUrl::fromLocalFile(path)` de cada linha
+  selecionada, sem duplicar caminho. O arrasto é **só de saída** (`DragOnly`, cópia por
+  padrão): a biblioteca nunca recebe faixa arrastada de fora.
+
+Os dois gestos agora têm o mesmo destino dos botões: o menu emite os sinais que já existiam
+(`playSelectionRequested`, `enqueueSelectionRequested`, `stationRequested`), então não há
+segundo caminho de código para a fila, a estação ou a remoção. Versão **0.9.1** — correção
+de uso, sem função nova.

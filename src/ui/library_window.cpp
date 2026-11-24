@@ -1,7 +1,14 @@
 #include "library_window.h"
 
+#include <QClipboard>
 #include <QComboBox>
 #include <QCursor>
+#include <QDesktopServices>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QMenu>
+#include <QMimeData>
+#include <QUrl>
 #include <QHeaderView>
 #include <QEvent>
 #include <QGridLayout>
@@ -29,6 +36,32 @@ namespace {
 constexpr int kViewRole = Qt::UserRole;
 /// Índice do humor no vetor de presets (valor guardado em cada item do combo).
 constexpr int kPresetRole = Qt::UserRole + 1;
+
+/// A tabela da biblioteca arrastável: o arrasto carrega as **URLs** das faixas, que é o que
+/// a playlist (e o gerenciador de arquivos) sabem receber. O QTableWidget padrão arrasta os
+/// próprios itens, e a playlist os recusava em silêncio — daí "arrastar não faz nada".
+class LibraryTable final : public QTableWidget {
+ public:
+  using QTableWidget::QTableWidget;
+
+ protected:
+  QMimeData* mimeData(const QList<QTableWidgetItem*>& items) const override {
+    QStringList paths;
+    for (const QTableWidgetItem* item : items) {
+      if (item == nullptr || item->column() != 0) continue;
+      const QString path = item->data(Qt::UserRole).toString();
+      if (!path.isEmpty() && !paths.contains(path)) paths << path;
+    }
+    if (paths.isEmpty()) return nullptr;
+    auto* data = new QMimeData;
+    QList<QUrl> urls;
+    urls.reserve(paths.size());
+    for (const QString& path : paths) urls << QUrl::fromLocalFile(path);
+    data->setUrls(urls);
+    data->setText(paths.join('\n'));
+    return data;
+  }
+};
 
 struct ViewDef {
   const char* name;
@@ -159,7 +192,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   searchRow->addWidget(search_, 1);
   searchRow->addWidget(clear);
 
-  table_ = new QTableWidget(right);
+  table_ = new LibraryTable(right);
   table_->setColumnCount(8);
   table_->setHorizontalHeaderLabels({tr("Artista"), tr("Álbum"), tr("Faixa"), tr("Título"),
                                      tr("Duração"), tr("Gênero"), tr("Nota"), tr("Tocadas")});
@@ -167,6 +200,14 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   table_->setSelectionMode(QAbstractItemView::ExtendedSelection);
   table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  // Arrastar para a playlist: a tabela só arrasta (nunca recebe), e a cópia é o padrão.
+  table_->setDragEnabled(true);
+  table_->setDragDropMode(QAbstractItemView::DragOnly);
+  table_->setDefaultDropAction(Qt::CopyAction);
+  // Clique direito: menu da faixa (tocar, enfileirar, estação, copiar, pasta, remover).
+  table_->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(table_, &QTableWidget::customContextMenuRequested, this,
+          &LibraryWindow::showContextMenu);
   table_->setSortingEnabled(true);
   table_->setAlternatingRowColors(true);
   table_->horizontalHeader()->setStretchLastSection(false);
@@ -665,6 +706,53 @@ void LibraryWindow::updateHumorValues() {
   setText(toneValue_, toneSlider_);
   setText(stabilityValue_, stabilitySlider_);
   setText(humorBlendValue_, humorBlendSlider_);
+}
+
+void LibraryWindow::showContextMenu(const QPoint& position) {
+  const QModelIndex index = table_->indexAt(position);
+  if (!index.isValid()) return;
+
+  // Clique direito fora da seleção aponta a faixa: selecionar antes de abrir o menu é o
+  // comportamento que se espera de lista no desktop.
+  if (!table_->selectionModel()->isRowSelected(index.row(), QModelIndex())) {
+    table_->clearSelection();
+    table_->selectRow(index.row());
+  }
+
+  const QStringList paths = selectedPaths();
+  if (paths.isEmpty()) return;
+
+  QTableWidgetItem* anchor = table_->item(index.row(), 0);
+  const QString seed = anchor != nullptr ? anchor->data(Qt::UserRole).toString() : paths.front();
+
+  QMenu menu(this);
+  QAction* play = menu.addAction(tr("Tocar"));
+  QAction* enqueue = menu.addAction(tr("Enfileirar"));
+  menu.addSeparator();
+  QAction* station = menu.addAction(tr("Tocar estação dessa música"));
+  menu.addSeparator();
+  QAction* copy = menu.addAction(paths.size() == 1 ? tr("Copiar caminho")
+                                                   : tr("Copiar caminhos selecionados"));
+  QAction* folder = menu.addAction(tr("Abrir pasta"));
+  menu.addSeparator();
+  QAction* remove = menu.addAction(tr("Remover da biblioteca"));
+
+  QAction* chosen = menu.exec(table_->viewport()->mapToGlobal(position));
+  if (chosen == nullptr) return;
+  if (chosen == play) {
+    emit playSelectionRequested(paths);
+  } else if (chosen == enqueue) {
+    emit enqueueSelectionRequested(paths);
+  } else if (chosen == station) {
+    emit stationRequested(seed);
+  } else if (chosen == copy) {
+    QGuiApplication::clipboard()->setText(paths.join('\n'));
+    setStatus(paths.size() == 1 ? tr("Caminho copiado.") : tr("%1 caminhos copiados.").arg(paths.size()));
+  } else if (chosen == folder) {
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(paths.front()).absolutePath()));
+  } else if (chosen == remove) {
+    emit removeRequested(paths);
+  }
 }
 
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
