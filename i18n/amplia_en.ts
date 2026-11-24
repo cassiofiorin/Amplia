@@ -643,6 +643,22 @@ Queue: position %1</translation>
         <source>%1 — Amplia</source>
         <translation>%1 — Amplia</translation>
     </message>
+    <message>
+        <source>&amp;Ajuda</source>
+        <translation>&amp;Help</translation>
+    </message>
+    <message>
+        <source>Ajuda do Amplia</source>
+        <translation>Amplia Help</translation>
+    </message>
+    <message>
+        <source>Enviar opinião</source>
+        <translation>Send feedback</translation>
+    </message>
+    <message>
+        <source>Sobre o Amplia…</source>
+        <translation>About Amplia…</translation>
+    </message>
 </context>
 <context>
     <name>PreferencesDialog</name>
@@ -1323,6 +1339,56 @@ Album gain: %2</translation>
     <message>
         <source> - </source>
         <translation> - </translation>
+    </message>
+</context>
+<context>
+    <name>wamp::ui::HelpDialog</name>
+    <message>
+        <source>Ajuda do Amplia</source>
+        <translation>Amplia Help</translation>
+    </message>
+    <message>
+        <source>Fechar</source>
+        <translation>Close</translation>
+    </message>
+</context>
+<context>
+    <name>wamp::ui::AboutDialog</name>
+    <message>
+        <source>Sobre o Amplia</source>
+        <translation>About Amplia</translation>
+    </message>
+    <message>
+        <source>Um Winamp para o Linux, feito de novo.</source>
+        <translation>A Winamp for Linux, rebuilt.</translation>
+    </message>
+    <message>
+        <source>Versão:</source>
+        <translation>Version:</translation>
+    </message>
+    <message>
+        <source>Commit:</source>
+        <translation>Commit:</translation>
+    </message>
+    <message>
+        <source>Build:</source>
+        <translation>Build:</translation>
+    </message>
+    <message>
+        <source>Tradução: %1</source>
+        <translation>Translation: %1</translation>
+    </message>
+    <message>
+        <source>Tradução: aberta — mande a sua num pull request.</source>
+        <translation>Translation: open — send yours in a pull request.</translation>
+    </message>
+    <message>
+        <source>Lançamentos: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</source>
+        <translation>Releases: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</translation>
+    </message>
+    <message>
+        <source>Fechar</source>
+        <translation>Close</translation>
     </message>
 </context>
 </TS>

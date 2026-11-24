@@ -2626,3 +2626,24 @@ mora num `QComboBox` no painel, como a lista de curvas do equalizador
 - O painel "Analisando suas músicas" saiu. Ele existia para o nó antigo de "Composições
   dinâmicas" e só repetia o que o rodapé já diz ("N de M medidas"): duas fontes de progresso
   para a mesma informação. Sobrou o rodapé, que é onde o número é lido junto da prévia.
+
+## D-125 — A ajuda é texto, em arquivo por idioma, e o "Sobre" dá nome a quem traduz
+
+A hierarquia do Winamp original para o menu Ajuda era clara: ajuda longa (F1), um canal de
+retorno e o "Sobre". Mantivemos as três, sem o "Register Pro" que não existe aqui — o que
+entrou no lugar foi o link das issues, que é o canal real de retorno do projeto.
+
+- **O texto da ajuda não vive no código.** Fica em `help/ajuda-pt.md` e `help/ajuda-en.md`,
+  Markdown puro compilado nos recursos Qt; o mesmo arquivo é a documentação do repositório
+  e o README linka o par. Quem traduz mexe num arquivo de texto e numa linha de
+  `help/tradutores.txt` — nenhum `tr()` novo, nenhum rebuild de tradução.
+- **O idioma da ajuda segue o idioma da interface** (`activeLanguageCode()`), não o locale
+  da máquina: quem escolheu inglês no app recebe a ajuda em inglês mesmo com o desktop em
+  português. Idioma sem arquivo cai no inglês, que é a aposta para quem não lê português.
+- **Crédito de tradução por PR.** `help/tradutores.txt` tem uma linha por idioma, com nome e
+  PR; o "Sobre" mostra a linha do idioma ativo e, quando ainda está vaga ("—"), convida a
+  mandar a sua. O autor do PR vira contribuidor sem ninguém editar código.
+- Janela da ajuda: `QTextBrowser` com `setMarkdown`, links externos abertos no navegador do
+  sistema, uma instância só (F1 repetido ergue a mesma janela). O "Fechar" tem texto
+  próprio em `tr()`: o rótulo padrão do `QDialogButtonBox` vem do tema do desktop e
+  apareceria em português numa janela em inglês.

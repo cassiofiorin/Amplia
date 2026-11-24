@@ -20,6 +20,10 @@ void sanitizeSettingsFile();
 /// as strings em `tr()` são resolvidas no momento em que o objeto nasce, não no show.
 void installTranslators(const QString& requested);
 
+/// Código do idioma efetivo em uso ("pt" quando o idioma-fonte está ativo). É o que
+/// escolhe o arquivo de ajuda e o crédito de tradução.
+QString activeLanguageCode();
+
 /// Idiomas oferecidos no seletor das preferências. O primeiro é o padrão.
 QStringList availableLanguages();
 

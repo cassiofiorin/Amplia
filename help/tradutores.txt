@@ -1,0 +1,7 @@
+# Tradutores — uma linha por idioma: código | nome | pull request
+#
+# Quem traduz a interface e a ajuda: troque o "—" pelo seu nome e pelo número do PR ao
+# abrir o pull request. O nome aparece em "Sobre o Amplia…" no idioma correspondente.
+# A ajuda de cada idioma fica em help/ajuda-<código>.md, longe do código.
+pt | cassiofiorin (original) | —
+en | — | —

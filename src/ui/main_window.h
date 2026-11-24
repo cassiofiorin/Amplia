@@ -46,6 +46,7 @@ class DisplayPanel;
 class EqualizerDialog;
 class JumpDialog;
 class FileInfoDialog;
+class HelpDialog;
 }
 
 namespace wamp {
@@ -123,6 +124,12 @@ class MainWindow final : public QMainWindow {
   void jumpQueue(const QString& path);
   /// File Info (Alt+3): abre as tags da faixa atual/selecionada.
   void openFileInfo();
+  /// Ajuda (F1): janela com o texto do idioma ativo.
+  void openHelp();
+  /// "Sobre o Amplia…": versão, data do build e créditos de tradução.
+  void openAbout();
+  /// "Enviar opinião": abre as issues do projeto no navegador do sistema.
+  void openFeedback();
   void onFileSaved(const QString& path);
   void reverseList();
   void shuffleList();
@@ -372,6 +379,7 @@ class MainWindow final : public QMainWindow {
   std::vector<std::string> libraryRoots_;
   QAction* actSavePlaylist_ = nullptr;
   wamp::ui::JumpDialog* jumpDialog_ = nullptr;
+  wamp::ui::HelpDialog* helpDialog_ = nullptr;
   wamp::ui::ClickSlider* volumeSlider_ = nullptr;
   QListWidget* list_ = nullptr;
   PlaylistDelegate* delegate_ = nullptr;

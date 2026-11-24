@@ -25,6 +25,9 @@
 
 #include "format_support.h"
 
+#include "about_dialog.h"
+#include "help_dialog.h"
+
 #include <QAction>
 #include <QActionGroup>
 #include <QCloseEvent>
@@ -605,6 +608,14 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
 
   if (qEnvironmentVariableIsSet("AMPLIA_OPEN_FILEINFO")) {
     QTimer::singleShot(400, this, &MainWindow::openFileInfo);
+  }
+
+  // Ajuda e Sobre também abrem sozinhos: são janelas que só o clique alcança.
+  if (qEnvironmentVariableIsSet("AMPLIA_OPEN_HELP")) {
+    QTimer::singleShot(400, this, &MainWindow::openHelp);
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_OPEN_ABOUT")) {
+    QTimer::singleShot(400, this, &MainWindow::openAbout);
   }
 
   // Escape de depuração: abre o Jump to File sozinho (usado para conferir o desenho).
@@ -1550,6 +1561,22 @@ void MainWindow::buildMenus() {
   stopAction->setShortcut(Qt::Key_V);
   connect(stopAction, &QAction::triggered, this, [this] { engine_->stop(); refresh(); });
   playMenu->addAction(stopAction);
+
+  // Ajuda: o desenho do original (F1, opinião, Sobre), sem o "Register Pro" que não
+  // existe aqui. Os textos moram em help/ajuda-<idioma>.md.
+  auto* helpMenu = menuBar()->addMenu(tr("&Ajuda"));
+  auto* helpAction = new QAction(tr("Ajuda do Amplia"), this);
+  helpAction->setShortcut(QKeySequence::HelpContents);
+  connect(helpAction, &QAction::triggered, this, &MainWindow::openHelp);
+  helpMenu->addAction(helpAction);
+  helpMenu->addSeparator();
+  auto* feedbackAction = new QAction(tr("Enviar opinião"), this);
+  connect(feedbackAction, &QAction::triggered, this, &MainWindow::openFeedback);
+  helpMenu->addAction(feedbackAction);
+  helpMenu->addSeparator();
+  auto* aboutAction = new QAction(tr("Sobre o Amplia…"), this);
+  connect(aboutAction, &QAction::triggered, this, &MainWindow::openAbout);
+  helpMenu->addAction(aboutAction);
 }
 
 void MainWindow::wireShortcuts() {
@@ -1912,6 +1939,29 @@ void MainWindow::jumpQueue(const QString& path) {
     statusBar()->showMessage(tr("Enfileirada: %1").arg(baseName(native)), 3000);
     return;
   }
+}
+
+void MainWindow::openHelp() {
+  // Uma instância por vez: F1 repetido não empilha janelas iguais.
+  if (helpDialog_ != nullptr) {
+    helpDialog_->show();
+    helpDialog_->raise();
+    helpDialog_->activateWindow();
+    return;
+  }
+  helpDialog_ = new wamp::ui::HelpDialog(this);
+  helpDialog_->setAttribute(Qt::WA_DeleteOnClose);
+  connect(helpDialog_, &QObject::destroyed, this, [this] { helpDialog_ = nullptr; });
+  helpDialog_->show();
+}
+
+void MainWindow::openAbout() {
+  wamp::ui::AboutDialog dialog(this);
+  dialog.exec();
+}
+
+void MainWindow::openFeedback() {
+  QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/cassiofiorin/Amplia/issues")));
 }
 
 void MainWindow::openFileInfo() {

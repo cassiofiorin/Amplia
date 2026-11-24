@@ -29,6 +29,10 @@ add_executable(wamp
   theme.h
   translator.cpp
   translator.h
+  help_dialog.cpp
+  help_dialog.h
+  about_dialog.cpp
+  about_dialog.h
 )
 
 # Versão exibida na barra de status: número do projeto + commit. Header gerado evita
@@ -55,3 +59,14 @@ set(AMPLIA_TS_FILES
   "${CMAKE_SOURCE_DIR}/i18n/amplia_en.ts"
 )
 qt_add_translations(wamp TS_FILES ${AMPLIA_TS_FILES} RESOURCE_PREFIX "/i18n")
+
+# Ajuda: Markdown puro em help/, embutido nos recursos. Quem traduz edita um arquivo de
+# texto — nenhum código é tocado, e o README linka o mesmo arquivo.
+qt_add_resources(wamp "help"
+  PREFIX "/help"
+  BASE "${CMAKE_SOURCE_DIR}/help"
+  FILES
+    "${CMAKE_SOURCE_DIR}/help/ajuda-pt.md"
+    "${CMAKE_SOURCE_DIR}/help/ajuda-en.md"
+    "${CMAKE_SOURCE_DIR}/help/tradutores.txt"
+)

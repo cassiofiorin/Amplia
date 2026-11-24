@@ -42,6 +42,21 @@ QString effectiveCode(const QString& requested) {
 
 QString settingsFileForTests() { return settingsFile(); }
 
+namespace {
+
+/// Idioma pedido de fato: o escape AMPLIA_LANG vence a INI, para testar sem mexer nela.
+QString requestedLanguageCode() {
+  return qEnvironmentVariableIsSet("AMPLIA_LANG") ? qEnvironmentVariable("AMPLIA_LANG")
+                                                  : languageFromSettings();
+}
+
+}  // namespace
+
+QString activeLanguageCode() {
+  const QString code = effectiveCode(requestedLanguageCode());
+  return code.isEmpty() ? QStringLiteral("pt") : code;
+}
+
 QString languageFromSettings() {
   QSettings settings(settingsFile(), QSettings::IniFormat);
   const QString value = settings.value(QStringLiteral("general/language")).toString();

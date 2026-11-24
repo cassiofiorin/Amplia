@@ -405,6 +405,21 @@ errado no meio, o original continua intacto. É por isso que o rodapé avisa: de
 da tomada no meio de uma gravação sem gravação segura pode deixar as tags num estado
 inconsistente.
 
+### Ajuda (F1)
+
+`Ajuda ▸ Ajuda do Amplia` (ou `F1`) abre uma janela com o texto de ajuda no idioma
+escolhido: o que cada janela faz, tema por tema (playlist, fila, Biblioteca, Humor, Rádio
+local, Alt+3, equalizador, preferências), e a tabela de atalhos. O texto **não mora no
+código**: está em [`help/ajuda-pt.md`](help/ajuda-pt.md) e
+[`help/ajuda-en.md`](help/ajuda-en.md), é embutido nos recursos do build e o mesmo arquivo
+serve de documentação no repositório — quem traduz mexe num arquivo de texto, nunca no
+código.
+
+`Ajuda ▸ Enviar opinião` abre as [issues](https://github.com/cassiofiorin/Amplia/issues).
+`Ajuda ▸ Sobre o Amplia…` mostra a versão, o commit, a data do build, o link dos lançamentos
+e os **créditos de tradução**, lidos de [`help/tradutores.txt`](help/tradutores.txt): quem
+manda um PR de tradução aparece ali sem tocar em código.
+
 ### Jump to File (`,`)
 
 Abre a busca sobre a playlist já carregada: digite pedaços do título, do artista, do
@@ -493,6 +508,7 @@ cmake --build build
 ```
 wamp/
 ├── docs/              arquitetura, decisões e roadmap
+├── help/              ajuda em Markdown (PT/EN) e créditos de tradução
 ├── packaging/         manifest Flatpak, .desktop e ícone
 ├── scripts/           build-flatpak.sh
 └── src/
@@ -913,6 +929,20 @@ checks by re-reading the fields and only then swaps the original — if somethin
 in the middle, the original stays intact. That is why the footer warns: pulling the plug
 during a save without safe save can leave the tags in an inconsistent state.
 
+### Help (F1)
+
+`Help ▸ Amplia Help` (or `F1`) opens a window with the help text in the chosen language:
+what each window does, topic by topic (playlist, queue, Library, Humor, Local Radio, Alt+3,
+equalizer, preferences), plus the shortcut table. The text **does not live in the code**: it
+is in [`help/ajuda-pt.md`](help/ajuda-pt.md) and [`help/ajuda-en.md`](help/ajuda-en.md),
+embedded in the build resources, and the same file documents the repository — translators
+edit a text file, never the code.
+
+`Help ▸ Send feedback` opens the [issues](https://github.com/cassiofiorin/Amplia/issues).
+`Help ▸ About Amplia…` shows the version, commit, build date, the releases link and the
+**translation credits** read from [`help/tradutores.txt`](help/tradutores.txt): whoever sends
+a translation PR shows up there without touching code.
+
 ### Jump to File (`,`)
 
 Opens the search over the loaded playlist: type pieces of the title, artist, album or path
@@ -1000,6 +1030,7 @@ cmake --build build
 ```
 wamp/
 ├── docs/              architecture, decisions and roadmap
+├── help/              help in Markdown (PT/EN) and translation credits
 ├── packaging/         Flatpak manifest, .desktop and icon
 ├── scripts/           build-flatpak.sh
 └── src/
