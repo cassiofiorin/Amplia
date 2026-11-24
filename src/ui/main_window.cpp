@@ -2638,7 +2638,7 @@ void MainWindow::buildTray() {
   });
 
   trayMenu_->addSeparator();
-  trayPlayAction_ = trayMenu_->addAction(QStringLiteral("Reproduzir"));
+  trayPlayAction_ = trayMenu_->addAction(tr("Reproduzir"));
   connect(trayPlayAction_, &QAction::triggered, this, &MainWindow::togglePlayPause);
   trayPrevAction_ = trayMenu_->addAction(tr("Anterior"));
   connect(trayPrevAction_, &QAction::triggered, this, &MainWindow::playPrevious);
@@ -2701,7 +2701,7 @@ void MainWindow::updateTray() {
   }
 
   if (trayPlayAction_ != nullptr) {
-    trayPlayAction_->setText(playing ? QStringLiteral("Pausar") : QStringLiteral("Reproduzir"));
+    trayPlayAction_->setText(playing ? tr("Pausar") : tr("Reproduzir"));
   }
   if (trayShowAction_ != nullptr) {
     trayShowAction_->setText(isVisible() ? tr("Ocultar janela")
@@ -3154,11 +3154,13 @@ void MainWindow::showListMenu(const QPoint& globalPos) {
   const int row = list_->row(item);
 
   QMenu menu(this);
-  QAction* play = menu.addAction(QStringLiteral("Reproduzir"));
+  QAction* play = menu.addAction(tr("Reproduzir"));
   const bool queued = playlist_->queuePosition(static_cast<std::size_t>(row)) > 0;
   QAction* queue = menu.addAction(queued ? tr("Tirar da fila")
                                          : tr("Enfileirar (Alt+clique esquerdo)"));
   menu.addSeparator();
+  // Mesmo texto do menu da fila e da Biblioteca, para cair na mesma tradução.
+  QAction* tagInfo = menu.addAction(tr("Ver tag (Alt+3)"));
   QAction* remove = menu.addAction(tr("Remover da playlist"));
 
   QAction* chosen = menu.exec(globalPos);
@@ -3167,6 +3169,11 @@ void MainWindow::showListMenu(const QPoint& globalPos) {
     playIndex(row);
   } else if (chosen == queue) {
     toggleQueue(row);
+  } else if (chosen == tagInfo) {
+    const auto& items = playlist_->items();
+    if (static_cast<std::size_t>(row) < items.size()) {
+      openFileInfoFor(QString::fromStdString(items[static_cast<std::size_t>(row)]));
+    }
   } else if (chosen == remove) {
     playlist_->removeAt(static_cast<std::size_t>(row));
     playlistDirty_ = true;

@@ -162,6 +162,14 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
         <translation>View tags (Alt+3)</translation>
     </message>
     <message>
+        <source>Reproduzir</source>
+        <translation>Play</translation>
+    </message>
+    <message>
+        <source>Pausar</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
         <location filename="../src/ui/main_window.cpp" line="1094" />
         <source>Atualizar tag</source>
         <translation>Refresh tags</translation>
