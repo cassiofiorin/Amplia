@@ -146,8 +146,15 @@ int main(int argc, char** argv) {
     }
   });
   if (!server.listen(QString::fromLatin1(kInstanceName))) {
-    qWarning("amplia: instância única indisponível (%s); abrir duas vai duplicar o player",
-             qPrintable(server.errorString()));
+    // Fechar à força (`flatpak kill`, SIGKILL) deixa o arquivo do socket para trás: o
+    // listen seguinte falha com "Address already in use" mesmo sem ninguém escutando, e a
+    // instância única para de proteger. A sonda acima já não achou ninguém vivo — então o
+    // arquivo é resto: apaga e escuta de novo.
+    QLocalServer::removeServer(QString::fromLatin1(kInstanceName));
+    if (!server.listen(QString::fromLatin1(kInstanceName))) {
+      qWarning("amplia: instância única indisponível (%s); abrir duas vai duplicar o player",
+               qPrintable(server.errorString()));
+    }
   }
 
   // Pasta na linha de comando entra pela varredura; arquivo toca direto.
