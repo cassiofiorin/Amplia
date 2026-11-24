@@ -731,6 +731,10 @@ void LibraryWindow::showContextMenu(const QPoint& position) {
   menu.addSeparator();
   QAction* station = menu.addAction(tr("Tocar estação dessa música"));
   menu.addSeparator();
+  QAction* tagInfo = menu.addAction(tr("Ver tag (Alt+3)"));
+  QAction* tagRefresh = menu.addAction(paths.size() == 1 ? tr("Atualizar tag")
+                                                         : tr("Atualizar tags"));
+  menu.addSeparator();
   QAction* copy = menu.addAction(paths.size() == 1 ? tr("Copiar caminho")
                                                    : tr("Copiar caminhos selecionados"));
   QAction* folder = menu.addAction(tr("Abrir pasta"));
@@ -745,6 +749,10 @@ void LibraryWindow::showContextMenu(const QPoint& position) {
     emit enqueueSelectionRequested(paths);
   } else if (chosen == station) {
     emit stationRequested(seed);
+  } else if (chosen == tagInfo) {
+    emit tagInfoRequested(seed);
+  } else if (chosen == tagRefresh) {
+    emit tagRefreshRequested(paths);
   } else if (chosen == copy) {
     QGuiApplication::clipboard()->setText(paths.join('\n'));
     setStatus(paths.size() == 1 ? tr("Caminho copiado.") : tr("%1 caminhos copiados.").arg(paths.size()));

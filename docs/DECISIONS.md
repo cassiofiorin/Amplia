@@ -2694,4 +2694,18 @@ menor do que o sintoma sugere:
 Os dois gestos agora têm o mesmo destino dos botões: o menu emite os sinais que já existiam
 (`playSelectionRequested`, `enqueueSelectionRequested`, `stationRequested`), então não há
 segundo caminho de código para a fila, a estação ou a remoção. Versão **0.9.1** — correção
-de uso, sem função nova.
+de uso.
+
+O menu também lê e relê tags, sem sair da Biblioteca:
+
+- **Ver tag (Alt+3)** abre a mesma janela do Alt+3 para a faixa do menu. Uma entrada só em
+  `openFileInfoAt(items, index)`: se a faixa está na playlist, a janela navega por ela com
+  `<<` e `>>`; se veio só da Biblioteca, abre sozinha, sem inventar playlist.
+- **Atualizar tag** reenfileira a faixa no `MetadataScanner` — o mesmo caminho da indexação,
+  então o banco é reescrito e o `onMetadata` atualiza a linha da playlist e a tabela. O
+  painel da faixa **tocando** só muda no próximo play: o `TrackInfo` do motor é do arquivo
+  aberto, e não há setter público (`PlayerEngine::track()` é leitura).
+
+A fila virou alvo de arrasto também: soltar ali enfileira com origem `BIBLIOTECA` (era o
+buraco que sobrava do arrasto), e o menu da fila ganhou **Ver tag** e **Atualizar tag** além
+de "Remover da fila" — os dois lugares onde a faixa aparece respondem ao mesmo conjunto.

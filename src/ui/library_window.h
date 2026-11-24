@@ -82,6 +82,10 @@ class LibraryWindow final : public QWidget {
   void enqueueSelectionRequested(const QStringList& paths);
   /// "Tocar estação local": a rádio usa a faixa tocando (ou a selecionada) como semente.
   void stationRequested(const QString& seedPath);
+  /// "Ver tag (Alt+3)": abre a janela de tags da faixa escolhida.
+  void tagInfoRequested(const QString& path);
+  /// "Atualizar tag": relê as tags do arquivo e atualiza a biblioteca e a playlist.
+  void tagRefreshRequested(const QStringList& paths);
   /// O slider da semente mudou: a MainWindow guarda e refaz a prévia.
   void seedBlendChanged(int blend);
   /// Sliders do humor mudaram (ou outro preset foi escolhido): a MainWindow refaz a prévia.

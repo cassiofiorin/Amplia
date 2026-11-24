@@ -996,12 +996,27 @@ void MainWindow::buildUi() {
     const QModelIndex index = queueList_->indexAt(pos);
     if (!index.isValid()) return;
     QMenu menu(queueList_);
+    QAction* tagInfo = menu.addAction(tr("Ver tag (Alt+3)"));
+    QAction* tagRefresh = menu.addAction(tr("Atualizar tag"));
+    menu.addSeparator();
     QAction* remove = menu.addAction(tr("Remover da fila"));
-    if (menu.exec(queueList_->viewport()->mapToGlobal(pos)) == remove) {
-      rejectQueuedItem(static_cast<std::size_t>(index.row()));
+    QAction* chosen = menu.exec(queueList_->viewport()->mapToGlobal(pos));
+    if (chosen == nullptr) return;
+    const std::size_t row = static_cast<std::size_t>(index.row());
+    const QString path =
+        row < pathQueue_.size() ? QString::fromStdString(pathQueue_[row].path) : QString();
+    if (chosen == tagInfo) {
+      openFileInfoFor(path);
+    } else if (chosen == tagRefresh) {
+      refreshTags({path});
+    } else if (chosen == remove) {
+      rejectQueuedItem(row);
     }
   });
   queueList_->installEventFilter(this);
+  // A fila também recebe arrasto: soltar aqui enfileira com origem "BIBLIOTECA".
+  queueList_->setAcceptDrops(true);
+  queueList_->viewport()->setAcceptDrops(true);
   queueLayout->addWidget(queueList_);
   queuePanel_->hide();
   panelLayout->addWidget(queuePanel_);
@@ -1976,11 +1991,34 @@ void MainWindow::openFileInfo() {
   if (QListWidgetItem* item = list_->currentItem(); item != nullptr && list_->currentRow() >= 0) {
     index = static_cast<std::size_t>(list_->currentRow());
   }
+  openFileInfoAt(playlist_->items(), index);
+}
 
+void MainWindow::openFileInfoFor(const QString& path) {
+  if (path.isEmpty()) return;
+  const std::string native = path.toStdString();
+  // Faixa que já está na playlist abre com << e >> andando por ela; faixa só da Biblioteca
+  // abre sozinha, sem inventar uma playlist.
+  std::vector<std::string> items = playlist_->items();
+  std::size_t index = wamp::Playlist::kNone;
+  for (std::size_t i = 0; i < items.size(); ++i) {
+    if (items[i] == native) {
+      index = i;
+      break;
+    }
+  }
+  if (index == wamp::Playlist::kNone) {
+    items.assign(1, native);
+    index = 0;
+  }
+  openFileInfoAt(std::move(items), index);
+}
+
+void MainWindow::openFileInfoAt(std::vector<std::string> items, std::size_t index) {
   QSettings settings(settingsFile(), QSettings::IniFormat);
   const bool safeSave = settings.value(QStringLiteral("fileinfo/safeSave"), true).toBool();
 
-  wamp::ui::FileInfoDialog dialog(playlist_->items(), index, safeSave, this);
+  wamp::ui::FileInfoDialog dialog(items, index, safeSave, this);
   // Análise local: as linhas "da tag" vêm do arquivo; as "percebido" vêm do banco e ficam
   // em "—" enquanto a faixa não tocou o bastante. A janela troca de faixa com << e >>, e a
   // cada troca o preenchimento é refeito — por isso o sinal e a chamada inicial.
@@ -2015,7 +2053,7 @@ void MainWindow::openFileInfo() {
     }
   };
   connect(&dialog, &wamp::ui::FileInfoDialog::trackChanged, this, fillAnalysis);
-  fillAnalysis(QString::fromStdString(playlist_->items().at(index)));
+  fillAnalysis(QString::fromStdString(items.at(index)));
   connect(&dialog, &wamp::ui::FileInfoDialog::fileSaved, this, &MainWindow::onFileSaved);
   dialog.exec();
   settings.setValue(QStringLiteral("fileinfo/safeSave"), dialog.safeSaveEnabled());
@@ -3091,6 +3129,40 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     }
   }
 
+  // Arrastar arquivos sobre a **fila**: enfileira (origem 1 = biblioteca), sem tocar.
+  if (queueList_ != nullptr && watched == queueList_->viewport()) {
+    if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
+      auto* drag = static_cast<QDragMoveEvent*>(event);
+      if (drag->mimeData()->hasUrls()) {
+        drag->acceptProposedAction();
+        return true;
+      }
+    } else if (event->type() == QEvent::Drop) {
+      auto* drop = static_cast<QDropEvent*>(event);
+      QStringList paths;
+      int rejected = 0;
+      const QList<QUrl> urls = drop->mimeData()->urls();
+      for (const QUrl& url : urls) {
+        const QString local = url.toLocalFile();
+        if (local.isEmpty()) {
+          ++rejected;
+        } else {
+          paths << local;
+        }
+      }
+      if (!paths.isEmpty()) {
+        drop->acceptProposedAction();
+        enqueuePaths(paths, 1);
+        warnAboutNetworkDrop(this, urls, rejected);
+        return true;
+      }
+      if (!urls.isEmpty()) {
+        warnAboutNetworkDrop(this, urls, rejected);
+        return true;
+      }
+    }
+  }
+
   // Arrastar arquivos sobre a lista: a viewport engoliria o drop (o view do Qt aceita
   // drags para arrumar itens), então o alvo é tratado aqui e cai no mesmo caminho da janela.
   if (list_ != nullptr && watched == list_->viewport()) {
@@ -4148,6 +4220,10 @@ void MainWindow::openLibrary() {
             });
     connect(library_.get(), &wamp::ui::LibraryWindow::stationRequested, this,
             &MainWindow::startRadioStation);
+    connect(library_.get(), &wamp::ui::LibraryWindow::tagInfoRequested, this,
+            &MainWindow::openFileInfoFor);
+    connect(library_.get(), &wamp::ui::LibraryWindow::tagRefreshRequested, this,
+            &MainWindow::refreshTags);
     connect(library_.get(), &wamp::ui::LibraryWindow::humorPointChanged, this,
             &MainWindow::onHumorPointChanged);
     connect(library_.get(), &wamp::ui::LibraryWindow::humorApplyRequested, this,
@@ -4919,6 +4995,17 @@ void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info
   if (scanner_->pending() == 0) {
     statusBar()->showMessage(tr("Metadados da playlist carregados"), 2500);
   }
+}
+
+void MainWindow::refreshTags(const QStringList& paths) {
+  if (paths.isEmpty() || scanner_ == nullptr) return;
+  // Reler é o mesmo caminho da indexação: a leitura grava no banco e o `onMetadata` atualiza
+  // a linha da playlist e a tabela da Biblioteca (a janela do Alt+3 não é tocada).
+  for (const QString& path : paths) scanner_->enqueue(path.toStdString());
+  statusBar()->showMessage(paths.size() == 1
+                               ? tr("Relendo as tags da faixa…")
+                               : tr("Relendo as tags de %1 faixas…").arg(paths.size()),
+                           2500);
 }
 
 bool MainWindow::cachedInfo(const std::string& path, wamp::TrackInfo* info) {

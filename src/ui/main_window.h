@@ -124,6 +124,12 @@ class MainWindow final : public QMainWindow {
   void jumpQueue(const QString& path);
   /// File Info (Alt+3): abre as tags da faixa atual/selecionada.
   void openFileInfo();
+  /// Mesma janela, para um caminho qualquer (menu da Biblioteca e da fila).
+  void openFileInfoFor(const QString& path);
+  /// Implementação única: a janela navega por `items` a partir de `index`.
+  void openFileInfoAt(std::vector<std::string> items, std::size_t index);
+  /// "Atualizar tag": relê as tags do arquivo e atualiza biblioteca, playlist e o painel.
+  void refreshTags(const QStringList& paths);
   /// Ajuda (F1): janela com o texto do idioma ativo.
   void openHelp();
   /// "Sobre o Amplia…": versão, data do build e créditos de tradução.
