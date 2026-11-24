@@ -693,6 +693,43 @@ std::vector<RadioCandidate> TagCache::radioPool(std::string* error) {
   return pool;
 }
 
+std::vector<RadioSeed> TagCache::recentPlays(int limit, std::string* error) {
+  std::vector<RadioSeed> recent;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco não aberto";
+    return recent;
+  }
+  // Mesma precedência de BPM/tom do pool: o percebido manda, o da tag é o plano B.
+  const char* sql =
+      "SELECT path, coalesce(artist,''), coalesce(album,''), coalesce(genre,''),"
+      " coalesce(year,0),"
+      " CASE WHEN analyzed = 1 AND bpm > 0 THEN bpm ELSE bpm_tag END,"
+      " CASE WHEN analyzed = 1 AND key_pc >= 0 THEN key_pc ELSE key_pc_tag END,"
+      " CASE WHEN analyzed = 1 AND key_pc >= 0 THEN key_major ELSE key_major_tag END"
+      " FROM tracks WHERE coalesce(lastplay, 0) > 0"
+      " ORDER BY lastplay DESC LIMIT ?1;";
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "consulta do histórico falhou";
+    return recent;
+  }
+  sqlite3_bind_int(statement, 1, limit > 0 ? limit : -1);
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    RadioSeed seed;
+    seed.path = columnText(statement, 0);
+    seed.artist = columnText(statement, 1);
+    seed.album = columnText(statement, 2);
+    seed.genre = columnText(statement, 3);
+    seed.year = sqlite3_column_int(statement, 4);
+    seed.bpm = sqlite3_column_double(statement, 5);
+    seed.keyPc = sqlite3_column_int(statement, 6);
+    seed.keyMajor = sqlite3_column_int(statement, 7);
+    recent.push_back(std::move(seed));
+  }
+  sqlite3_finalize(statement);
+  return recent;
+}
+
 void TagCache::recordRadioEvent(const std::string& path, int kind,
                                 const RadioContext& context) {
   if (db_ == nullptr || path.empty()) return;

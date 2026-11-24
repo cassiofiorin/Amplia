@@ -10,6 +10,7 @@
 
 class QLabel;
 class QLineEdit;
+class QSlider;
 class QProgressBar;
 class QTableWidget;
 class QTreeWidget;
@@ -43,6 +44,15 @@ class LibraryWindow final : public QWidget {
 
   /// Seleciona o nó "Composições dinâmicas" (painel de progresso da análise).
   void selectDynamics();
+  /// Seleciona o nó "Rádio local": a tabela passa a mostrar a prévia da estação.
+  void selectStation();
+
+  /// Prévia da estação ligada? (nó "Rádio local" selecionado)
+  bool stationActive() const { return stationActive_; }
+
+  /// Mistura da semente (0 = só a faixa, 100 = só o histórico), sem reemitir o sinal.
+  void setSeedBlend(int blend);
+  int seedBlend() const;
 
  signals:
   /// Mudou a visão ou o texto de busca: a MainWindow refaz a consulta.
@@ -54,6 +64,8 @@ class LibraryWindow final : public QWidget {
   void enqueueSelectionRequested(const QStringList& paths);
   /// "Tocar estação local": a rádio usa a faixa tocando (ou a selecionada) como semente.
   void stationRequested(const QString& seedPath);
+  /// O slider da semente mudou: a MainWindow guarda e refaz a prévia.
+  void seedBlendChanged(int blend);
   /// Clique na coluna de nota: 0 limpa, 1–5 grava.
   void ratingRequested(const QString& path, int rating);
   /// Delete na tabela: a MainWindow confirma em três camadas e tira da biblioteca.
@@ -71,6 +83,10 @@ class LibraryWindow final : public QWidget {
   QTreeWidget* tree_ = nullptr;
   QTableWidget* table_ = nullptr;
   QTreeWidgetItem* dynamicsItem_ = nullptr;
+  QTreeWidgetItem* stationItem_ = nullptr;
+  QWidget* stationPanel_ = nullptr;
+  QLabel* stationHint_ = nullptr;
+  QSlider* blendSlider_ = nullptr;
   QWidget* searchBar_ = nullptr;
   QWidget* dynamicsPanel_ = nullptr;
   QLabel* dynamicsTitle_ = nullptr;
@@ -78,6 +94,7 @@ class LibraryWindow final : public QWidget {
   QLabel* dynamicsHint_ = nullptr;
   QProgressBar* dynamicsProgress_ = nullptr;
   bool dynamicsActive_ = false;
+  bool stationActive_ = false;
   QLineEdit* search_ = nullptr;
   QLabel* summary_ = nullptr;
   QLabel* status_ = nullptr;

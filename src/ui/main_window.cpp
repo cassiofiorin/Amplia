@@ -1752,6 +1752,9 @@ bool MainWindow::openPath(const QString& path, bool autoplay) {
       scrobbleAnnounced_ = false;
     }
   }
+  // A prévia da Rádio local parte da faixa tocando: se a Biblioteca está nesse nó, ela
+  // acompanha a troca de faixa.
+  if (library_ != nullptr && library_->stationActive()) refreshLibrary();
   updateNextUp();
   refresh();
   return true;
@@ -3358,6 +3361,8 @@ void MainWindow::loadSettings() {
   remaining_ = settings.value(QStringLiteral("play/remaining"), false).toBool();
   libraryReopen_ = settings.value(QStringLiteral("library/reopen"), false).toBool();
   setPlaylistFontSize(settings.value(QStringLiteral("playlist/fontPx"), 11).toInt());
+  // Mistura da semente da Rádio local: 0 = só a faixa tocando, 100 = só o histórico.
+  seedBlend_ = std::clamp(settings.value(QStringLiteral("radio/seedBlend"), 0).toInt(), 0, 100);
 
   easyMove_ = settings.value(QStringLiteral("window/easyMove"), false).toBool();
   if (easyMoveAction_ != nullptr) easyMoveAction_->setChecked(easyMove_);
@@ -3568,6 +3573,7 @@ void MainWindow::saveSettings() {
   if (volumeSlider_ != nullptr) settings.setValue(QStringLiteral("play/volume"), volumeSlider_->value());
   settings.setValue(QStringLiteral("play/remaining"), remaining_);
   settings.setValue(QStringLiteral("playlist/fontPx"), playlistFontPx_);
+  settings.setValue(QStringLiteral("radio/seedBlend"), seedBlend_);
   settings.setValue(QStringLiteral("ui/queueVisible"),
                     queuePanel_ != nullptr && queuePanel_->isVisible());
   settings.setValue(QStringLiteral("window/easyMove"), easyMove_);
@@ -4061,6 +4067,11 @@ void MainWindow::openLibrary() {
               // Origem 1 = biblioteca: o bloco "Na fila" mostra de onde veio.
               enqueuePaths(paths, 1);
             });
+    connect(library_.get(), &wamp::ui::LibraryWindow::seedBlendChanged, this,
+            [this](int blend) {
+              seedBlend_ = std::clamp(blend, 0, 100);
+              refreshLibrary();
+            });
     connect(library_.get(), &wamp::ui::LibraryWindow::stationRequested, this,
             &MainWindow::startRadioStation);
   }
@@ -4077,6 +4088,10 @@ void MainWindow::openLibrary() {
   library_->installEventFilter(this);  // para salvar a posição quando ela se mover
   refreshLibrary();
   if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_DYNAMICS")) library_->selectDynamics();
+  if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_RADIO")) {
+    library_->selectStation();
+    qInfo("amplia: rádio local blend=%d", seedBlend_);
+  }
   library_->show();
   library_->raise();
   library_->activateWindow();
@@ -4128,6 +4143,25 @@ QString MainWindow::librarySummary(const std::vector<wamp::LibraryEntry>& rows) 
 
 void MainWindow::refreshLibrary() {
   if (!library_ || !cache_) return;
+
+  // Nó "Rádio local": a tabela é a prévia da estação, não uma consulta à biblioteca.
+  if (library_->stationActive()) {
+    library_->setSeedBlend(seedBlend_);
+    const std::vector<wamp::LibraryEntry> rows = stationRows();
+    library_->setRows(rows);
+    if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_RADIO")) {
+      qInfo("amplia: prévia da rádio %d faixa(s) blend=%d", static_cast<int>(rows.size()),
+            seedBlend_);
+    }
+    library_->setSummary(
+        rows.empty()
+            ? tr("A prévia aparece quando a faixa tocando (ou a última tocada) estiver na "
+                 "biblioteca.")
+            : tr("%1 faixa(s) na estação · semente: %2% do que venho ouvindo")
+                  .arg(rows.size())
+                  .arg(seedBlend_));
+    return;
+  }
 
   // Rápido de propósito: só lê o banco. Varrer pastas de rede leva segundos, então isso
   // fica no rescanLibrary(), que o usuário dispara (ou que roda ao adicionar uma pasta).
@@ -4326,16 +4360,15 @@ void MainWindow::recordSkipIfEarly(std::size_t nextIndex) {
   cache_->recordRadioEvent(path, 0, context);
 }
 
-void MainWindow::startRadioStation(const QString& seedPath) {
-  if (cache_ == nullptr) return;
+wamp::RadioMix MainWindow::stationMix(const QString& seedPath,
+                                      std::vector<wamp::RadioCandidate>* pool) {
+  wamp::RadioMix mix;
+  if (cache_ == nullptr) return mix;
   std::string error;
-  const std::vector<wamp::RadioCandidate> pool = cache_->radioPool(&error);
-  if (pool.empty()) {
-    statusBar()->showMessage(tr("Biblioteca vazia: nada para sugerir ainda"), 4000);
-    return;
-  }
+  std::vector<wamp::RadioSeed> recent = cache_->recentPlays(5, &error);
 
-  // Semente: a faixa tocando manda; sem reprodução, usa a que veio da Biblioteca.
+  // Semente: a faixa tocando manda; sem reprodução, usa a que veio da Biblioteca; sem
+  // nenhuma das duas, a última que tocou — a estação nunca fica sem ponto de partida.
   QString seed = seedPath;
   if (seed.isEmpty() && playlist_ != nullptr && !playlist_->items().empty()) {
     const std::size_t index = playlist_->currentIndex();
@@ -4343,28 +4376,75 @@ void MainWindow::startRadioStation(const QString& seedPath) {
       seed = QString::fromStdString(playlist_->items().at(index));
     }
   }
-  if (seed.isEmpty()) seed = QString::fromStdString(pool.front().path);
+  if (seed.isEmpty() && !recent.empty()) seed = QString::fromStdString(recent.front().path);
+  if (seed.isEmpty()) return mix;
 
-  wamp::RadioSeed model;
+  std::vector<wamp::RadioCandidate> candidates = cache_->radioPool(&error);
   const std::string seedUtf8 = seed.toStdString();
-  for (const wamp::RadioCandidate& candidate : pool) {
+  for (const wamp::RadioCandidate& candidate : candidates) {
     if (candidate.path != seedUtf8) continue;
-    model.path = candidate.path;
-    model.artist = candidate.artist;
-    model.album = candidate.album;
-    model.genre = candidate.genre;
-    model.year = candidate.year;
-    model.bpm = candidate.bpm;
-    model.keyPc = candidate.keyPc;
-    model.keyMajor = candidate.keyMajor;
+    mix.track.path = candidate.path;
+    mix.track.artist = candidate.artist;
+    mix.track.album = candidate.album;
+    mix.track.genre = candidate.genre;
+    mix.track.year = candidate.year;
+    mix.track.bpm = candidate.bpm;
+    mix.track.keyPc = candidate.keyPc;
+    mix.track.keyMajor = candidate.keyMajor;
     break;
   }
-  if (model.path.empty()) {
+  if (pool != nullptr) *pool = std::move(candidates);
+  if (mix.track.path.empty()) return mix;
+
+  // O "clima de agora" não inclui a própria faixa: a estação já parte dela.
+  recent.erase(std::remove_if(recent.begin(), recent.end(),
+                              [&seedUtf8](const wamp::RadioSeed& item) {
+                                return item.path == seedUtf8;
+                              }),
+               recent.end());
+  mix.history = wamp::radioHistorySeed(recent);
+  mix.blend = std::clamp(seedBlend_, 0, 100) / 100.0;
+  return mix;
+}
+
+std::vector<wamp::LibraryEntry> MainWindow::stationRows() {
+  std::vector<wamp::LibraryEntry> rows;
+  if (cache_ == nullptr) return rows;
+  std::vector<wamp::RadioCandidate> pool;
+  const wamp::RadioMix mix = stationMix(QString(), &pool);
+  if (mix.track.path.empty()) return rows;
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20);
+  rows.reserve(picked.size());
+  for (const std::string& path : picked) {
+    wamp::LibraryEntry entry;
+    // O pool traz o que a rádio pontua; título e duração vêm do cache de tags.
+    if (!cache_->lookupFast(path, &entry.info)) continue;
+    entry.info.path = path;
+    for (const wamp::RadioCandidate& candidate : pool) {
+      if (candidate.path != path) continue;
+      entry.rating = candidate.rating;
+      entry.playcount = candidate.plays;
+      break;
+    }
+    rows.push_back(std::move(entry));
+  }
+  return rows;
+}
+
+void MainWindow::startRadioStation(const QString& seedPath) {
+  if (cache_ == nullptr) return;
+  std::vector<wamp::RadioCandidate> pool;
+  const wamp::RadioMix mix = stationMix(seedPath, &pool);
+  if (mix.track.path.empty()) {
     statusBar()->showMessage(tr("A faixa escolhida não está na biblioteca"), 4000);
     return;
   }
+  if (pool.empty()) {
+    statusBar()->showMessage(tr("Biblioteca vazia: nada para sugerir ainda"), 4000);
+    return;
+  }
 
-  const std::vector<std::string> picked = wamp::radioPick(model, pool, 20);
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20);
   if (picked.empty()) {
     statusBar()->showMessage(tr("Nenhuma faixa parecida o bastante para a estação"), 4000);
     return;
@@ -4372,7 +4452,7 @@ void MainWindow::startRadioStation(const QString& seedPath) {
   // Fila própria: as sugestões não entram na playlist do usuário.
   pathQueue_.clear();
   for (std::size_t i = 1; i < picked.size(); ++i) {
-    pathQueue_.push_back({picked[i], 2, model.path});
+    pathQueue_.push_back({picked[i], 2, mix.track.path});
   }
   refreshQueuePanel();
   if (queuePanel_ != nullptr) queuePanel_->setVisible(true);

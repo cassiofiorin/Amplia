@@ -10,6 +10,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
+#include <QSlider>
 #include <QSplitter>
 #include <QTableWidget>
 #include <QTimer>
@@ -122,10 +124,16 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     auto* item = new QTreeWidgetItem(local, QStringList{QString::fromUtf8(def.name)});
     item->setData(0, kViewRole, static_cast<int>(def.view));
   }
-  // Segunda seção da árvore: não lista faixas, mostra o estado da análise e o que já
-  // destravou (por enquanto só a Rádio local, que precisa de base analisada).
+  // Segunda seção da árvore: mostra o estado da análise e, dentro dela, o nó da Rádio
+  // local — o primeiro mix que já funciona (os climas ainda não).
   dynamicsItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Composições dinâmicas")});
   dynamicsItem_->setData(0, kViewRole, -1);
+  // O nó da rádio mora dentro das composições dinâmicas: é o primeiro "tipo de mix" que
+  // funciona sem base analisada — os climas entram depois. -2 no papel, para não se
+  // confundir com o -1 do painel de análise.
+  stationItem_ = new QTreeWidgetItem(dynamicsItem_, QStringList{tr("Rádio local")});
+  stationItem_->setData(0, kViewRole, -2);
+  dynamicsItem_->setExpanded(true);
   tree_->setCurrentItem(local->child(0));
   splitter->addWidget(tree_);
 
@@ -160,6 +168,41 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
   table_->installEventFilter(this);
   table_->viewport()->installEventFilter(this);
+  // Rádio local: a prévia da estação fica logo acima da tabela — a tabela é a estação, o
+  // painel é a única alavanca (a mistura da semente).
+  stationPanel_ = new QWidget(right);
+  auto* stationLayout = new QVBoxLayout(stationPanel_);
+  stationLayout->setContentsMargins(0, 0, 0, 0);
+  stationLayout->setSpacing(4);
+  auto* stationTitle = new QLabel(tr("Rádio local"), stationPanel_);
+  stationTitle->setObjectName(QStringLiteral("dynamicsTitle"));
+  stationHint_ = new QLabel(
+      tr("A estação parte da faixa tocando e do que você vem ouvindo; o slider decide quanto "
+         "de cada um."),
+      stationPanel_);
+  stationHint_->setObjectName(QStringLiteral("hint"));
+  stationHint_->setWordWrap(true);
+  auto* blendRow = new QHBoxLayout();
+  auto* blendTrackLabel = new QLabel(tr("esta faixa"), stationPanel_);
+  blendTrackLabel->setObjectName(QStringLiteral("hint"));
+  blendSlider_ = new QSlider(Qt::Horizontal, stationPanel_);
+  blendSlider_->setRange(0, 100);
+  blendSlider_->setPageStep(10);
+  blendSlider_->setToolTip(
+      tr("0 = só esta faixa; 100 = só o que você vem ouvindo (as últimas 5 faixas)."));
+  auto* blendHistoryLabel = new QLabel(tr("o que venho ouvindo"), stationPanel_);
+  blendHistoryLabel->setObjectName(QStringLiteral("hint"));
+  blendRow->addWidget(blendTrackLabel);
+  blendRow->addWidget(blendSlider_, 1);
+  blendRow->addWidget(blendHistoryLabel);
+  stationLayout->addWidget(stationTitle);
+  stationLayout->addWidget(stationHint_);
+  stationLayout->addLayout(blendRow);
+  stationPanel_->hide();
+  connect(blendSlider_, &QSlider::valueChanged, this,
+          [this](int value) { emit seedBlendChanged(value); });
+
+  rightLayout->addWidget(stationPanel_);
   rightLayout->addWidget(searchBar_);
   rightLayout->addWidget(table_, 1);
 
@@ -235,9 +278,15 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
           [this](QTreeWidgetItem* current, QTreeWidgetItem*) {
             if (current == nullptr) return;
             const QVariant value = current->data(0, kViewRole);
-            dynamicsActive_ = !value.isNull() && value.toInt() == -1;
+            const int role = value.isNull() ? 0 : value.toInt();
+            dynamicsActive_ = role == -1;
+            stationActive_ = role == -2;
             table_->setVisible(!dynamicsActive_);
-            if (searchBar_ != nullptr) searchBar_->setVisible(!dynamicsActive_);
+            if (searchBar_ != nullptr) {
+              // A busca filtra a biblioteca; na prévia da estação ela não teria efeito.
+              searchBar_->setVisible(!dynamicsActive_ && !stationActive_);
+            }
+            if (stationPanel_ != nullptr) stationPanel_->setVisible(stationActive_);
             dynamicsPanel_->setVisible(dynamicsActive_);
             updateButtons();
             if (dynamicsActive_ || value.isNull()) return;
@@ -278,6 +327,20 @@ void LibraryWindow::selectDynamics() {
   if (dynamicsItem_ != nullptr) tree_->setCurrentItem(dynamicsItem_);
 }
 
+void LibraryWindow::selectStation() {
+  if (stationItem_ != nullptr) tree_->setCurrentItem(stationItem_);
+}
+
+void LibraryWindow::setSeedBlend(int blend) {
+  if (blendSlider_ == nullptr) return;
+  QSignalBlocker block(blendSlider_);
+  blendSlider_->setValue(std::clamp(blend, 0, 100));
+}
+
+int LibraryWindow::seedBlend() const {
+  return blendSlider_ != nullptr ? blendSlider_->value() : 0;
+}
+
 void LibraryWindow::selectView(int row) {
   if (tree_->topLevelItemCount() == 0) return;
   QTreeWidgetItem* local = tree_->topLevelItem(0);
@@ -290,6 +353,8 @@ wamp::LibraryView LibraryWindow::view() const {
   QTreeWidgetItem* item = tree_->currentItem();
   if (item == nullptr) return wamp::LibraryView::All;
   const QVariant value = item->data(0, kViewRole);
+  // Nós que não são biblioteca (composições dinâmicas, rádio) caem em "todas".
+  if (!value.isNull() && value.toInt() < 0) return wamp::LibraryView::All;
   if (value.isNull()) {
     // Cabeçalho da árvore selecionado: cai em "todas".
     if (item->childCount() > 0) return wamp::LibraryView::All;
@@ -382,11 +447,12 @@ void LibraryWindow::setAnalysisProgress(int analysed, int total, qint64 millisec
   constexpr int kRadioMinimum = 40;
   if (analysed >= kRadioMinimum) {
     dynamicsTitle_->setText(tr("Base pronta para as composições dinâmicas"));
-    dynamicsHint_->setText(tr("A Rádio local entra na próxima etapa."));
+    dynamicsHint_->setText(
+        tr("A Rádio local já está no nó acima; os climas entram na próxima etapa."));
   } else {
     dynamicsTitle_->setText(tr("Analisando suas músicas"));
-    dynamicsHint_->setText(tr("Faltam %1 faixa(s) analisada(s) para liberar a Rádio local. "
-                             "A análise acompanha o que você ouve.")
+    dynamicsHint_->setText(tr("Faltam %1 faixa(s) analisada(s) para a rádio acertar BPM e "
+                             "tom. A análise acompanha o que você ouve.")
                                .arg(kRadioMinimum - analysed));
   }
 }

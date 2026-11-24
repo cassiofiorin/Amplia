@@ -85,6 +85,10 @@ class TagCache final {
   /// Constrói a lista de candidatas da rádio (uma consulta só, já com pulos e ouvidas).
   std::vector<RadioCandidate> radioPool(std::string* error);
 
+  /// Últimas faixas tocadas, da mais recente para a mais antiga: é o "clima de agora" que
+  /// a semente composta da Rádio local usa. `limit` <= 0 devolve o histórico inteiro.
+  std::vector<RadioSeed> recentPlays(int limit, std::string* error);
+
   /// Registra um pulo/recusa com o contexto em que aconteceu; `kind` 0 = pulou,
   /// 1 = ouviu até o fim, 2 = recusou (removeu da fila sem tocar).
   void recordRadioEvent(const std::string& path, int kind, const RadioContext& context);

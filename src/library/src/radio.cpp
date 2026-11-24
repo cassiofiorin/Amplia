@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <map>
+#include <utility>
 
 namespace wamp {
 namespace {
@@ -85,9 +87,13 @@ double radioScore(const RadioSeed& seed, const RadioCandidate& candidate) {
   return score;
 }
 
-std::vector<std::string> radioPick(const RadioSeed& seed,
-                                   const std::vector<RadioCandidate>& candidates,
-                                   std::size_t wanted, std::size_t discoveryEvery) {
+namespace {
+
+/// Ordena pela pontuação que vier e aplica as duas regras que não dependem da semente:
+/// diversidade de artista no começo e uma "descoberta" de vez em quando.
+template <typename ScoreFn>
+std::vector<std::string> pickWith(ScoreFn score, const std::vector<RadioCandidate>& candidates,
+                                  std::size_t wanted, std::size_t discoveryEvery) {
   struct Scored {
     double score;
     const RadioCandidate* candidate;
@@ -95,8 +101,8 @@ std::vector<std::string> radioPick(const RadioSeed& seed,
   std::vector<Scored> scored;
   scored.reserve(candidates.size());
   for (const RadioCandidate& candidate : candidates) {
-    const double score = radioScore(seed, candidate);
-    if (score > 0.02) scored.push_back({score, &candidate});
+    const double value = score(candidate);
+    if (value > 0.02) scored.push_back({value, &candidate});
   }
   std::sort(scored.begin(), scored.end(),
             [](const Scored& a, const Scored& b) { return a.score > b.score; });
@@ -123,6 +129,88 @@ std::vector<std::string> radioPick(const RadioSeed& seed,
     if (recentArtists.size() > 5) recentArtists.erase(recentArtists.begin());
   }
   return picked;
+}
+
+}  // namespace
+
+std::vector<std::string> radioPick(const RadioSeed& seed,
+                                   const std::vector<RadioCandidate>& candidates,
+                                   std::size_t wanted, std::size_t discoveryEvery) {
+  return pickWith([&seed](const RadioCandidate& candidate) { return radioScore(seed, candidate); },
+                  candidates, wanted, discoveryEvery);
+}
+
+bool RadioMix::hasHistory() const {
+  return history.bpm > 0.0 || !history.genre.empty() || history.keyPc >= 0 ||
+         history.year > 0;
+}
+
+RadioSeed radioHistorySeed(const std::vector<RadioSeed>& recent) {
+  RadioSeed seed;
+  if (recent.empty()) return seed;
+
+  // Gênero e tom modais: o que mais aparece no que venho ouvindo. A ordem de `recent` é
+  // da mais recente para a mais antiga, então o empate fica com a memória mais fresca.
+  std::map<std::string, int> genres;
+  std::map<std::pair<int, int>, int> keys;
+  for (const RadioSeed& item : recent) {
+    if (!item.genre.empty()) ++genres[item.genre];
+    if (item.keyPc >= 0) ++keys[{item.keyPc, item.keyMajor}];
+  }
+  int best = 0;
+  for (const auto& entry : genres) {
+    if (entry.second > best) {
+      best = entry.second;
+      seed.genre = entry.first;
+    }
+  }
+  best = 0;
+  for (const auto& entry : keys) {
+    if (entry.second > best) {
+      best = entry.second;
+      seed.keyPc = entry.first.first;
+      seed.keyMajor = entry.first.second;
+    }
+  }
+
+  // Ano: mediana. Um disco antigo isolado não puxa a estação inteira para os anos 80.
+  std::vector<int> years;
+  for (const RadioSeed& item : recent) {
+    if (item.year > 0) years.push_back(item.year);
+  }
+  if (!years.empty()) {
+    std::sort(years.begin(), years.end());
+    seed.year = years[(years.size() - 1) / 2];
+  }
+
+  // BPM: média geométrica. Dobrar ou metade é equivalência de pulso, então 75 e 150
+  // juntos caem num meio-termo que casa com os dois.
+  double logSum = 0.0;
+  int bpmCount = 0;
+  for (const RadioSeed& item : recent) {
+    if (item.bpm > 0.0) {
+      logSum += std::log(item.bpm);
+      ++bpmCount;
+    }
+  }
+  if (bpmCount > 0) seed.bpm = std::exp(logSum / bpmCount);
+  return seed;
+}
+
+double radioScore(const RadioMix& mix, const RadioCandidate& candidate) {
+  // A faixa da semente nunca se sugere: sem isso o clima do histórico daria nota a ela.
+  if (candidate.path == mix.track.path) return 0.0;
+  const double base = radioScore(mix.track, candidate);
+  if (mix.blend <= 0.0 || !mix.hasHistory()) return base;
+  const double weight = std::min(1.0, mix.blend);
+  return (1.0 - weight) * base + weight * radioScore(mix.history, candidate);
+}
+
+std::vector<std::string> radioPick(const RadioMix& mix,
+                                   const std::vector<RadioCandidate>& candidates,
+                                   std::size_t wanted, std::size_t discoveryEvery) {
+  return pickWith([&mix](const RadioCandidate& candidate) { return radioScore(mix, candidate); },
+                  candidates, wanted, discoveryEvery);
 }
 
 }  // namespace wamp

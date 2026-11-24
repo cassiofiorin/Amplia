@@ -59,6 +59,29 @@ std::vector<std::string> radioPick(const RadioSeed& seed,
                                    const std::vector<RadioCandidate>& candidates,
                                    std::size_t wanted, std::size_t discoveryEvery = 7);
 
+/// Semente composta: a faixa que está tocando e o "clima de agora" (o que venho ouvindo)
+/// entram numa média ponderada. `blend` 0 = só a faixa; 1 = só o clima.
+struct RadioMix {
+  RadioSeed track;
+  RadioSeed history;  ///< centroide do histórico; sem campos = não há histórico
+  double blend = 0.0;
+
+  bool hasHistory() const;
+};
+
+/// Centroide do que vem sendo ouvido: gênero e tom modais, ano mediano, BPM médio
+/// geométrico. Artista e álbum ficam de fora de propósito — identidade não é clima.
+RadioSeed radioHistorySeed(const std::vector<RadioSeed>& recent);
+
+/// A mesma pontuação, misturada na proporção `blend` com o clima do histórico. A faixa da
+/// semente continua descartada mesmo com o clima puxando a nota dela para cima.
+double radioScore(const RadioMix& mix, const RadioCandidate& candidate);
+
+/// Igual ao `radioPick` acima, pontuando pela mistura.
+std::vector<std::string> radioPick(const RadioMix& mix,
+                                   const std::vector<RadioCandidate>& candidates,
+                                   std::size_t wanted, std::size_t discoveryEvery = 7);
+
 /// Aceitação aprendida a partir dos pulsos registrados naquele contexto (Laplace).
 double radioAcceptance(int plays, int skips);
 

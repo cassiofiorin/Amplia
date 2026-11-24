@@ -2480,3 +2480,30 @@ pendentes (a playlist restaurava, o "o que vem depois" não). Agora ela vai para
 - **A estação é a fila**: a semente vai em cada entrada, então restaurar a fila restaura a
   estação — inclusive `rejectQueuedItem` continua gravando `kind=2` com o contexto certo
   depois de um reinício.
+
+## D-119 — A semente da Rádio local é uma mistura, e o nó dela mostra a prévia
+
+A estação partia só da faixa tocando: com um artista de catálogo homogêneo ela virava "mais
+do mesmo", e com um disco isolado não conversava com o que o usuário vinha ouvindo. Agora a
+semente é **composta**, com um slider no nó "Rádio local" da Biblioteca.
+
+- **Mistura, não troca**: `radio/seedBlend` (0–100, padrão 0) pondera a pontuação das duas
+  sementes — `score = (1-w)·faixa + w·clima`, com `w = blend/100`. No meio, a candidata que
+  combina com as duas pontua mais que a que combina com uma só. Extremos rotulados no
+  painel: "esta faixa" e "o que venho ouvindo".
+- **Clima de agora** = centroide das últimas 5 faixas tocadas (`TagCache::recentPlays`):
+  gênero e tom **modais**, ano **mediano**, BPM **médio geométrico**. Artista e álbum ficam
+  de fora de propósito — identidade não é clima; se entrassem, o histórico puxaria a estação
+  de volta para o mesmo artista, que é justamente o que a mistura existe para evitar.
+- **A faixa da semente nunca se sugere**, mesmo com o clima dando nota a ela: o
+  `candidate.path == mix.track.path → 0` vale no caminho da mistura também.
+- **Cinco, não mais**: cinco faixas é o bastante para ter "um clima" (gênero e BPM estáveis)
+  e curto o bastante para ser o agora, não a semana passada. A própria faixa sai do
+  histórico — a estação já parte dela.
+- **O nó "Rádio local"** mora dentro de "Composições dinâmicas" e lista **a mesma prévia**
+  que a estação usaria (`stationRows()` e `startRadioStation()` compartilham `stationMix()`,
+  então nunca discordam). A prévia acompanha a troca de faixa enquanto o nó está aberto. O
+  slider grava na hora; o botão "Tocar estação dessa música" continua no rodapé e funciona
+  com ou sem seleção.
+- **Climas ainda não**: as gerações por clima (BPM/energia/tom como eixos próprios) ficam
+  para a próxima etapa; o nó e a mistura são a estrutura sobre a qual elas entram.

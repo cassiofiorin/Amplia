@@ -237,6 +237,14 @@ class MainWindow final : public QMainWindow {
   /// e enfileira no fim da playlist — nunca substitui a lista do usuário.
   void startRadioStation(const QString& seedPath);
 
+  /// Semente composta: a faixa (tocando ou indicada) mais o centroide das últimas 5
+  /// tocadas, na proporção de `radio/seedBlend`. `pool` recebe as candidatas quando vem.
+  wamp::RadioMix stationMix(const QString& seedPath,
+                            std::vector<wamp::RadioCandidate>* pool = nullptr);
+
+  /// Prévia do nó "Rádio local": as mesmas 20 faixas que a estação escolheria agora.
+  std::vector<wamp::LibraryEntry> stationRows();
+
   /// Registra pulo quando a faixa atual é interrompida cedo (ver D-116).
   void recordSkipIfEarly(std::size_t nextIndex);
 
@@ -366,6 +374,8 @@ class MainWindow final : public QMainWindow {
   bool playlistDirty_ = false;
   bool showPath_ = false;
   int playlistFontPx_ = 11;
+  /// 0 = a estação parte só da faixa; 100 = só do que venho ouvindo (`radio/seedBlend`).
+  int seedBlend_ = 0;
   bool stopAfterCurrent_ = false;
   bool easyMove_ = false;
   bool libraryReopen_ = false;
