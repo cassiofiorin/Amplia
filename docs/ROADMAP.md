@@ -6,7 +6,7 @@ toca de ponta a ponta — nada de três frentes abertas ao mesmo tempo.
 Cada fase concluída publica uma versão com **todos os formatos de empacotamento** disponíveis
 naquele momento (D-130). Hoje só existe Flatpak; a F8 cria os outros.
 
-**Fila:** F6c (fechando) → **F8 (empacotamento)** → F3.1 (capa de álbum) → F4 (plugins) →
+**Fila:** F6c (fechado) → **F8 (empacotamento)** → F3.1 (capa de álbum) → F4 (plugins) →
 F7 (skins). A busca de tags (seção "F6 — Busca de tags") segue em pausa.
 
 ## F0 — Primeiro som nativo
@@ -435,7 +435,7 @@ scrobble ou analisador — todos são C++20 + Qt/FFmpeg/TagLib/SQLite.
   traduzir (display), como abrir PR.
 - Critério de pronto: app inteiro em inglês sem sobra em português.
 
-### F6c — Documentação pública (em andamento)
+### F6c — Documentação pública (concluída)
 
 Decidido em D-079: **um arquivo só**, português no topo, separador e inglês abaixo — com
 `[English](#english)` no cabeçalho e `[↑ Português](#amplia)` na metade inglesa.
@@ -446,8 +446,11 @@ Decidido em D-079: **um arquivo só**, português no topo, separador e inglês a
       como registro de desenvolvimento.
 - [x] README em português: motivação e histórico, captura, tabela de fases corrigida, decisões
       com link para os ADRs, limites conhecidos, traduções, licença e créditos.
-- [ ] Metade em inglês (não é tradução literal: mesmas seções, frases mais curtas).
-- [ ] `NOTICE` revisado na hora de publicar binário (versões de dependência do runtime).
+- [x] Metade em inglês (não é tradução literal: mesmas seções, frases mais curtas).
+- [x] `NOTICE` revisado na hora de publicar binário (versões de dependência do runtime).
+- [x] `## Instalar o pacote pronto` nas duas línguas, com o bundle da release e a remoção.
+- [x] Galeria de capturas (biblioteca, humor, ajuda) e a imagem da fila junto do parágrafo dela.
+- [x] Crédito a quem traduz: `help/idiomas.txt` alimenta o Sobre, e o crédito é do autor do PR.
 
 ## F8 — Empacotamento e release (a primeira depois da F6c)
 

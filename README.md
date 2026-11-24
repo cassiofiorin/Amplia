@@ -21,12 +21,19 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ![A janela do Amplia tocando](/docs/img/player.png)
 
+| Biblioteca | Humor | Ajuda (F1) |
+|---|---|---|
+| ![Biblioteca, com árvore de visões, busca e filtros](/docs/img/biblioteca.png) | ![Humor: sliders e prévia da estação](/docs/img/humor.png) | ![Ajuda em Markdown, dentro do app](/docs/img/ajuda.png) |
+
 ## Estado
 
-**Versão 0.9.5-rc5 (`v0.9.5-rc5`)**, em teste como pacote Flatpak; as builds publicadas
-ficam em [Releases](https://github.com/cassiofiorin/Amplia/releases). É a primeira família
-de builds instaláveis para quem quer testar sem compilar: player, playlist, equalizador, display, visualização,
-temas, atalhos, inglês e a Biblioteca com árvore de visões, busca, estrelas e playcount.
+**Versão 0.9.6-rc6 (`v0.9.6-rc6`)**, a primeira build com a **interface inteira nos dois
+idiomas** — 522 textos, nenhum pendente, incluindo a janela da Biblioteca e os nomes dos
+humores. As builds publicadas ficam em
+[Releases](https://github.com/cassiofiorin/Amplia/releases); o escopo desta entrega está em
+[`docs/MILESTONE-0.9.6-rc6.md`](docs/MILESTONE-0.9.6-rc6.md), e o pacote é instalável sem
+compilar (veja [Instalar o pacote pronto](#instalar-o-pacote-pronto)).
+
 A Biblioteca está fechada: varredura incremental (só o arquivo novo ou alterado é
 reaberto), filtros de artista/álbum/gênero que combinam com a busca, árvore de visões,
 estrelas e playcount. A capa de álbum saiu para a **F3.1**, depois deste README — é
@@ -65,6 +72,27 @@ Cada fase concluída sai numa versão com **todos os formatos de empacotamento**
 O que já funciona está descrito em [**O que funciona hoje**](#o-que-funciona-hoje), mais
 abaixo. O detalhe de cada decisão está em [`docs/DECISIONS.md`](docs/DECISIONS.md) e o
 plano em [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## Instalar o pacote pronto
+
+A release traz um bundle Flatpak (`Amplia-<versão>-x86_64.flatpak`). Ele roda no runtime do
+KDE, que o próprio `flatpak` baixa do Flathub na primeira instalação.
+
+```bash
+# 1. baixe o bundle da release (ou use a página de Releases)
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.6-rc6/Amplia-0.9.6-rc6-x86_64.flatpak
+
+# 2. instale só para o seu usuário
+flatpak install --user ./Amplia-0.9.6-rc6-x86_64.flatpak
+
+# 3. rode
+flatpak run io.github.cassiofiorin.Amplia
+```
+
+Para atualizar, instale o bundle novo por cima; para remover,
+`flatpak uninstall --user io.github.cassiofiorin.Amplia`. Os dados do app (banco da
+biblioteca, preferências) ficam em `~/.var/app/io.github.cassiofiorin.Amplia/` e
+sobrevivem à atualização.
 
 ## Como compilar
 
@@ -169,6 +197,8 @@ A fila (botão **Enfileirar**) toca antes de seguir a ordem da playlist — é a
 Winamp. O contador aparece na barra de status. Ela sobrevive ao fechamento: na abertura
 seguinte a playlist volta em pausa e o bloco **Na fila** continua de onde parou, inclusive
 quando veio de uma estação.
+
+![A fila aberta abaixo da playlist, com a origem de cada faixa](/docs/img/fila.png)
 
 ### Scrobbling
 
@@ -577,6 +607,11 @@ Traduzir não exige recompilar: um arquivo `.qm` avulso em
 abertura. O passo a passo está em
 [`CONTRIBUTING-TRANSLATIONS.md`](CONTRIBUTING-TRANSLATIONS.md).
 
+A **ajuda** (F1) também tem um arquivo por idioma — [`help/ajuda-pt.md`](help/ajuda-pt.md) e
+[`help/ajuda-en.md`](help/ajuda-en.md) —, e quem traduz mexe só no texto que lhe cabe, sem
+tocar em código. Quem traduz aparece em **Ajuda ▸ Sobre**: os nomes vêm de
+[`help/idiomas.txt`](help/idiomas.txt), e o crédito é dado a quem abrir o pull request.
+
 Os termos do display (`KBPS`, `KHZ`, `STEREO`, `MONO`, `EQ`, `L`, `R`, `dB`) não são
 traduzidos de propósito: são a língua do "hardware de áudio", não da interface.
 
@@ -642,15 +677,23 @@ and this README are mine. The record of how the project was built is in
 
 ![The Amplia window playing](/docs/img/player.png)
 
+| Library | Mood | Help (F1) |
+|---|---|---|
+| ![Library with the view tree, search and filters](/docs/img/biblioteca.png) | ![Mood: sliders and station preview](/docs/img/humor.png) | ![Help in Markdown, inside the app](/docs/img/ajuda.png) |
+
 ## Status
 
-**Version 0.9.5-rc5 (`v0.9.5-rc5`)**, being tested as a Flatpak bundle; published builds
-are on [Releases](https://github.com/cassiofiorin/Amplia/releases). It is the first family
-of installable builds for people who want to test without compiling: player, playlist, equalizer, display,
-visualization, themes, shortcuts, English and the Library with its view tree, search,
-artist/album/genre filters, incremental scan, stars and play count. The Library is
-closed; album art moved to **F3.1**, after this README, because it is cosmetic and does
-not change finding music.
+**Version 0.9.6-rc6 (`v0.9.6-rc6`)**, the first build with the **whole interface in both
+languages** — 522 strings, none pending, including the Library window and the mood names.
+Published builds are on [Releases](https://github.com/cassiofiorin/Amplia/releases); the
+scope of this release is in [`docs/MILESTONE-0.9.6-rc6.md`](docs/MILESTONE-0.9.6-rc6.md),
+and the package installs without compiling (see
+[Installing the ready-made package](#installing-the-ready-made-package)).
+
+The Library is closed: incremental scan (only a new or changed file is reopened),
+artist/album/genre filters that combine with the search, the view tree, stars and play
+count. Album art moved to **F3.1**, after this README, because it is cosmetic and does not
+change finding music.
 
 | Phase | Delivery | Status |
 |---|---|---|
@@ -685,6 +728,26 @@ Every finished phase ships a version with **every packaging format** available a
 What already works is described in [**What works today**](#what-works-today). Each decision
 is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## Installing the ready-made package
+
+Each release carries a Flatpak bundle (`Amplia-<version>-x86_64.flatpak`). It runs on the
+KDE runtime, which `flatpak` itself downloads from Flathub on the first install.
+
+```bash
+# 1. download the bundle from the release (or use the Releases page)
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.6-rc6/Amplia-0.9.6-rc6-x86_64.flatpak
+
+# 2. install it for your user only
+flatpak install --user ./Amplia-0.9.6-rc6-x86_64.flatpak
+
+# 3. run it
+flatpak run io.github.cassiofiorin.Amplia
+```
+
+To update, install the newer bundle over the old one; to remove it,
+`flatpak uninstall --user io.github.cassiofiorin.Amplia`. App data (library database,
+preferences) lives in `~/.var/app/io.github.cassiofiorin.Amplia/` and survives updates.
 
 ## How to build
 
@@ -781,7 +844,11 @@ for "Artist - Title (m:ss)" as the reading queue advances (one track at a time, 
 bar). Nothing blocks the window — you can play while the rest is read.
 
 The queue (**Queue** button) plays before following the playlist order — it is Winamp's
-"JTF". The counter appears in the status bar.
+"JTF". The counter appears in the status bar. It survives closing: on the next start the
+playlist comes back paused and the **Queue** panel continues where it stopped, including
+when it came from a station.
+
+![The queue panel under the playlist, with each track's origin](/docs/img/fila.png)
 
 ### Scrobbling
 
@@ -1112,6 +1179,13 @@ Translating does not require a rebuild: a standalone `.qm` file in
 `~/.var/app/io.github.cassiofiorin.Amplia/data/cassiofiorin/Amplia/i18n/` is loaded on
 startup. The walkthrough is in
 [`CONTRIBUTING-TRANSLATIONS.md`](CONTRIBUTING-TRANSLATIONS.md).
+
+The **help** (F1) also has one file per language —
+[`help/ajuda-pt.md`](help/ajuda-pt.md) and [`help/ajuda-en.md`](help/ajuda-en.md) — and a
+translator edits only the text that belongs to them, without touching code. Translators are
+credited in **Help ▸ About**: the names come from
+[`help/idiomas.txt`](help/idiomas.txt), and the credit goes to whoever opens the pull
+request.
 
 The display terms (`KBPS`, `KHZ`, `STEREO`, `MONO`, `EQ`, `L`, `R`, `dB`) are not translated
 on purpose: they are the language of the "audio hardware", not of the interface.
