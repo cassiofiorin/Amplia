@@ -1014,6 +1014,9 @@ void MainWindow::buildUi() {
     }
   });
   queueList_->installEventFilter(this);
+  // O drop chega na **viewport** da lista (o QAbstractScrollArea engole o evento), então ela
+  // precisa do filtro também — sem isso o arrasto caía na playlist, que é o pai.
+  queueList_->viewport()->installEventFilter(this);
   // A fila também recebe arrasto: soltar aqui enfileira com origem "BIBLIOTECA".
   queueList_->setAcceptDrops(true);
   queueList_->viewport()->setAcceptDrops(true);
