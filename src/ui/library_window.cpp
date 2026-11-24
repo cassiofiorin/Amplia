@@ -3,6 +3,7 @@
 #include <QCursor>
 #include <QHeaderView>
 #include <QEvent>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QMenuBar>
 #include <QProgressBar>
@@ -26,6 +27,8 @@ namespace {
 
 /// Papel do item da árvore: guarda o `wamp::LibraryView` da visão.
 constexpr int kViewRole = Qt::UserRole;
+/// Índice do preset de humor no vetor de presets (filhos do nó "Humor").
+constexpr int kPresetRole = Qt::UserRole + 1;
 
 struct ViewDef {
   const char* name;
@@ -126,7 +129,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   }
   // Segunda seção da árvore: mostra o estado da análise e, dentro dela, o nó da Rádio
   // local — o primeiro mix que já funciona (os climas ainda não).
-  dynamicsItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Composições dinâmicas")});
+  dynamicsItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Humor")});
   dynamicsItem_->setData(0, kViewRole, -1);
   // O nó da rádio mora dentro das composições dinâmicas: é o primeiro "tipo de mix" que
   // funciona sem base analisada — os climas entram depois. -2 no papel, para não se
@@ -202,7 +205,90 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   connect(blendSlider_, &QSlider::valueChanged, this,
           [this](int value) { emit seedBlendChanged(value); });
 
+  // Humor: cada preset é um nó, e os quatro sliders ficam aqui. A prévia (a tabela) anda
+  // junto com o rascunho; a fila da estação só nasce no Tocar.
+  humorPanel_ = new QWidget(right);
+  auto* humorLayout = new QVBoxLayout(humorPanel_);
+  humorLayout->setContentsMargins(0, 0, 0, 0);
+  humorLayout->setSpacing(4);
+  humorTitle_ = new QLabel(tr("Humor"), humorPanel_);
+  humorTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
+  auto* humorHint = new QLabel(
+      tr("Agitação e Tom são o alvo; a estabilidade decide quanto ele abraça. A prévia abaixo "
+         "acompanha os sliders — a estação começa no Tocar."),
+      humorPanel_);
+  humorHint->setObjectName(QStringLiteral("hint"));
+  humorHint->setWordWrap(true);
+
+  auto* humorGrid = new QGridLayout();
+  humorGrid->setHorizontalSpacing(8);
+  humorGrid->setColumnStretch(1, 1);
+  auto addHumorSlider = [&](int row, const QString& text, const QString& tooltip, int value,
+                            QSlider** slider, QLabel** shown) {
+    auto* name = new QLabel(text, humorPanel_);
+    name->setToolTip(tooltip);
+    auto* handle = new QSlider(Qt::Horizontal, humorPanel_);
+    handle->setRange(0, 100);
+    handle->setPageStep(10);
+    handle->setToolTip(tooltip);
+    handle->setValue(value);
+    auto* number = new QLabel(humorPanel_);
+    number->setObjectName(QStringLiteral("hint"));
+    number->setMinimumWidth(28);
+    number->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    humorGrid->addWidget(name, row, 0);
+    humorGrid->addWidget(handle, row, 1);
+    humorGrid->addWidget(number, row, 2);
+    *slider = handle;
+    *shown = number;
+    connect(handle, &QSlider::valueChanged, this, [this] {
+      updateHumorValues();
+      setHumorPending(true);
+      emit humorPointChanged(true);
+    });
+  };
+  addHumorSlider(0, tr("Agitação · lento ↔ rápido"),
+                 tr("Mais à direita, mais agitado: o BPM manda, dobrando/dividindo para o "
+                    "pulso percebido."),
+                 50, &agitationSlider_, &agitationValue_);
+  addHumorSlider(1, tr("Tom · frio ↔ quente"),
+                 tr("Mais à esquerda, tons menores; mais à direita, maiores. No meio, o modo "
+                    "não importa."),
+                 50, &toneSlider_, &toneValue_);
+  addHumorSlider(2, tr("Estabilidade · varia pouco ↔ varia muito"),
+                 tr("Largura do alvo: perto de 0, só o que fica muito perto do ponto; perto "
+                    "de 100, o alvo abraça faixas mais distantes."),
+                 50, &stabilitySlider_, &stabilityValue_);
+  addHumorSlider(3, tr("Mistura · humor ↔ o que venho ouvindo"),
+                 tr("0 = só o humor; 100 = só o histórico das últimas 5 faixas."),
+                 50, &humorBlendSlider_, &humorBlendValue_);
+
+  humorPending_ = new QLabel(tr("modificações não aplicadas, clique em tocar para aplicar"),
+                             humorPanel_);
+  humorPending_->setStyleSheet(QStringLiteral("color: #e69138;"));
+  humorPending_->hide();
+  humorSaveButton_ = new QPushButton(tr("Salvar como…"), humorPanel_);
+  humorSaveButton_->setToolTip(tr("Guarda os sliders como um humor com nome próprio. Os de "
+                                  "fábrica não mudam."));
+  connect(humorSaveButton_, &QPushButton::clicked, this, [this] { emit humorSaveRequested(); });
+  // Remover só faz sentido para humor salvo: os de fábrica são o ponto de partida.
+  humorRemoveButton_ = new QPushButton(tr("Remover"), humorPanel_);
+  humorRemoveButton_->setToolTip(tr("Remove este humor salvo. Os de fábrica não saem."));
+  connect(humorRemoveButton_, &QPushButton::clicked, this,
+          [this] { emit humorDeleteRequested(humorPresetId()); });
+  auto* humorFoot = new QHBoxLayout();
+  humorFoot->addWidget(humorPending_, 1);
+  humorFoot->addWidget(humorSaveButton_);
+  humorFoot->addWidget(humorRemoveButton_);
+
+  humorLayout->addWidget(humorTitle_);
+  humorLayout->addWidget(humorHint);
+  humorLayout->addLayout(humorGrid);
+  humorLayout->addLayout(humorFoot);
+  humorPanel_->hide();
+
   rightLayout->addWidget(stationPanel_);
+  rightLayout->addWidget(humorPanel_);
   rightLayout->addWidget(searchBar_);
   rightLayout->addWidget(table_, 1);
 
@@ -281,14 +367,22 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
             const int role = value.isNull() ? 0 : value.toInt();
             dynamicsActive_ = role == -1;
             stationActive_ = role == -2;
+            humorActive_ = role == -3;
             table_->setVisible(!dynamicsActive_);
             if (searchBar_ != nullptr) {
-              // A busca filtra a biblioteca; na prévia da estação ela não teria efeito.
-              searchBar_->setVisible(!dynamicsActive_ && !stationActive_);
+              // A busca filtra a biblioteca; nas prévias ela não teria efeito.
+              searchBar_->setVisible(!dynamicsActive_ && !stationActive_ && !humorActive_);
             }
             if (stationPanel_ != nullptr) stationPanel_->setVisible(stationActive_);
+            if (humorPanel_ != nullptr) humorPanel_->setVisible(humorActive_);
+            if (humorActive_) applyHumorDraftFromPreset();
             dynamicsPanel_->setVisible(dynamicsActive_);
             updateButtons();
+            // O nó do humor refaz a prévia pela MainWindow (o léxico e a mistura são dela).
+            if (humorActive_) {
+              emit humorPointChanged(false);
+              return;
+            }
             if (dynamicsActive_ || value.isNull()) return;
             emit queryChanged();
           });
@@ -315,10 +409,21 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     if (current == rating) rating = 0;
     emit ratingRequested(pathItem->data(Qt::UserRole).toString(), rating);
   });
-  connect(playButton_, &QPushButton::clicked, this,
-          [this] { emit playSelectionRequested(selectedPaths()); });
-  connect(queueButton_, &QPushButton::clicked, this,
-          [this] { emit enqueueSelectionRequested(selectedPaths()); });
+  connect(playButton_, &QPushButton::clicked, this, [this] {
+    // Com um humor aberto, Tocar aplica o rascunho e começa a estação.
+    if (humorActive_) {
+      emit humorApplyRequested();
+      return;
+    }
+    emit playSelectionRequested(selectedPaths());
+  });
+  connect(queueButton_, &QPushButton::clicked, this, [this] {
+    if (humorActive_) {
+      emit humorEnqueueRequested();
+      return;
+    }
+    emit enqueueSelectionRequested(selectedPaths());
+  });
 
   updateButtons();
 }
@@ -470,10 +575,133 @@ QStringList LibraryWindow::selectedPaths() const {
 }
 
 void LibraryWindow::updateButtons() {
-  const bool has = !selectedPaths().isEmpty();
-  playButton_->setEnabled(has);
-  queueButton_->setEnabled(has);
-  if (removeAction_ != nullptr) removeAction_->setEnabled(has);
+  const bool selected = !selectedPaths().isEmpty();
+  // No humor não há seleção para tocar: os botões valem para o rascunho dos sliders.
+  playButton_->setEnabled(humorActive_ || selected);
+  queueButton_->setEnabled(humorActive_ || selected);
+  // "Tocar estação dessa música" parte da faixa tocando; no humor trocaria o clima pelo
+  // histórico, então fica desligado.
+  if (stationButton_ != nullptr) stationButton_->setEnabled(!humorActive_);
+  if (removeAction_ != nullptr) removeAction_->setEnabled(!humorActive_ && selected);
+}
+
+void LibraryWindow::setHumorPresets(const std::vector<wamp::HumorPreset>& presets) {
+  const QString keep = humorPresetName();
+  {
+    // Reconstruir a árvore mexe na seleção; os sinais só valem depois, na hora de reselecionar.
+    const QSignalBlocker blocker(tree_);
+    for (QTreeWidgetItem* item : humorItems_) delete item;
+    humorItems_.clear();
+    humorPresets_ = presets;
+    // Presets antes de "Rádio local": inserir no começo empurra o nó da rádio para o fim.
+    for (std::size_t i = 0; i < humorPresets_.size(); ++i) {
+      auto* item = new QTreeWidgetItem(QStringList{QString::fromStdString(humorPresets_[i].name)});
+      item->setData(0, kViewRole, -3);
+      item->setData(0, kPresetRole, static_cast<int>(i));
+      item->setToolTip(0,
+                       humorPresets_[i].factory
+                           ? tr("Humor de fábrica: os sliders partem daqui, o preset não muda.")
+                           : tr("Humor salvo por você."));
+      if (dynamicsItem_ != nullptr) dynamicsItem_->insertChild(static_cast<int>(i), item);
+      humorItems_.push_back(item);
+    }
+  }
+  if (dynamicsItem_ != nullptr) dynamicsItem_->setExpanded(true);
+  for (QTreeWidgetItem* item : humorItems_) {
+    if (item->text(0) == keep) {
+      tree_->setCurrentItem(item);
+      return;
+    }
+  }
+}
+
+void LibraryWindow::selectHumor(const QString& name) {
+  for (QTreeWidgetItem* item : humorItems_) {
+    if (item->text(0) == name) {
+      tree_->setCurrentItem(item);
+      return;
+    }
+  }
+}
+
+QTreeWidgetItem* LibraryWindow::humorSelectedItem() const {
+  QTreeWidgetItem* item = tree_->currentItem();
+  if (item == nullptr) return nullptr;
+  const QVariant role = item->data(0, kViewRole);
+  if (role.isNull() || role.toInt() != -3) return nullptr;
+  return item;
+}
+
+QString LibraryWindow::humorPresetName() const {
+  QTreeWidgetItem* item = humorSelectedItem();
+  return item != nullptr ? item->text(0) : QString();
+}
+
+int LibraryWindow::humorPresetId() const {
+  QTreeWidgetItem* item = humorSelectedItem();
+  if (item == nullptr) return -1;
+  const QVariant index = item->data(0, kPresetRole);
+  if (index.isNull()) return -1;
+  const int at = index.toInt();
+  if (at < 0 || at >= static_cast<int>(humorPresets_.size())) return -1;
+  return humorPresets_[static_cast<std::size_t>(at)].id;
+}
+
+void LibraryWindow::applyHumorDraftFromPreset() {
+  QTreeWidgetItem* item = humorSelectedItem();
+  if (item == nullptr) return;
+  const QVariant index = item->data(0, kPresetRole);
+  if (index.isNull()) return;
+  const int at = index.toInt();
+  if (at < 0 || at >= static_cast<int>(humorPresets_.size())) return;
+  const wamp::HumorPreset& preset = humorPresets_[static_cast<std::size_t>(at)];
+  humorTitle_->setText(tr("Humor · %1").arg(QString::fromStdString(preset.name)));
+  // Sem sinal: escolher o nó não é modificação pendente.
+  const QSignalBlocker blockAgitation(agitationSlider_);
+  const QSignalBlocker blockTone(toneSlider_);
+  const QSignalBlocker blockStability(stabilitySlider_);
+  const QSignalBlocker blockBlend(humorBlendSlider_);
+  agitationSlider_->setValue(std::clamp(static_cast<int>(preset.point.agitation + 0.5), 0, 100));
+  toneSlider_->setValue(std::clamp(static_cast<int>(preset.point.tone + 0.5), 0, 100));
+  stabilitySlider_->setValue(std::clamp(static_cast<int>(preset.point.stability + 0.5), 0, 100));
+  humorBlendSlider_->setValue(std::clamp(static_cast<int>(preset.blend * 100.0 + 0.5), 0, 100));
+  updateHumorValues();
+  setHumorPending(false);
+  if (humorRemoveButton_ != nullptr) humorRemoveButton_->setEnabled(humorPresetId() > 0);
+}
+
+wamp::HumorPoint LibraryWindow::humorDraft() const {
+  wamp::HumorPoint point;
+  if (agitationSlider_ != nullptr) point.agitation = agitationSlider_->value();
+  if (toneSlider_ != nullptr) point.tone = toneSlider_->value();
+  if (stabilitySlider_ != nullptr) point.stability = stabilitySlider_->value();
+  return point;
+}
+
+double LibraryWindow::humorBlendDraft() const {
+  return humorBlendSlider_ != nullptr ? humorBlendSlider_->value() / 100.0 : 0.5;
+}
+
+void LibraryWindow::setHumorDraft(double agitation, double tone, double stability, double blend) {
+  if (agitationSlider_ == nullptr) return;
+  agitationSlider_->setValue(std::clamp(static_cast<int>(agitation + 0.5), 0, 100));
+  toneSlider_->setValue(std::clamp(static_cast<int>(tone + 0.5), 0, 100));
+  stabilitySlider_->setValue(std::clamp(static_cast<int>(stability + 0.5), 0, 100));
+  humorBlendSlider_->setValue(std::clamp(static_cast<int>(blend * 100.0 + 0.5), 0, 100));
+}
+
+void LibraryWindow::setHumorPending(bool pending) {
+  if (humorPending_ != nullptr) humorPending_->setVisible(pending);
+}
+
+void LibraryWindow::updateHumorValues() {
+  auto setText = [](QLabel* label, QSlider* slider) {
+    if (label != nullptr && slider != nullptr) label->setText(QString::number(slider->value()));
+  };
+  setText(agitationValue_, agitationSlider_);
+  setText(toneValue_, toneSlider_);
+  setText(stabilityValue_, stabilitySlider_);
+  setText(humorBlendValue_, humorBlendSlider_);
 }
 
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {

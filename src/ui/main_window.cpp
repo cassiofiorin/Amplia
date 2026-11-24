@@ -4095,6 +4095,16 @@ void MainWindow::openLibrary() {
             });
     connect(library_.get(), &wamp::ui::LibraryWindow::stationRequested, this,
             &MainWindow::startRadioStation);
+    connect(library_.get(), &wamp::ui::LibraryWindow::humorPointChanged, this,
+            &MainWindow::onHumorPointChanged);
+    connect(library_.get(), &wamp::ui::LibraryWindow::humorApplyRequested, this,
+            [this] { applyHumorStation(true); });
+    connect(library_.get(), &wamp::ui::LibraryWindow::humorEnqueueRequested, this,
+            [this] { applyHumorStation(false); });
+    connect(library_.get(), &wamp::ui::LibraryWindow::humorSaveRequested, this,
+            &MainWindow::saveHumorPreset);
+    connect(library_.get(), &wamp::ui::LibraryWindow::humorDeleteRequested, this,
+            &MainWindow::removeHumorPreset);
   }
   if (windowPositionSupported()) {
     const QByteArray saved =
@@ -4107,11 +4117,39 @@ void MainWindow::openLibrary() {
     library_->selectView(qEnvironmentVariableIntValue("AMPLIA_LIBRARY_VIEW"));
   }
   library_->installEventFilter(this);  // para salvar a posição quando ela se mover
+  refreshHumorPresets();
   refreshLibrary();
   if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_DYNAMICS")) library_->selectDynamics();
   if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_RADIO")) {
     library_->selectStation();
     qInfo("amplia: rádio local blend=%d", seedBlend_);
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_HUMOR")) {
+    library_->selectHumor(qEnvironmentVariable("AMPLIA_LIBRARY_HUMOR"));
+    qInfo("amplia: humor '%s' selecionado", qPrintable(qEnvironmentVariable("AMPLIA_LIBRARY_HUMOR")));
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_SLIDERS")) {
+    const QStringList parts = qEnvironmentVariable("AMPLIA_HUMOR_SLIDERS").split(',');
+    if (parts.size() == 4) {
+      library_->setHumorDraft(parts[0].toDouble(), parts[1].toDouble(), parts[2].toDouble(),
+                              parts[3].toDouble() / 100.0);
+      qInfo("amplia: humor sliders '%s'", qPrintable(parts.join(',')));
+    }
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_SAVE")) {
+    const QString saved = qEnvironmentVariable("AMPLIA_HUMOR_SAVE");
+    qInfo("amplia: salvar humor '%s' = %d", qPrintable(saved),
+          saveHumorPresetNamed(saved) ? 1 : 0);
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_DELETE")) {
+    const int id = library_->humorPresetId();
+    qInfo("amplia: remover humor id=%d", id);
+    removeHumorPresetNow(id);
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_APPLY")) {
+    // Pausado: o teste não pode soltar áudio no alto-falante do usuário.
+    applyHumorStation(false);
+    qInfo("amplia: humor aplicado na fila (sem tocar)");
   }
   if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_TEST")) {
     humorTestDump(qEnvironmentVariable("AMPLIA_HUMOR_TEST"));
@@ -4184,6 +4222,29 @@ void MainWindow::refreshLibrary() {
             : tr("%1 faixa(s) na estação · semente: %2% do que venho ouvindo")
                   .arg(rows.size())
                   .arg(seedBlend_));
+    return;
+  }
+
+  // Nó de um humor: a tabela é a prévia do clima, com os sliders do jeito que estão agora.
+  if (library_->humorActive()) {
+    const std::vector<wamp::LibraryEntry> rows = humorRows();
+    library_->setRows(rows);
+    if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_HUMOR")) {
+      qInfo("amplia: prévia do humor %d faixa(s) '%s' ag=%.0f tom=%.0f est=%.0f mistura=%.2f",
+            static_cast<int>(rows.size()), qPrintable(library_->humorPresetName()),
+            humorPoint_.agitation, humorPoint_.tone, humorPoint_.stability, humorBlend_);
+    }
+    std::string statsError;
+    const wamp::TagCache::AnalysisStats stats = cache_->analysisStats(&statsError);
+    library_->setSummary(
+        rows.empty()
+            ? tr("A prévia aparece quando a biblioteca tiver faixas para comparar.")
+            : tr("%1 faixa(s) · %2 de %3 medidas · %4% clima, %5% do que venho ouvindo")
+                  .arg(rows.size())
+                  .arg(stats.tracks)
+                  .arg(stats.totalTracks)
+                  .arg(100 - static_cast<int>(humorBlend_ * 100.0 + 0.5))
+                  .arg(static_cast<int>(humorBlend_ * 100.0 + 0.5)));
     return;
   }
 
@@ -4453,6 +4514,172 @@ std::vector<wamp::LibraryEntry> MainWindow::stationRows() {
     rows.push_back(std::move(entry));
   }
   return rows;
+}
+
+wamp::RadioMix MainWindow::humorMix() {
+  wamp::RadioMix mix;
+  if (cache_ == nullptr) return mix;
+  std::string error;
+  mix.hasHumor = true;
+  mix.humor = humorPoint_;
+  mix.genres = humorGenres_;
+  mix.blend = std::clamp(humorBlend_, 0.0, 1.0);
+  // O outro lado da mistura é o histórico — o mesmo centroide das últimas 5 da Rádio local.
+  mix.history = wamp::radioHistorySeed(cache_->recentPlays(5, &error));
+  return mix;
+}
+
+std::vector<wamp::LibraryEntry> MainWindow::humorRows() {
+  std::vector<wamp::LibraryEntry> rows;
+  if (cache_ == nullptr) return rows;
+  std::string error;
+  std::vector<wamp::RadioCandidate> pool = cache_->radioPool(&error);
+  if (pool.empty()) return rows;
+  const wamp::RadioMix mix = humorMix();
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20);
+  rows.reserve(picked.size());
+  for (const std::string& path : picked) {
+    wamp::LibraryEntry entry;
+    if (!cache_->lookupFast(path, &entry.info)) continue;
+    entry.info.path = path;
+    for (const wamp::RadioCandidate& candidate : pool) {
+      if (candidate.path != path) continue;
+      entry.rating = candidate.rating;
+      entry.playcount = candidate.plays;
+      break;
+    }
+    rows.push_back(std::move(entry));
+  }
+  return rows;
+}
+
+void MainWindow::refreshHumorPresets() {
+  if (cache_ == nullptr || library_ == nullptr) return;
+  std::string error;
+  std::vector<wamp::HumorPreset> presets = wamp::factoryHumorPresets();
+  for (const wamp::HumorPreset& saved : cache_->humorPresets(&error)) presets.push_back(saved);
+  library_->setHumorPresets(presets);
+}
+
+void MainWindow::onHumorPointChanged(bool dirty) {
+  if (library_ == nullptr) return;
+  // O rascunho manda na prévia; o léxico vem do preset aberto (mover o ponto não troca gênero).
+  humorPoint_ = library_->humorDraft();
+  humorBlend_ = library_->humorBlendDraft();
+  const QString name = library_->humorPresetName();
+  humorGenres_.clear();
+  if (cache_ != nullptr && !name.isEmpty()) {
+    std::string error;
+    std::vector<wamp::HumorPreset> presets = wamp::factoryHumorPresets();
+    for (const wamp::HumorPreset& saved : cache_->humorPresets(&error)) presets.push_back(saved);
+    for (const wamp::HumorPreset& preset : presets) {
+      if (QString::fromStdString(preset.name) != name) continue;
+      humorGenres_ = preset.genres;
+      break;
+    }
+  }
+  library_->setHumorPending(dirty);
+  refreshLibrary();
+}
+
+void MainWindow::applyHumorStation(bool autoplay) {
+  if (cache_ == nullptr || library_ == nullptr) return;
+  humorPoint_ = library_->humorDraft();
+  humorBlend_ = library_->humorBlendDraft();
+  library_->setHumorPending(false);
+  startHumorStation(autoplay);
+}
+
+void MainWindow::startHumorStation(bool autoplay) {
+  if (cache_ == nullptr) return;
+  std::string error;
+  std::vector<wamp::RadioCandidate> pool = cache_->radioPool(&error);
+  if (pool.empty()) {
+    statusBar()->showMessage(tr("Biblioteca vazia: nada para sugerir ainda"), 4000);
+    return;
+  }
+  const std::vector<std::string> picked = wamp::radioPick(humorMix(), pool, 20);
+  if (picked.empty()) {
+    statusBar()->showMessage(tr("Nenhuma faixa parecida o bastante para a estação"), 4000);
+    return;
+  }
+  // Fila própria, origem 2 (estação). Tocando, a primeira escolha abre em pausa? Não: abrir
+  // com o player agora, que é o que "Tocar" promete. Enfileirando, nada toca.
+  const std::size_t first = autoplay ? 1 : 0;
+  pathQueue_.clear();
+  for (std::size_t i = first; i < picked.size(); ++i) {
+    pathQueue_.push_back({picked[i], 2, std::string()});
+  }
+  refreshQueuePanel();
+  if (autoplay) {
+    if (queuePanel_ != nullptr) queuePanel_->setVisible(true);
+    openPath(QString::fromStdString(picked.front()));
+  }
+  const QString preset = library_ != nullptr ? library_->humorPresetName() : QString();
+  statusBar()->showMessage(tr("Estação de humor: %1 faixa(s) · %2")
+                               .arg(picked.size())
+                               .arg(preset.isEmpty() ? tr("humor") : preset),
+                           4000);
+}
+
+void MainWindow::saveHumorPreset() {
+  if (cache_ == nullptr || library_ == nullptr) return;
+  const QString current = library_->humorPresetName();
+  const QString suggestion =
+      current.isEmpty() ? tr("Meu humor") : tr("%1 (variação)").arg(current);
+  bool ok = false;
+  const QString name = QInputDialog::getText(library_.get(), tr("Salvar humor"),
+                                             tr("Nome do humor:"), QLineEdit::Normal, suggestion,
+                                             &ok)
+                           .trimmed();
+  if (!ok || name.isEmpty()) return;
+  saveHumorPresetNamed(name);
+}
+
+bool MainWindow::saveHumorPresetNamed(const QString& name) {
+  if (cache_ == nullptr || library_ == nullptr || name.trimmed().isEmpty()) return false;
+  wamp::HumorPreset preset;
+  preset.factory = false;
+  preset.name = name.toStdString();
+  preset.point = library_->humorDraft();
+  preset.blend = library_->humorBlendDraft();
+  preset.genres = humorGenres_;
+  std::string error;
+  const int id = cache_->addHumorPreset(preset, &error);
+  // Writes vivem numa transação: sem commit, o preset sumiria se o app fechasse à força.
+  cache_->flush();
+  if (id <= 0) {
+    statusBar()->showMessage(tr("Não deu para salvar: %1").arg(QString::fromStdString(error)),
+                             6000);
+    return false;
+  }
+  refreshHumorPresets();
+  library_->selectHumor(name);
+  statusBar()->showMessage(tr("Humor “%1” salvo").arg(name), 4000);
+  return true;
+}
+
+void MainWindow::removeHumorPreset(int presetId) {
+  if (cache_ == nullptr || library_ == nullptr || presetId <= 0) return;
+  const auto answer = QMessageBox::question(library_.get(), tr("Remover humor"),
+                                            tr("Remover este humor salvo? As faixas não mudam."),
+                                            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+  if (answer != QMessageBox::Yes) return;
+  removeHumorPresetNow(presetId);
+}
+
+void MainWindow::removeHumorPresetNow(int presetId) {
+  if (cache_ == nullptr || library_ == nullptr || presetId <= 0) return;
+  std::string error;
+  const bool removed = cache_->removeHumorPreset(presetId, &error);
+  cache_->flush();
+  if (!removed) {
+    statusBar()->showMessage(tr("Não deu para remover: %1").arg(QString::fromStdString(error)),
+                             6000);
+    return;
+  }
+  refreshHumorPresets();
+  refreshLibrary();
 }
 
 void MainWindow::humorTestDump(const QString& presetName) {

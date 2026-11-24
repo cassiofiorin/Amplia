@@ -245,6 +245,22 @@ class MainWindow final : public QMainWindow {
   /// Prévia do nó "Rádio local": as mesmas 20 faixas que a estação escolheria agora.
   std::vector<wamp::LibraryEntry> stationRows();
 
+  /// Humor: a estação de um ponto do plano (agitação × tom), com a mistura do histórico.
+  void refreshHumorPresets();
+  void onHumorPointChanged(bool dirty);
+  void applyHumorStation(bool autoplay);
+  void startHumorStation(bool autoplay);
+  void saveHumorPreset();
+  /// Núcleo do "Salvar como…": o diálogo pergunta o nome, os testes chamam direto.
+  bool saveHumorPresetNamed(const QString& name);
+  void removeHumorPreset(int presetId);
+  /// Remove sem confirmar (a confirmação é da UI; os testes chamam direto).
+  void removeHumorPresetNow(int presetId);
+  /// Mistura com o ponto atual: `hasHumor`, o léxico do preset aberto e o histórico.
+  wamp::RadioMix humorMix();
+  /// Prévia do nó de humor: as 20 faixas que a estação escolheria agora.
+  std::vector<wamp::LibraryEntry> humorRows();
+
   /// Hook de teste (`AMPLIA_HUMOR_TEST=Nome`): imprime as escolhas de um preset de clima,
   /// com a pontuação e as leituras de agitação/tom. Serve para calibrar a tabela sem UI.
   void humorTestDump(const QString& presetName);
@@ -380,6 +396,10 @@ class MainWindow final : public QMainWindow {
   int playlistFontPx_ = 11;
   /// 0 = a estação parte só da faixa; 100 = só do que venho ouvindo (`radio/seedBlend`).
   int seedBlend_ = 0;
+  /// Humor aplicado (não o rascunho dos sliders): ponto, léxico do preset e mistura.
+  wamp::HumorPoint humorPoint_;
+  std::string humorGenres_;
+  double humorBlend_ = 0.5;
   bool stopAfterCurrent_ = false;
   bool easyMove_ = false;
   bool libraryReopen_ = false;

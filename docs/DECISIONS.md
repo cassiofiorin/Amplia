@@ -2567,3 +2567,31 @@ uma lista de nomes no código. "Alegre", "Treino", "Dia frio" viram **coordenada
 - **A tela vem depois**: os sliders (com o aviso laranja "modificações não aplicadas" e a
   aplicação no Tocar) e o nó na árvore são o passo seguinte; esta etapa entrega a tabela, a
   pontuação e a persistência, já verificadas pelo hook `AMPLIA_HUMOR_TEST`/`AMPLIA_HUMOR_WRITE`.
+
+## D-122 — O humor vira um nó, e o rascunho anda antes da fila
+
+Os climas existiam só no código e no banco: dava para pontuar e salvar, mas não para escolher.
+Agora a árvore da Biblioteca tem **Humor** (o antigo "Composições dinâmicas") com um nó por
+preset — os sete de fábrica e os salvos, nessa ordem — e **Rádio local** por último.
+
+- **O nó é o preset; o painel é o rascunho.** Selecionar "Treino" carrega os quatro sliders
+  (Agitação, Tom, Estabilidade, Mistura) e mostra, na tabela, as 20 faixas que a estação
+  escolheria. Mexer num slider **move o rascunho e a prévia junto** — é barato (uma consulta
+  ao pool + pontuação) e é o que deixa ver o que o slider faz.
+- **A fila só nasce no Tocar.** Prévia não é estação: enquanto o rascunho não foi aplicado, a
+  fila antiga continua de pé e um aviso laranja embaixo dos sliders diz "modificações não
+  aplicadas, clique em tocar para aplicar". No humor, Tocar e Enfileirar agem no rascunho
+  (aplicar e tocar / aplicar e só enfileirar), não na seleção da tabela — e "Tocar estação
+  dessa música" fica desligado, porque ali ele trocaria o clima pelo histórico.
+- **Salvar como… e Remover** ficam no painel. Salvar cria uma *variação* com nome próprio (os
+  de fábrica não mudam); Remover só habilita para humor salvo. O léxico de gênero e a mistura
+  vão junto no preset — é o estado inteiro, senão o nome não reproduziria o som.
+- **Escolher um nó não é modificação**: o rascunho é recarregado do preset e o aviso some.
+  O aviso só aparece quando o rascunho diverge do que já foi aplicado.
+- **Escrita de preset precisa de commit.** O `TagCache` escreve dentro de uma transação e
+  quem chama faz o `flush()`; sem ele, o preset recém-salvo sumia quando o app era fechado à
+  força — o teste com `flatpak kill` mostrou a linha desaparecendo do banco. Agora
+  `saveHumorPresetNamed` e `removeHumorPresetNow` fazem `flush()` na hora.
+- **A janela avisa o que falta medir**: o rodapé da prévia mostra "N faixa(s) · X de Y
+  medidas · P% clima, Q% do que venho ouvindo". Com a biblioteca ainda não analisada, é o
+  painel que explica por que a estação não muda muito de clima — e não um texto de ajuda.

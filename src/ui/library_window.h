@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <QWidget>
 
+#include "wamp/radio.h"
 #include "wamp/tag_cache.h"
 #include "wamp/types.h"
 
@@ -50,6 +51,24 @@ class LibraryWindow final : public QWidget {
   /// Prévia da estação ligada? (nó "Rádio local" selecionado)
   bool stationActive() const { return stationActive_; }
 
+  /// Presets de humor (fábrica + salvos) viram filhos do nó "Humor", na ordem recebida.
+  void setHumorPresets(const std::vector<wamp::HumorPreset>& presets);
+  /// Seleciona um preset pelo nome. Usado também pelos testes.
+  void selectHumor(const QString& name);
+  /// Nó de um preset de humor selecionado?
+  bool humorActive() const { return humorActive_; }
+  /// Rascunho dos sliders (o que a prévia mostra antes de tocar).
+  wamp::HumorPoint humorDraft() const;
+  double humorBlendDraft() const;
+  /// Move os quatro sliders (a partir do env de teste); sem bloquear sinais, de propósito:
+  /// mexer neles é modificação pendente.
+  void setHumorDraft(double agitation, double tone, double stability, double blend);
+  /// Aviso laranja de "modificações não aplicadas".
+  void setHumorPending(bool pending);
+  /// Nome e id do preset selecionado (id 0 = preset de fábrica).
+  QString humorPresetName() const;
+  int humorPresetId() const;
+
   /// Mistura da semente (0 = só a faixa, 100 = só o histórico), sem reemitir o sinal.
   void setSeedBlend(int blend);
   int seedBlend() const;
@@ -66,6 +85,15 @@ class LibraryWindow final : public QWidget {
   void stationRequested(const QString& seedPath);
   /// O slider da semente mudou: a MainWindow guarda e refaz a prévia.
   void seedBlendChanged(int blend);
+  /// Sliders do humor mudaram (ou outro preset foi escolhido): a MainWindow refaz a prévia.
+  /// `dirty` = veio de um slider, então há modificação não aplicada.
+  void humorPointChanged(bool dirty);
+  /// "Tocar" com um preset de humor aberto: monta a estação com o rascunho atual.
+  void humorApplyRequested();
+  /// "Enfileirar" com um preset aberto: mesma estação, sem tocar.
+  void humorEnqueueRequested();
+  void humorSaveRequested();
+  void humorDeleteRequested(int presetId);
   /// Clique na coluna de nota: 0 limpa, 1–5 grava.
   void ratingRequested(const QString& path, int rating);
   /// Delete na tabela: a MainWindow confirma em três camadas e tira da biblioteca.
@@ -79,6 +107,9 @@ class LibraryWindow final : public QWidget {
  private:
   void updateButtons();
   QStringList selectedPaths() const;
+  void updateHumorValues();
+  void applyHumorDraftFromPreset();
+  QTreeWidgetItem* humorSelectedItem() const;
 
   QTreeWidget* tree_ = nullptr;
   QTableWidget* table_ = nullptr;
@@ -87,6 +118,21 @@ class LibraryWindow final : public QWidget {
   QWidget* stationPanel_ = nullptr;
   QLabel* stationHint_ = nullptr;
   QSlider* blendSlider_ = nullptr;
+  QWidget* humorPanel_ = nullptr;
+  QLabel* humorTitle_ = nullptr;
+  QLabel* humorPending_ = nullptr;
+  QSlider* agitationSlider_ = nullptr;
+  QSlider* toneSlider_ = nullptr;
+  QSlider* stabilitySlider_ = nullptr;
+  QSlider* humorBlendSlider_ = nullptr;
+  QLabel* agitationValue_ = nullptr;
+  QLabel* toneValue_ = nullptr;
+  QLabel* stabilityValue_ = nullptr;
+  QLabel* humorBlendValue_ = nullptr;
+  QPushButton* humorSaveButton_ = nullptr;
+  QPushButton* humorRemoveButton_ = nullptr;
+  std::vector<wamp::HumorPreset> humorPresets_;
+  std::vector<QTreeWidgetItem*> humorItems_;
   QWidget* searchBar_ = nullptr;
   QWidget* dynamicsPanel_ = nullptr;
   QLabel* dynamicsTitle_ = nullptr;
@@ -95,6 +141,7 @@ class LibraryWindow final : public QWidget {
   QProgressBar* dynamicsProgress_ = nullptr;
   bool dynamicsActive_ = false;
   bool stationActive_ = false;
+  bool humorActive_ = false;
   QLineEdit* search_ = nullptr;
   QLabel* summary_ = nullptr;
   QLabel* status_ = nullptr;
