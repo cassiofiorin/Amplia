@@ -3,6 +3,12 @@
 Cada fase tem um critério de pronto verificável. Uma fase só começa quando a anterior
 toca de ponta a ponta — nada de três frentes abertas ao mesmo tempo.
 
+Cada fase concluída publica uma versão com **todos os formatos de empacotamento** disponíveis
+naquele momento (D-130). Hoje só existe Flatpak; a F8 cria os outros.
+
+**Fila:** F6c (fechando) → **F8 (empacotamento)** → F3.1 (capa de álbum) → F4 (plugins) →
+F7 (skins). A busca de tags (seção "F6 — Busca de tags") segue em pausa.
+
 ## F0 — Primeiro som nativo
 
 Objetivo: provar o pipeline inteiro (decode → ring buffer → PipeWire) dentro do sandbox.
@@ -443,34 +449,40 @@ Decidido em D-079: **um arquivo só**, português no topo, separador e inglês a
 - [ ] Metade em inglês (não é tradução literal: mesmas seções, frases mais curtas).
 - [ ] `NOTICE` revisado na hora de publicar binário (versões de dependência do runtime).
 
-## Depois (avaliado, não planejado)
+## F8 — Empacotamento e release (a primeira depois da F6c)
 
-### Porte para Windows — "possível, não planejado"
+Publicar deixa de ser só Flatpak: **cada fase concluída sai em todos os formatos disponíveis**
+(D-130), e esta fase cria os formatos. A ordem abaixo é por retorno, não por facilidade.
 
-Objetivo de longo prazo declarado pelo autor: um player multiplataforma, compartilhável com
-amigos que usam Windows e querem um Winamp com cara de 2026.
+Base de compatibilidade: **glibc 2.35** (Ubuntu 22.04 / Debian 12), que cobre a maior parte
+das máquinas em uso. O binário do Flatpak **não serve de referência** para o AppImage — ele
+nasce contra o SDK 6.10. AppImage, `.deb` e `.rpm` são compilados dentro de um contêiner com
+essa base, não no SDK.
 
-O que o porte exige (nada disso está no escopo atual):
+- [ ] **F8a — AppImage**: `Dockerfile` fixo (Ubuntu 22.04) com as dependências de build;
+      `cmake --install` num `AppDir/usr`; `linuxdeploy` + `linuxdeploy-plugin-qt` fechando o
+      arquivo. Empacotados: Qt 6 (xcb **e** wayland, imageformats, estilos), FFmpeg, TagLib,
+      SQLite, `libsystemd` e **`libpipewire`/`libspa`** (o cliente tem de casar com o daemon
+      do usuário). `.desktop` e `.svg` saem de `packaging/`; falta o AppStream metainfo.
+      `scripts/build-appimage.sh` roda tudo isso num comando.
+- [ ] **F8b — `.deb`**: a partir do mesmo `AppDir` (`CPack` ou `nfpm`), mas **sem** embarcar
+      Qt/FFmpeg: declara as dependências e usa as do sistema, que é o que um `.deb` espera.
+- [ ] **F8c — `.rpm`**: idem, para Fedora/openSUSE (o `nfpm` cobre os dois formatos).
+- [ ] **F8d — portátil `.tar.gz`**: o `AppDir` sem o envelope do AppImage, para quem não tem
+      FUSE ou prefere rodar de uma pasta.
+- [ ] **F8e — AUR (`PKGBUILD`)**: arquivo no repositório, compilando do fonte; a comunidade
+      mantém. Sem binário nosso.
+- [ ] **F8f — Flathub**: publicar a entrada da loja (metainfo, capturas, revisão do `NOTICE`),
+      não só o Flatpak instalado localmente.
+- [ ] **F8g — importar dados do Flatpak**: Preferências ▸ "Importar dados do Flatpak" copia
+      INI, `library.db` e presets de `~/.var/app/io.github.cassiofiorin.Amplia/` para
+      `~/.config/cassiofiorin/` e `~/.local/share/cassiofiorin/Amplia/`. Sem isso a biblioteca
+      indexada "some" na primeira abertura fora do Flatpak.
+- [ ] **F8h — uma release só**: a tag `vX.Y.Z` gera Flatpak + AppImage + `.deb` + `.rpm` +
+      `.tar.gz` no mesmo workflow, com checksums e notas de versão.
 
-- **Saída de áudio**: implementar `IAudioOutput` sobre **WASAPI** (compartilhado, evento,
-  float32). Gapless, EQ, analisador, ReplayGain e scrobble não mudam — trabalham em PCM.
-- **Integrações**: MPRIS → SMTC; bandeja e atalhos já são Qt.
-- **Instância única**: socket abstrato do `QLocalServer` é Linux-only → named pipe.
-- **Permissões de arquivo**: `statvfs`/`::access`/`unistd.h` precisam de versão Windows.
-- **Empacotamento**: zip portátil ou MSIX, `windeployqt`, FFmpeg/TagLib empacotados,
-  assinatura para não cair no SmartScreen.
+**Fora por enquanto:** Snap (loja própria e sandbox a manter) e Nix — entram se houver pedido.
 
-O que o porte **não** exige: reescrever interface, temas, playlist, biblioteca, equalizador,
-scrobble ou analisador — todos são C++20 + Qt/FFmpeg/TagLib/SQLite.
-
-## F6 — Idioma (próxima depois da F5)
-
-- Português como **idioma-fonte**; alemão… não: inglês e espanhol como primeiros alvos.
-- Qt Linguist: `tr()` nas strings, `lupdate` para extrair, `lrelease` no build.
-- **Preferências ▸ Geral ▸ Idioma**: `Sistema`, `Português (Brasil)`, `English` (+ qualquer
-  `.qm` que apareça na pasta de idiomas do usuário).
-- Troca de idioma com **reinício** (barato e honesto) — ao vivo fica para depois.
-- Arquivos `.ts` em `i18n/`, um por locale, aceitos por **PR**; e carregamento de `.qm`
-  avulso de `~/.local/share/amplia/i18n/` para quem quiser traduzir sem recompilar.
-- Armadilhas registradas em D-072: rótulos de largura fixa, testes que comparam strings,
-  formatação numérica e **plurais** (`%n`).
+**Pronto quando:** uma tag publica todos os formatos de uma vez; o AppImage abre numa máquina
+com glibc 2.35 sem instalar nada; e o `.deb`/`.rpm` abrem com a biblioteca que veio do Flatpak
+já importada.

@@ -2761,3 +2761,41 @@ uma máquina e um disco de referência.
   de uma lista guardada na memória, que envelheceria depois de remover uma pasta.
 - **A escolha sobrevive ao recarregamento.** `setFilterOptions` reenche as caixas
   preservando o valor escolhido (`findData`); quem troca de visão não perde o filtro.
+
+**Consequências imediatas:** `rescanLibrary()` é o único caminho de varredura; a fila de
+indexação é a fonte de verdade do que falta ler; e qualquer visão nova da Biblioteca precisa
+passar por `queryLibrary` em vez de filtragem em memória.
+
+## D-130 — O Amplia sai em todos os formatos, e a base é glibc 2.35
+
+O Flatpak resolveu o problema de "rodar igual em qualquer distro", mas cobra um preço: só
+existe para quem já usa Flatpak. A publicação passa a cobrir **AppImage**, `.deb`, `.rpm`,
+portátil `.tar.gz`, `PKGBUILD` (AUR) e a entrada no Flathub — a fase **F8**, logo depois da
+F6c do README.
+
+- **Cada fase concluída publica uma versão com todos os formatos disponíveis.** Não é um
+  esforço de empacotamento no fim do projeto: se uma fase fecha e o binário não sai em
+  `.deb`, quem usa Debian continua numa versão velha. A F8 cria os formatos uma vez; as fases
+  seguintes só rodam o mesmo workflow.
+- **A base é Ubuntu 22.04 (glibc 2.35), compilada em contêiner.** AppImage roda no glibc do
+  sistema; o binário do Flatpak nasce contra o SDK 6.10 e exigiria distro de ponta. Compilar
+  numa base antiga é a única forma de o mesmo arquivo abrir em Debian 12, Ubuntu 22.04 e
+  Fedora recente. O SDK do Flatpak continua sendo o ambiente do Flatpak, não o da release.
+- **O que embarca depende do formato.** AppImage e `.tar.gz` levam tudo (Qt 6 com xcb e
+  wayland, FFmpeg, TagLib, SQLite, `libsystemd`, `libpipewire`/`libspa`) porque não existe
+  nada instalado do outro lado. `.deb` e `.rpm` **declaram** as dependências e usam as do
+  sistema — embarcar Qt num pacote de distro duplica biblioteca e briga com o gerenciador.
+- **PipeWire viaja junto no AppImage.** O cliente fala com o daemon do usuário; um
+  `libpipewire` antigo do sistema pode não entender o protocolo. É o mesmo caminho que
+  Audacity e OBS seguem.
+- **Os dados não são os mesmos do Flatpak.** Flatpak grava em `~/.var/app/…`; AppImage e
+  `.deb` usam `~/.config/cassiofiorin/` e `~/.local/share/cassiofiorin/Amplia/`. A F8 inclui
+  "Importar dados do Flatpak" em Preferências, senão a biblioteca indexada some na primeira
+  abertura fora do sandbox.
+- **Fora por enquanto:** Snap (loja própria e outro sandbox para manter) e Nix. Entram se
+  alguém pedir — a F8 não bloqueia neles.
+
+**Consequências:** o `NOTICE` passa a ser revisado a cada release com as versões realmente
+empacotadas; a tag `vX.Y.Z` gera todos os artefatos no mesmo workflow, com checksums; e
+metainfo do AppStream entra junto (sem ele, o ícone e a descrição não aparecem nem no Flathub
+nem nos menus de algumas distros).

@@ -50,12 +50,16 @@ cosmética e não muda achar música.
 | F4 | Plugins `.so` (DSP/visualização) | não iniciada |
 | F6c | Documentação pública (este README bilíngue, `NOTICE`) | **concluída** |
 | F7 | Skins clássicas `.wsz` | não iniciada |
+| F8 | Empacotamento e release: AppImage, `.deb`, `.rpm`, portátil e Flathub | próxima, depois do README |
 | F2D.1 | Acoplamento de janelas (só X11) | avaliado, não planejado |
 | RC1 | Primeiro pacote público (`v0.1.0-rc1`) | **publicada** |
 | 0.9.1 | Fila, Humor, Rádio local, Ajuda bilíngue; menu e arrasto na Biblioteca (`v0.9.1`) | publicado |
 | 0.9.3-rc3 | Reordenar arrastando (playlist e fila), fila vazia que abre, playlist → fila (`v0.9.3-rc3`) | superada pela rc4 |
 | 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | superada pela rc5 |
 | 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | **em teste** |
+
+Cada fase concluída sai numa versão com **todos os formatos de empacotamento** disponíveis
+(hoje só Flatpak; a F8 cria AppImage, `.deb`, `.rpm` e o portátil).
 
 O que já funciona está descrito em [**O que funciona hoje**](#o-que-funciona-hoje), mais
 abaixo. O detalhe de cada decisão está em [`docs/DECISIONS.md`](docs/DECISIONS.md) e o
@@ -665,12 +669,16 @@ not change finding music.
 | F4 | `.so` plugins (DSP/visualization) | not started |
 | F6c | Public documentation (this bilingual README, `NOTICE`) | **done** |
 | F7 | Classic `.wsz` skins | not started |
+| F8 | Packaging and release: AppImage, `.deb`, `.rpm`, portable tarball, Flathub | next, after the README |
 | F2D.1 | Window snapping (X11 only) | evaluated, not planned |
 | RC1 | First public bundle (`v0.1.0-rc1`) | **released** |
 | 0.9.1 | Queue, Humor, Local Radio, bilingual help; library menu and drag (`v0.9.1`) | released |
 | 0.9.3-rc3 | Drag to reorder (playlist and queue), empty queue opens, playlist → queue (`v0.9.3-rc3`) | superseded by rc4 |
 | 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | superseded by rc5 |
 | 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | **in testing** |
+
+Every finished phase ships a version with **every packaging format** available at the time
+(Flatpak only today; F8 adds AppImage, `.deb`, `.rpm` and a portable tarball).
 
 What already works is described in [**What works today**](#what-works-today). Each decision
 is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
