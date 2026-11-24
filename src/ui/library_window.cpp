@@ -142,14 +142,15 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // Lado direito: busca, tabela e rodapé.
   auto* right = new QWidget(splitter);
   auto* rightLayout = new QVBoxLayout(right);
-  // 20px da linha do divisor: o mesmo respiro para o painel, a busca, a tabela e o rodapé —
-  // antes o rodapé e o painel de análise tinham 100px e o resto zero, e o desenho ficava torto.
-  rightLayout->setContentsMargins(20, 0, 0, 0);
+  // A tabela pode encostar na linha do divisor (ela é a lista, e a lista é uma superfície);
+  // quem ganha 20px é o texto — título, dica, busca e rodapé. Antes o rodapé e o painel de
+  // análise tinham 100px e o resto zero, e o desenho ficava torto.
+  rightLayout->setContentsMargins(0, 0, 0, 0);
   rightLayout->setSpacing(6);
 
   searchBar_ = new QWidget(right);
   auto* searchRow = new QHBoxLayout(searchBar_);
-  searchRow->setContentsMargins(0, 0, 0, 0);
+  searchRow->setContentsMargins(20, 0, 0, 0);
   search_ = new QLineEdit(right);
   search_->setPlaceholderText(tr("Buscar por título, artista ou álbum…"));
   search_->setClearButtonEnabled(true);
@@ -176,7 +177,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // painel é a única alavanca (a mistura da semente).
   stationPanel_ = new QWidget(right);
   auto* stationLayout = new QVBoxLayout(stationPanel_);
-  stationLayout->setContentsMargins(0, 0, 0, 0);
+  stationLayout->setContentsMargins(20, 0, 0, 0);
   stationLayout->setSpacing(4);
   auto* stationTitle = new QLabel(tr("Rádio local"), stationPanel_);
   stationTitle->setObjectName(QStringLiteral("dynamicsTitle"));
@@ -210,7 +211,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // junto com o rascunho; a fila da estação só nasce no Tocar.
   humorPanel_ = new QWidget(right);
   auto* humorLayout = new QVBoxLayout(humorPanel_);
-  humorLayout->setContentsMargins(0, 0, 0, 0);
+  humorLayout->setContentsMargins(20, 0, 0, 0);
   humorLayout->setSpacing(4);
   humorTitle_ = new QLabel(tr("Humor"), humorPanel_);
   humorTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
@@ -298,7 +299,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 
   dynamicsPanel_ = new QWidget(right);
   auto* dynamicsLayout = new QVBoxLayout(dynamicsPanel_);
-  dynamicsLayout->setContentsMargins(0, 24, 0, 0);
+  dynamicsLayout->setContentsMargins(20, 24, 0, 0);
   dynamicsTitle_ = new QLabel(tr("Analisando suas músicas"), dynamicsPanel_);
   dynamicsTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
   dynamicsCount_ = new QLabel(dynamicsPanel_);
@@ -320,6 +321,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   auto* footer = new QHBoxLayout();
   summary_ = new QLabel(right);
   summary_->setObjectName(QStringLiteral("hint"));
+  footer->addSpacing(20);
   footer->addWidget(summary_, 1);
   playButton_ = new QPushButton(tr("Tocar"), right);
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
