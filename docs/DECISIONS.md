@@ -2609,3 +2609,20 @@ modo** (tom 50, indiferente) e a abraçar mais (estabilidade 60).
 - Quem separa "Dia frio" de "Pra baixo" agora é o **léxico** (folk/indie/jazz ×
   slowcore/emo/blues) e a agitação: "Pra baixo" continua em tom 0 (0,593 no menor, 0,062 no
   maior). Ou seja, tristeza virou o único preset que exige menor — e é o que o nome promete.
+
+## D-124 — A lista de humores é um combo, e o Reverter pertence ao rascunho
+
+Ter um nó por humor na árvore funcionava e não escalava: cada "Salvar como…" empurrava mais
+um nó, e "escolher um humor" virava uma navegação de árvore em vez de uma escolha. A árvore
+volta a ter **três nós fixos** — Biblioteca local, Humor, Rádio local — e a lista de humores
+mora num `QComboBox` no painel, como a lista de curvas do equalizador
+(`src/ui/equalizer_dialog.cpp:81-84`). É o mesmo gesto que o usuário já conhece.
+
+- O combo é a fonte do nome e do id do humor aberto (o título virou só "Humor"); de fábrica e
+  salvos ficam na mesma lista, com tooltip dizendo de onde cada um veio.
+- **Reverter** entrou ao lado do aviso laranja, não no canto dos botões: ele desfaz o
+  rascunho, que é exatamente o que o aviso denuncia. Fica apagado quando não há o que
+  reverter, e voltar ao ponto do humor escolhido também apaga o aviso.
+- O painel "Analisando suas músicas" saiu. Ele existia para o nó antigo de "Composições
+  dinâmicas" e só repetia o que o rodapé já diz ("N de M medidas"): duas fontes de progresso
+  para a mesma informação. Sobrou o rodapé, que é onde o número é lido junto da prévia.

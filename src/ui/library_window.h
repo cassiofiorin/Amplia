@@ -12,11 +12,11 @@
 class QLabel;
 class QLineEdit;
 class QSlider;
-class QProgressBar;
 class QTableWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QAction;
+class QComboBox;
 class QPushButton;
 
 namespace wamp::ui {
@@ -35,15 +35,12 @@ class LibraryWindow final : public QWidget {
   void setStatus(const QString& text);
   void setSummary(const QString& text);
 
-  /// Progresso da análise local, para o painel de "Composições dinâmicas".
-  void setAnalysisProgress(int analysed, int total, qint64 milliseconds);
-
   wamp::LibraryView view() const;
   QString filter() const;
   /// Seleciona uma visão pelo índice da árvore (0 = todas). Usado também pelos testes.
   void selectView(int row);
 
-  /// Seleciona o nó "Composições dinâmicas" (painel de progresso da análise).
+  /// Seleciona o nó "Humor" (painel dos sliders e prévia).
   void selectDynamics();
   /// Seleciona o nó "Rádio local": a tabela passa a mostrar a prévia da estação.
   void selectStation();
@@ -51,7 +48,7 @@ class LibraryWindow final : public QWidget {
   /// Prévia da estação ligada? (nó "Rádio local" selecionado)
   bool stationActive() const { return stationActive_; }
 
-  /// Presets de humor (fábrica + salvos) viram filhos do nó "Humor", na ordem recebida.
+  /// Lista de humores (fábrica + salvos) vai para o combo do painel, na ordem recebida.
   void setHumorPresets(const std::vector<wamp::HumorPreset>& presets);
   /// Seleciona um preset pelo nome. Usado também pelos testes.
   void selectHumor(const QString& name);
@@ -65,6 +62,8 @@ class LibraryWindow final : public QWidget {
   void setHumorDraft(double agitation, double tone, double stability, double blend);
   /// Aviso laranja de "modificações não aplicadas".
   void setHumorPending(bool pending);
+  /// Descarta o rascunho: volta os sliders ao humor escolhido no combo.
+  void revertHumorDraft();
   /// Nome e id do preset selecionado (id 0 = preset de fábrica).
   QString humorPresetName() const;
   int humorPresetId() const;
@@ -109,7 +108,6 @@ class LibraryWindow final : public QWidget {
   QStringList selectedPaths() const;
   void updateHumorValues();
   void applyHumorDraftFromPreset();
-  QTreeWidgetItem* humorSelectedItem() const;
 
   QTreeWidget* tree_ = nullptr;
   QTableWidget* table_ = nullptr;
@@ -120,6 +118,7 @@ class LibraryWindow final : public QWidget {
   QSlider* blendSlider_ = nullptr;
   QWidget* humorPanel_ = nullptr;
   QLabel* humorTitle_ = nullptr;
+  QComboBox* humorBox_ = nullptr;
   QLabel* humorPending_ = nullptr;
   QSlider* agitationSlider_ = nullptr;
   QSlider* toneSlider_ = nullptr;
@@ -131,15 +130,9 @@ class LibraryWindow final : public QWidget {
   QLabel* humorBlendValue_ = nullptr;
   QPushButton* humorSaveButton_ = nullptr;
   QPushButton* humorRemoveButton_ = nullptr;
+  QPushButton* humorRevertButton_ = nullptr;
   std::vector<wamp::HumorPreset> humorPresets_;
-  std::vector<QTreeWidgetItem*> humorItems_;
   QWidget* searchBar_ = nullptr;
-  QWidget* dynamicsPanel_ = nullptr;
-  QLabel* dynamicsTitle_ = nullptr;
-  QLabel* dynamicsCount_ = nullptr;
-  QLabel* dynamicsHint_ = nullptr;
-  QProgressBar* dynamicsProgress_ = nullptr;
-  bool dynamicsActive_ = false;
   bool stationActive_ = false;
   bool humorActive_ = false;
   QLineEdit* search_ = nullptr;

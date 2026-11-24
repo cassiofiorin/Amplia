@@ -4136,6 +4136,10 @@ void MainWindow::openLibrary() {
       qInfo("amplia: humor sliders '%s'", qPrintable(parts.join(',')));
     }
   }
+  if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_REVERT")) {
+    library_->revertHumorDraft();
+    qInfo("amplia: humor revertido");
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_SAVE")) {
     const QString saved = qEnvironmentVariable("AMPLIA_HUMOR_SAVE");
     qInfo("amplia: salvar humor '%s' = %d", qPrintable(saved),
@@ -4186,11 +4190,10 @@ QString MainWindow::librarySummary(const std::vector<wamp::LibraryEntry>& rows) 
                                ? tr("%1 GB").arg(QLocale().toString(size, 'f', size >= 10.0 ? 0 : 1))
                                : tr("%1 MB").arg(QLocale().toString(size, 'f', useGigabytes ? 0 : 1));
   QString summary = tr("%1 faixa(s) — %2 — %3").arg(rows.size()).arg(time).arg(sizeText);
-  // Progresso da análise local (BPM/tonalidade): só aparece quando há o que mostrar.
+  // Progresso da análise local (BPM/tonalidade): entra no resumo, quando há o que mostrar.
   if (cache_ != nullptr) {
     std::string error;
     const wamp::TagCache::AnalysisStats stats = cache_->analysisStats(&error);
-    if (library_) library_->setAnalysisProgress(stats.tracks, stats.totalTracks, stats.milliseconds);
     if (stats.tracks > 0) {
       const qint64 analysedSeconds = stats.milliseconds / 1000;
       const QString analysedTime =

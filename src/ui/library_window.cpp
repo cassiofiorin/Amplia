@@ -1,12 +1,12 @@
 #include "library_window.h"
 
+#include <QComboBox>
 #include <QCursor>
 #include <QHeaderView>
 #include <QEvent>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QMenuBar>
-#include <QProgressBar>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -27,7 +27,7 @@ namespace {
 
 /// Papel do item da árvore: guarda o `wamp::LibraryView` da visão.
 constexpr int kViewRole = Qt::UserRole;
-/// Índice do preset de humor no vetor de presets (filhos do nó "Humor").
+/// Índice do humor no vetor de presets (valor guardado em cada item do combo).
 constexpr int kPresetRole = Qt::UserRole + 1;
 
 struct ViewDef {
@@ -127,7 +127,8 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     auto* item = new QTreeWidgetItem(local, QStringList{QString::fromUtf8(def.name)});
     item->setData(0, kViewRole, static_cast<int>(def.view));
   }
-  // Segunda seção da árvore: o grupo Humor, com um nó por preset.
+  // Segunda seção da árvore: o nó "Humor". A lista de humores mora no combo do painel —
+  // a árvore não cresce a cada "Salvar como…" (ver D-124).
   dynamicsItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Humor")});
   dynamicsItem_->setData(0, kViewRole, -1);
   // A Rádio local é irmã do grupo, não filha: ela não é um humor — parte da faixa que toca e
@@ -135,7 +136,6 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // alavanca da mesma altura. -2 no papel, para não se confundir com o -1 do grupo.
   stationItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Rádio local")});
   stationItem_->setData(0, kViewRole, -2);
-  dynamicsItem_->setExpanded(true);
   tree_->setCurrentItem(local->child(0));
   splitter->addWidget(tree_);
 
@@ -207,14 +207,29 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   connect(blendSlider_, &QSlider::valueChanged, this,
           [this](int value) { emit seedBlendChanged(value); });
 
-  // Humor: cada preset é um nó, e os quatro sliders ficam aqui. A prévia (a tabela) anda
-  // junto com o rascunho; a fila da estação só nasce no Tocar.
+  // Humor: um combo escolhe o preset, e os quatro sliders ficam aqui. A prévia (a tabela)
+  // anda junto com o rascunho; a fila da estação só nasce no Tocar.
   humorPanel_ = new QWidget(right);
   auto* humorLayout = new QVBoxLayout(humorPanel_);
   humorLayout->setContentsMargins(20, 0, 0, 0);
   humorLayout->setSpacing(4);
   humorTitle_ = new QLabel(tr("Humor"), humorPanel_);
   humorTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
+  // A lista de humores é um combo, como a das curvas de EQ: escolher em vez de abrir nós.
+  humorBox_ = new QComboBox(humorPanel_);
+  humorBox_->setToolTip(tr("Humores de fábrica e os que você salvou."));
+  connect(humorBox_, &QComboBox::currentIndexChanged, this, [this](int) {
+    if (!humorActive_) return;
+    // Trocar de humor é escolher outro ponto de partida — não é modificação pendente.
+    applyHumorDraftFromPreset();
+    emit humorPointChanged(false);
+  });
+  auto* humorHead = new QHBoxLayout();
+  humorHead->setSpacing(8);
+  humorHead->addWidget(humorTitle_);
+  // O combo no tamanho do nome: quem diz qual humor está aberto é ele, não o título.
+  humorHead->addWidget(humorBox_);
+  humorHead->addStretch(1);
   auto* humorHint = new QLabel(
       tr("Agitação e Tom são o alvo; a estabilidade decide quanto ele abraça. A prévia abaixo "
          "acompanha os sliders — a estação começa no Tocar."),
@@ -283,10 +298,16 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // O esticador segura os botões no tamanho natural: sem ele, o aviso oculto fazia os dois
   // botões se dividirem a linha inteira.
   humorFoot->addStretch(1);
+  // Reverter fica ao lado do aviso, de quem ele desfaz: volta ao ponto do humor escolhido.
+  humorRevertButton_ = new QPushButton(tr("Reverter"), humorPanel_);
+  humorRevertButton_->setToolTip(tr("Volta os sliders ao humor do combo e descarta o rascunho."));
+  humorRevertButton_->setEnabled(false);
+  connect(humorRevertButton_, &QPushButton::clicked, this, [this] { revertHumorDraft(); });
+  humorFoot->addWidget(humorRevertButton_);
   humorFoot->addWidget(humorSaveButton_);
   humorFoot->addWidget(humorRemoveButton_);
 
-  humorLayout->addWidget(humorTitle_);
+  humorLayout->addLayout(humorHead);
   humorLayout->addWidget(humorHint);
   humorLayout->addLayout(humorGrid);
   humorLayout->addLayout(humorFoot);
@@ -296,27 +317,6 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   rightLayout->addWidget(humorPanel_);
   rightLayout->addWidget(searchBar_);
   rightLayout->addWidget(table_, 1);
-
-  dynamicsPanel_ = new QWidget(right);
-  auto* dynamicsLayout = new QVBoxLayout(dynamicsPanel_);
-  dynamicsLayout->setContentsMargins(20, 24, 0, 0);
-  dynamicsTitle_ = new QLabel(tr("Analisando suas músicas"), dynamicsPanel_);
-  dynamicsTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
-  dynamicsCount_ = new QLabel(dynamicsPanel_);
-  dynamicsProgress_ = new QProgressBar(dynamicsPanel_);
-  dynamicsProgress_->setRange(0, 100);
-  dynamicsProgress_->setTextVisible(false);
-  dynamicsHint_ = new QLabel(dynamicsPanel_);
-  dynamicsHint_->setObjectName(QStringLiteral("hint"));
-  dynamicsHint_->setWordWrap(true);
-  dynamicsLayout->addWidget(dynamicsTitle_);
-  dynamicsLayout->addWidget(dynamicsCount_);
-  dynamicsLayout->addWidget(dynamicsProgress_);
-  dynamicsLayout->addSpacing(8);
-  dynamicsLayout->addWidget(dynamicsHint_);
-  dynamicsLayout->addStretch(1);
-  dynamicsPanel_->hide();
-  rightLayout->addWidget(dynamicsPanel_, 1);
 
   auto* footer = new QHBoxLayout();
   summary_ = new QLabel(right);
@@ -368,25 +368,22 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
             if (current == nullptr) return;
             const QVariant value = current->data(0, kViewRole);
             const int role = value.isNull() ? 0 : value.toInt();
-            dynamicsActive_ = role == -1;
+            humorActive_ = role == -1;
             stationActive_ = role == -2;
-            humorActive_ = role == -3;
-            table_->setVisible(!dynamicsActive_);
             if (searchBar_ != nullptr) {
               // A busca filtra a biblioteca; nas prévias ela não teria efeito.
-              searchBar_->setVisible(!dynamicsActive_ && !stationActive_ && !humorActive_);
+              searchBar_->setVisible(!stationActive_ && !humorActive_);
             }
             if (stationPanel_ != nullptr) stationPanel_->setVisible(stationActive_);
             if (humorPanel_ != nullptr) humorPanel_->setVisible(humorActive_);
-            if (humorActive_) applyHumorDraftFromPreset();
-            dynamicsPanel_->setVisible(dynamicsActive_);
             updateButtons();
-            // O nó do humor refaz a prévia pela MainWindow (o léxico e a mistura são dela).
             if (humorActive_) {
+              // O nó do humor refaz a prévia pela MainWindow (o léxico e a mistura são dela).
+              applyHumorDraftFromPreset();
               emit humorPointChanged(false);
               return;
             }
-            if (dynamicsActive_ || value.isNull()) return;
+            if (value.isNull()) return;
             emit queryChanged();
           });
   connect(table_, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem* item) {
@@ -432,6 +429,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 }
 
 void LibraryWindow::selectDynamics() {
+  // Nome mantido pelo hook de teste (AMPLIA_LIBRARY_DYNAMICS): é o mesmo nó do Humor.
   if (dynamicsItem_ != nullptr) tree_->setCurrentItem(dynamicsItem_);
 }
 
@@ -540,31 +538,6 @@ void LibraryWindow::setStatus(const QString& text) {
 
 void LibraryWindow::setSummary(const QString& text) { summary_->setText(text); }
 
-void LibraryWindow::setAnalysisProgress(int analysed, int total, qint64 milliseconds) {
-  const int percent = total > 0 ? static_cast<int>(100.0 * analysed / total) : 0;
-  dynamicsProgress_->setValue(percent);
-  const qint64 seconds = milliseconds / 1000;
-  dynamicsCount_->setText(tr("%1 de %2 analisadas (%3%) — %4h %5min de música")
-                              .arg(analysed)
-                              .arg(total)
-                              .arg(percent)
-                              .arg(seconds / 3600)
-                              .arg((seconds % 3600) / 60));
-  // A Rádio local precisa de um mínimo de faixas com BPM e tom para não repetir sempre
-  // as mesmas cinco músicas.
-  constexpr int kRadioMinimum = 40;
-  if (analysed >= kRadioMinimum) {
-    dynamicsTitle_->setText(tr("Base pronta para as composições dinâmicas"));
-    dynamicsHint_->setText(
-        tr("A Rádio local já está no nó acima; os climas entram na próxima etapa."));
-  } else {
-    dynamicsTitle_->setText(tr("Analisando suas músicas"));
-    dynamicsHint_->setText(tr("Faltam %1 faixa(s) analisada(s) para a rádio acertar BPM e "
-                             "tom. A análise acompanha o que você ouve.")
-                               .arg(kRadioMinimum - analysed));
-  }
-}
-
 QStringList LibraryWindow::selectedPaths() const {
   QStringList paths;
   const auto rows = table_->selectionModel() != nullptr
@@ -591,74 +564,55 @@ void LibraryWindow::updateButtons() {
 void LibraryWindow::setHumorPresets(const std::vector<wamp::HumorPreset>& presets) {
   const QString keep = humorPresetName();
   {
-    // Reconstruir a árvore mexe na seleção; os sinais só valem depois, na hora de reselecionar.
-    const QSignalBlocker blocker(tree_);
-    for (QTreeWidgetItem* item : humorItems_) delete item;
-    humorItems_.clear();
+    // Reencher o combo mexe no índice atual; os sinais só valem depois, na reseleção.
+    const QSignalBlocker blocker(humorBox_);
     humorPresets_ = presets;
-    // Todos os presets entram como filhos do grupo, na ordem do banco.
+    humorBox_->clear();
     for (std::size_t i = 0; i < humorPresets_.size(); ++i) {
-      auto* item = new QTreeWidgetItem(QStringList{QString::fromStdString(humorPresets_[i].name)});
-      item->setData(0, kViewRole, -3);
-      item->setData(0, kPresetRole, static_cast<int>(i));
-      item->setToolTip(0,
-                       humorPresets_[i].factory
-                           ? tr("Humor de fábrica: os sliders partem daqui, o preset não muda.")
-                           : tr("Humor salvo por você."));
-      if (dynamicsItem_ != nullptr) dynamicsItem_->insertChild(static_cast<int>(i), item);
-      humorItems_.push_back(item);
+      const wamp::HumorPreset& preset = humorPresets_[i];
+      humorBox_->addItem(QString::fromStdString(preset.name));
+      const int item = static_cast<int>(i);
+      humorBox_->setItemData(item, static_cast<int>(i), kPresetRole);
+      // Os salvos vêm depois dos de fábrica; o tooltip diz de onde cada um veio.
+      humorBox_->setItemData(item,
+                             preset.factory
+                                 ? tr("Humor de fábrica: os sliders partem daqui, o preset não muda.")
+                                 : tr("Humor salvo por você."),
+                             Qt::ToolTipRole);
     }
   }
-  if (dynamicsItem_ != nullptr) dynamicsItem_->setExpanded(true);
-  for (QTreeWidgetItem* item : humorItems_) {
-    if (item->text(0) == keep) {
-      tree_->setCurrentItem(item);
-      return;
-    }
+  if (!keep.isEmpty()) {
+    const int at = humorBox_->findText(keep);
+    if (at >= 0) humorBox_->setCurrentIndex(at);
   }
+  if (humorActive_) applyHumorDraftFromPreset();
 }
 
 void LibraryWindow::selectHumor(const QString& name) {
-  for (QTreeWidgetItem* item : humorItems_) {
-    if (item->text(0) == name) {
-      tree_->setCurrentItem(item);
-      return;
-    }
-  }
-}
-
-QTreeWidgetItem* LibraryWindow::humorSelectedItem() const {
-  QTreeWidgetItem* item = tree_->currentItem();
-  if (item == nullptr) return nullptr;
-  const QVariant role = item->data(0, kViewRole);
-  if (role.isNull() || role.toInt() != -3) return nullptr;
-  return item;
+  // Primeiro o nó (o painel só existe com o Humor aberto), depois o combo.
+  if (dynamicsItem_ != nullptr) tree_->setCurrentItem(dynamicsItem_);
+  const int at = humorBox_->findText(name);
+  if (at >= 0) humorBox_->setCurrentIndex(at);
 }
 
 QString LibraryWindow::humorPresetName() const {
-  QTreeWidgetItem* item = humorSelectedItem();
-  return item != nullptr ? item->text(0) : QString();
+  return humorBox_ != nullptr && humorBox_->currentIndex() >= 0 ? humorBox_->currentText()
+                                                                : QString();
 }
 
 int LibraryWindow::humorPresetId() const {
-  QTreeWidgetItem* item = humorSelectedItem();
-  if (item == nullptr) return -1;
-  const QVariant index = item->data(0, kPresetRole);
-  if (index.isNull()) return -1;
-  const int at = index.toInt();
-  if (at < 0 || at >= static_cast<int>(humorPresets_.size())) return -1;
+  if (humorBox_ == nullptr || humorBox_->currentIndex() < 0) return -1;
+  const int at = humorBox_->currentIndex();
+  if (at >= static_cast<int>(humorPresets_.size())) return -1;
   return humorPresets_[static_cast<std::size_t>(at)].id;
 }
 
 void LibraryWindow::applyHumorDraftFromPreset() {
-  QTreeWidgetItem* item = humorSelectedItem();
-  if (item == nullptr) return;
-  const QVariant index = item->data(0, kPresetRole);
-  if (index.isNull()) return;
-  const int at = index.toInt();
+  if (humorBox_ == nullptr) return;
+  const int at = humorBox_->currentIndex();
   if (at < 0 || at >= static_cast<int>(humorPresets_.size())) return;
   const wamp::HumorPreset& preset = humorPresets_[static_cast<std::size_t>(at)];
-  humorTitle_->setText(tr("Humor · %1").arg(QString::fromStdString(preset.name)));
+  humorTitle_->setText(tr("Humor"));
   // Sem sinal: escolher o nó não é modificação pendente.
   const QSignalBlocker blockAgitation(agitationSlider_);
   const QSignalBlocker blockTone(toneSlider_);
@@ -695,6 +649,12 @@ void LibraryWindow::setHumorDraft(double agitation, double tone, double stabilit
 
 void LibraryWindow::setHumorPending(bool pending) {
   if (humorPending_ != nullptr) humorPending_->setVisible(pending);
+  if (humorRevertButton_ != nullptr) humorRevertButton_->setEnabled(pending);
+}
+
+void LibraryWindow::revertHumorDraft() {
+  applyHumorDraftFromPreset();
+  emit humorPointChanged(false);
 }
 
 void LibraryWindow::updateHumorValues() {
