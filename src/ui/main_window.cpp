@@ -3571,6 +3571,10 @@ void MainWindow::saveSettings() {
     settings.setValue(QStringLiteral("window/size"), size());
     settings.setValue(QStringLiteral("window/panelHeight"), integratedHeight_);
   settings.setValue(QStringLiteral("library/reopen"), libraryReopen_);
+  // Sem esta chave o "lembrar estado" não tinha o que lembrar: a abertura seguinte nunca
+  // encontrava a Biblioteca marcada como visível.
+  settings.setValue(QStringLiteral("library/visible"),
+                    library_ != nullptr && library_->isVisible());
   }
   geomLog(QStringLiteral("saveSettings: plataforma=%1 posiçãoSuportada=%2 maximizada=%3")
               .arg(QGuiApplication::platformName())
