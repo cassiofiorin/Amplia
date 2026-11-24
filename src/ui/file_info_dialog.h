@@ -30,6 +30,10 @@ class FileInfoDialog final : public QDialog {
   void setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor,
                    int confidence = 0);
 
+  /// Valores lidos das tags do arquivo (TBPM e TKEY), também só para leitura: ficam ao
+  /// lado dos percebidos para dar a comparação sem precisar procurar no formulário.
+  void setTagAnalysis(bool hasBpm, int bpm, bool hasKey, int keyPitchClass, int keyMajor);
+
   /// Preferência de gravação segura, para a janela principal guardar.
   bool safeSaveEnabled() const;
 
@@ -40,6 +44,10 @@ class FileInfoDialog final : public QDialog {
   /// Emitido quando um arquivo foi gravado com sucesso (a lista precisa se atualizar).
   void fileSaved(const QString& path);
 
+  /// Emitido quando a janela passou para outra faixa (<< e >>). Os valores de análise
+  /// mudam com a faixa, e quem os conhece é a janela principal.
+  void trackChanged(const QString& path);
+
  private:
   void loadCurrent();
   void updateSaveability();
@@ -49,6 +57,8 @@ class FileInfoDialog final : public QDialog {
   void updateFormat();
   void updatePictures();
   void goTo(int delta);
+  /// "Lá menor (8A)" a partir do tom; "—" quando a faixa não tem tom.
+  QString formatKey(int keyPitchClass, int keyMajor) const;
   void choosePicture();
   void savePictureAs();
   void removePicture();
@@ -85,6 +95,8 @@ class FileInfoDialog final : public QDialog {
   QLabel* readonlyLabel_ = nullptr;
   QPushButton* okButton_ = nullptr;
   QLabel* replayGainLabel_ = nullptr;
+  QLabel* analysisTagBpmLabel_ = nullptr;
+  QLabel* analysisTagKeyLabel_ = nullptr;
   QLabel* analysisBpmLabel_ = nullptr;
   QLabel* analysisKeyLabel_ = nullptr;
   QLabel* warningLabel_ = nullptr;

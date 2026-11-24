@@ -134,16 +134,27 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   gainLayout->addWidget(replayGainLabel_);
   infoLayout->addWidget(gainBox);
   // Análise local: leitura apenas. Fica separada do BPM do cabeçalho (que é a tag TBPM,
-  // editável) para ninguém achar que o número estimado é gravado no arquivo.
+  // editável) para ninguém achar que o número estimado é gravado no arquivo. As duas
+  // primeiras linhas são o que está gravado (TBPM e TKEY); as duas últimas, o estimado.
   auto* analysisBox = new QGroupBox(tr("Análise local"), infoBox);
   auto* analysisLayout = new QVBoxLayout(analysisBox);
+  analysisTagBpmLabel_ = new QLabel(analysisBox);
+  analysisTagKeyLabel_ = new QLabel(analysisBox);
   analysisBpmLabel_ = new QLabel(analysisBox);
   analysisKeyLabel_ = new QLabel(analysisBox);
-  analysisBpmLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
-  analysisKeyLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  for (QLabel* label : {analysisTagBpmLabel_, analysisTagKeyLabel_, analysisBpmLabel_,
+                        analysisKeyLabel_}) {
+    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  }
+  analysisLayout->addWidget(analysisTagBpmLabel_);
+  analysisLayout->addWidget(analysisTagKeyLabel_);
+  analysisLayout->addSpacing(6);
   analysisLayout->addWidget(analysisBpmLabel_);
   analysisLayout->addWidget(analysisKeyLabel_);
-  auto* analysisHint = new QLabel(tr("estimado ao tocar — não é gravado nas tags"), analysisBox);
+  auto* analysisHint =
+      new QLabel(tr("“da tag” vem do arquivo; “percebido” é estimado ao tocar e não é "
+                    "gravado nas tags"),
+                 analysisBox);
   analysisHint->setObjectName(QStringLiteral("hint"));
   analysisHint->setWordWrap(true);
   analysisLayout->addWidget(analysisHint);
@@ -189,6 +200,7 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   tabs->addTab(artwork, QStringLiteral("Artwork"));
 
   setAnalysis(false, 0, -1, 0);
+  setTagAnalysis(false, 0, false, -1, 0);
   layout->addWidget(tabs, 1);
 
   // --- Rodapé ---------------------------------------------------------------
@@ -244,8 +256,7 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   updateSaveability();
 }
 
-void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor,
-                                 int confidence) {
+QString FileInfoDialog::formatKey(int keyPitchClass, int keyMajor) const {
   // Nomes em português e o código Camelot entre parênteses: é o que o pessoal de
   // playlist usa na prática ("Lá menor (8A)").
   static const QStringList names = {
@@ -255,23 +266,31 @@ void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int key
       QStringLiteral("Lá"),   QStringLiteral("Lá♯"),  QStringLiteral("Si")};
   static const int kMajorCode[12] = {8, 3, 10, 5, 12, 7, 2, 9, 4, 11, 6, 1};
   static const int kMinorCode[12] = {5, 12, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10};
+  if (keyPitchClass < 0 || keyPitchClass >= 12) return QStringLiteral("—");
+  const int code = keyMajor != 0 ? kMajorCode[keyPitchClass] : kMinorCode[keyPitchClass];
+  return tr("%1 %2 (%3%4)")
+      .arg(names.at(keyPitchClass), keyMajor != 0 ? tr("maior") : tr("menor"))
+      .arg(code)
+      .arg(keyMajor != 0 ? QStringLiteral("B") : QStringLiteral("A"));
+}
 
+void FileInfoDialog::setAnalysis(bool valid, int bpm, int keyPitchClass, int keyMajor,
+                                 int confidence) {
   const bool hasBpm = valid && bpm > 0;
   const QString bpmText = hasBpm ? QString::number(bpm) : QStringLiteral("—");
   analysisBpmLabel_->setText(
       confidence > 0 ? tr("BPM percebido: %1 (confiança %2%)").arg(bpmText).arg(confidence)
                      : tr("BPM percebido: %1").arg(bpmText));
+  analysisKeyLabel_->setText(
+      tr("Tom percebido: %1").arg(valid ? formatKey(keyPitchClass, keyMajor) : QStringLiteral("—")));
+}
 
-  QString keyText = QStringLiteral("—");
-  if (valid && keyPitchClass >= 0 && keyPitchClass < 12) {
-    const int code = keyMajor != 0 ? kMajorCode[keyPitchClass] : kMinorCode[keyPitchClass];
-    keyText = tr("%1 %2 (%3%4)")
-                  .arg(names.at(keyPitchClass),
-                       keyMajor != 0 ? tr("maior") : tr("menor"))
-                  .arg(code)
-                  .arg(keyMajor != 0 ? QStringLiteral("B") : QStringLiteral("A"));
-  }
-  analysisKeyLabel_->setText(tr("Tom percebido: %1").arg(keyText));
+void FileInfoDialog::setTagAnalysis(bool hasBpm, int bpm, bool hasKey, int keyPitchClass,
+                                    int keyMajor) {
+  analysisTagBpmLabel_->setText(
+      tr("BPM da tag: %1").arg(hasBpm && bpm > 0 ? QString::number(bpm) : QStringLiteral("—")));
+  analysisTagKeyLabel_->setText(
+      tr("Tom da tag: %1").arg(hasKey ? formatKey(keyPitchClass, keyMajor) : QStringLiteral("—")));
 }
 
 bool FileInfoDialog::safeSaveEnabled() const { return safeSaveBox_->isChecked(); }
@@ -335,6 +354,7 @@ void FileInfoDialog::loadCurrent() {
   dirty_ = false;
   setWindowTitle(tr("Informações do arquivo"));
   loading_ = false;
+  emit trackChanged(QString::fromStdString(path));
 }
 
 void FileInfoDialog::updateFormat() {

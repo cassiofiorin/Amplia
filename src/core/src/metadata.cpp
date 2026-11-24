@@ -61,14 +61,18 @@ int parseKeyTag(const std::string& text, bool* major) {
     const bool isMajor = value.back() == 'B';
     const int camelot = std::atoi(value.c_str());
     if (camelot >= 1 && camelot <= 12) {
-      // Camelot: 8B = Dó maior, 8A = Lá menor; a roda anda de quinta em quinta.
-      static const int kCamelotMajor[12] = {7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5, 0};
-      static const int kCamelotMinor[12] = {4, 11, 6, 1, 8, 3, 10, 5, 0, 7, 2, 9};
+      // Camelot: 8B = Dó maior, 8A = Lá menor; a roda anda de quinta em quinta. As tabelas
+      // vão do número Camelot (1..12) para a classe de altura, o inverso das que a
+      // interface usa para mostrar o código.
+      static const int kCamelotMajor[12] = {11, 6, 1, 8, 3, 10, 5, 0, 7, 2, 9, 4};
+      static const int kCamelotMinor[12] = {8, 3, 10, 5, 0, 7, 2, 9, 4, 11, 6, 1};
       *major = isMajor;
       return isMajor ? kCamelotMajor[camelot - 1] : kCamelotMinor[camelot - 1];
     }
   }
-  const bool minor = value.size() >= 2 && value.back() == 'M' && value[value.size() - 2] != 'A';
+  // "Am" é o jeito mais comum de escrever Lá menor nas tags: o M final é o modo, não parte
+  // do nome da nota (por isso "A" também passa por aqui).
+  const bool minor = value.size() >= 2 && value.back() == 'M';
   std::string note = value;
   if (minor && note.size() >= 2) note.pop_back();
   if (note == "DO") note = "C";

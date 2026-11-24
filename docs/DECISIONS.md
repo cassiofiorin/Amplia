@@ -2507,3 +2507,20 @@ semente é **composta**, com um slider no nó "Rádio local" da Biblioteca.
   com ou sem seleção.
 - **Climas ainda não**: as gerações por clima (BPM/energia/tom como eixos próprios) ficam
   para a próxima etapa; o nó e a mistura são a estrutura sobre a qual elas entram.
+
+## D-120 — O Alt+3 mostra o BPM e o tom da tag ao lado dos percebidos
+
+O grupo *Análise local* mostrava só o que o Amplia estimou ao tocar. Numa faixa ainda não
+analisada — a maioria, numa biblioteca recém-indexada — tudo aparecia como "—", e o tom da
+tag não aparecia em lugar nenhum (o BPM da tag estava no formulário, o tom não).
+
+- **Quatro linhas, duas fontes**: `BPM da tag` e `Tom da tag` (TBPM e TKEY); `BPM percebido`
+  e `Tom percebido` (banco). O rodapé do grupo diz qual é qual: "da tag" vem do arquivo,
+  "percebido" é estimado ao tocar e não é gravado.
+- **A janela troca de faixa** com `<<` e `>>`, então os quatro valores são recarregados a
+  cada troca (`trackChanged` → `MainWindow::openFileInfo`). A tag vem de `metadata_` e, para
+  a faixa que ainda não passou por aqui nesta sessão, do banco (`lookupFast`).
+- **O tom da tag passa a ser lido nas duas grafias**: "Am"/"F#m" (nota) e "8A"/"8B"
+  (Camelot). O leitor recusava "Am" (o `M` era confundido com parte do nome da nota) e as
+  tabelas do Camelot estavam invertidas — 8A dava Fá menor em vez de Lá menor. Nenhuma das
+  duas coisas aparecia antes porque o tom da tag não ia para a tela.

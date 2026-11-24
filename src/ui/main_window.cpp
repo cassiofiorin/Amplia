@@ -1928,20 +1928,41 @@ void MainWindow::openFileInfo() {
   const bool safeSave = settings.value(QStringLiteral("fileinfo/safeSave"), true).toBool();
 
   wamp::ui::FileInfoDialog dialog(playlist_->items(), index, safeSave, this);
-  // Análise local (banco): só leitura. Se a faixa nunca tocou o suficiente, o grupo mostra
-  // "—" — e o BPM do cabeçalho continua sendo a tag TBPM.
-  if (cache_ != nullptr) {
+  // Análise local: as linhas "da tag" vêm do arquivo; as "percebido" vêm do banco e ficam
+  // em "—" enquanto a faixa não tocou o bastante. A janela troca de faixa com << e >>, e a
+  // cada troca o preenchimento é refeito — por isso o sinal e a chamada inicial.
+  auto fillAnalysis = [this, &dialog](const QString& path) {
+    const std::string native = path.toStdString();
+    wamp::TrackInfo info;
+    bool haveInfo = false;
+    if (const auto found = metadata_.find(native); found != metadata_.end()) {
+      info = found->second;
+      haveInfo = true;
+    } else if (cache_ != nullptr) {
+      // Faixa que ainda não passou por aqui nesta sessão (<< e >> não abrem a faixa): o
+      // banco guarda as tags lidas na indexação.
+      haveInfo = cache_->lookupFast(native, &info);
+    }
+    dialog.setTagAnalysis(haveInfo && info.bpmTag > 0,
+                          static_cast<int>(std::lround(info.bpmTag)),
+                          haveInfo && info.keyPcTag >= 0, info.keyPcTag, info.keyMajorTag);
+
     float analysedBpm = 0.0f;
     int keyPc = -1;
     int keyMajor = 0;
     bool analysed = false;
     int analysedConfidence = 0;
-    if (cache_->analysisFor(playlist_->items().at(index), &analysedBpm, &keyPc, &keyMajor,
-                            &analysed, &analysedConfidence)) {
+    if (cache_ != nullptr &&
+        cache_->analysisFor(native, &analysedBpm, &keyPc, &keyMajor, &analysed,
+                            &analysedConfidence)) {
       dialog.setAnalysis(analysed, static_cast<int>(std::lround(analysedBpm)), keyPc, keyMajor,
                          analysedConfidence);
+    } else {
+      dialog.setAnalysis(false, 0, -1, 0, 0);
     }
-  }
+  };
+  connect(&dialog, &wamp::ui::FileInfoDialog::trackChanged, this, fillAnalysis);
+  fillAnalysis(QString::fromStdString(playlist_->items().at(index)));
   connect(&dialog, &wamp::ui::FileInfoDialog::fileSaved, this, &MainWindow::onFileSaved);
   dialog.exec();
   settings.setValue(QStringLiteral("fileinfo/safeSave"), dialog.safeSaveEnabled());
