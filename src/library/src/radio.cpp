@@ -2,6 +2,7 @@
 #include "wamp/radio.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <map>
@@ -197,9 +198,128 @@ RadioSeed radioHistorySeed(const std::vector<RadioSeed>& recent) {
   return seed;
 }
 
+HumorReading radioHumorReading(double bpm, int keyPc, int keyMajor) {
+  HumorReading reading;
+  if (bpm > 0.0) {
+    // 50 BPM → 0 e 190 BPM → 100, em log: dobrou o pulso, andou um tanto constante. Faixas
+    // muito lentas ou muito rápidas são dobradas/divididas antes, então 40 e 80 caem no
+    // mesmo lugar — é o pulso percebido, não o número da tag.
+    constexpr double kLow = 50.0;
+    constexpr double kHigh = 190.0;
+    double value = bpm;
+    while (value < kLow) value *= 2.0;
+    while (value > kHigh) value /= 2.0;
+    reading.agitation = 100.0 * std::log2(value / kLow) / std::log2(kHigh / kLow);
+    reading.hasBpm = true;
+  }
+  if (keyPc >= 0 && keyPc <= 11) {
+    reading.tone = keyMajor != 0 ? 100.0 : 0.0;
+    reading.hasTone = true;
+  }
+  return reading;
+}
+
+double radioHumorWidth(double stability) {
+  const double clamped = std::clamp(stability, 0.0, 100.0) / 100.0;
+  return 0.08 + 0.27 * clamped;
+}
+
+double radioScore(const HumorPoint& point, const RadioCandidate& candidate) {
+  const HumorReading reading = radioHumorReading(candidate.bpm, candidate.keyPc, candidate.keyMajor);
+  const double targetAgitation = std::clamp(point.agitation, 0.0, 100.0);
+  const double targetTone = std::clamp(point.tone, 0.0, 100.0);
+  // Tom no meio do slider (50 ± 10) é indiferença, não um alvo entre frio e quente: os dois
+  // polos são categorias, então "qualquer modo" precisa de uma regra própria.
+  const bool toneMatters = std::abs(targetTone - 50.0) >= 10.0;
+
+  const int known =
+      (reading.hasBpm ? 1 : 0) + (reading.hasTone && toneMatters ? 1 : 0);
+
+  // Neutro quando nada foi medido: a estação não pode nascer vazia só porque a biblioteca
+  // ainda não foi analisada. Fica abaixo de um casamento decente e acima de um desastre —
+  // assim uma faixa medida e errada não ganha de uma ainda não medida.
+  constexpr double kNeutral = 0.25;
+  constexpr double kFloor = 0.08;
+  double score = kNeutral;
+  if (known > 0) {
+    double squared = 0.0;
+    if (reading.hasBpm) {
+      const double delta = (reading.agitation - targetAgitation) / 100.0;
+      squared += delta * delta;
+    }
+    if (reading.hasTone && toneMatters) {
+      const double delta = (reading.tone - targetTone) / 100.0;
+      squared += delta * delta;
+    }
+    const double width = radioHumorWidth(point.stability);
+    const double gaussian = kFloor + (1.0 - kFloor) * std::exp(-squared / (width * width));
+    // Um eixo só informa menos que os dois: fica mais perto do neutro.
+    score = known == 2 ? gaussian : kNeutral + 0.65 * (gaussian - kNeutral);
+  }
+
+  score += 0.03 * (static_cast<double>(std::clamp(candidate.rating, 0, 5)) / 5.0);
+  score += 0.02 * std::min(1.0, static_cast<double>(candidate.plays) / 20.0);
+  const double acceptance = radioAcceptance(candidate.plays, candidate.skips);
+  score *= 0.55 + 0.45 * acceptance;
+  return score;
+}
+
+double radioGenreLean(const std::string& genres, const std::string& genre) {
+  if (genres.empty()) return 1.0;
+  if (genre.empty()) return 0.85;  // arquivo sem gênero: não dá para dizer que está fora
+
+  auto lower = [](std::string text) {
+    for (char& character : text) {
+      character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+    return text;
+  };
+  const std::string haystack = lower(genre);
+  std::size_t start = 0;
+  while (start <= genres.size()) {
+    const std::size_t comma = genres.find(',', start);
+    const std::size_t end = comma == std::string::npos ? genres.size() : comma;
+    std::string term = lower(genres.substr(start, end - start));
+    while (!term.empty() && std::isspace(static_cast<unsigned char>(term.front()))) term.erase(term.begin());
+    while (!term.empty() && std::isspace(static_cast<unsigned char>(term.back()))) term.pop_back();
+    if (!term.empty() && haystack.find(term) != std::string::npos) return 1.0;
+    if (comma == std::string::npos) break;
+    start = comma + 1;
+  }
+  return 0.6;
+}
+
+std::vector<HumorPreset> factoryHumorPresets() {
+  // Presets fixos: o usuário parte deles e salva variações com nome próprio (D-121). O
+  // léxico repete grafias com e sem acento porque comparar gênero é comparação de texto.
+  std::vector<HumorPreset> presets;
+  auto add = [&presets](const char* name, double agitation, double tone, double stability,
+                        const char* genres) {
+    HumorPreset preset;
+    preset.name = name;
+    preset.point = {agitation, tone, stability};
+    preset.genres = genres;
+    presets.push_back(std::move(preset));
+  };
+  add("Treino", 90.0, 0.0, 55.0, "metal, hardcore, punk, rock, hip-hop, hip hop, eletrônico, eletronico, drum and bass");
+  add("Alegre", 70.0, 100.0, 55.0, "pop, dance, ska, reggae, disco, funk, soul");
+  add("Dia de sol", 55.0, 100.0, 60.0, "pop, folk, mpb, bossa, samba, sertanejo, soul, reggae");
+  add("Trabalho duro", 80.0, 0.0, 45.0, "industrial, rock, metal, alternativo, alternative, grunge");
+  add("Dia frio", 25.0, 0.0, 50.0, "folk, acústico, acustico, indie, shoegaze, ambient, jazz");
+  add("Pra baixo", 15.0, 0.0, 40.0, "slowcore, emo, blues, indie, post-rock, post rock");
+  add("Foco", 40.0, 50.0, 30.0, "ambient, lofi, lo-fi, clássico, classico, jazz, eletrônica, eletronica");
+  return presets;
+}
+
 double radioScore(const RadioMix& mix, const RadioCandidate& candidate) {
   // A faixa da semente nunca se sugere: sem isso o clima do histórico daria nota a ela.
-  if (candidate.path == mix.track.path) return 0.0;
+  if (!mix.track.path.empty() && candidate.path == mix.track.path) return 0.0;
+  if (mix.hasHumor) {
+    const double humor = radioScore(mix.humor, candidate) * radioGenreLean(mix.genres, candidate.genre);
+    if (mix.blend <= 0.0 || !mix.hasHistory()) return humor;
+    const double weight = std::min(1.0, mix.blend);
+    return (1.0 - weight) * humor + weight * radioScore(mix.history, candidate);
+  }
   const double base = radioScore(mix.track, candidate);
   if (mix.blend <= 0.0 || !mix.hasHistory()) return base;
   const double weight = std::min(1.0, mix.blend);

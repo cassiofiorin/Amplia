@@ -245,6 +245,10 @@ class MainWindow final : public QMainWindow {
   /// Prévia do nó "Rádio local": as mesmas 20 faixas que a estação escolheria agora.
   std::vector<wamp::LibraryEntry> stationRows();
 
+  /// Hook de teste (`AMPLIA_HUMOR_TEST=Nome`): imprime as escolhas de um preset de clima,
+  /// com a pontuação e as leituras de agitação/tom. Serve para calibrar a tabela sem UI.
+  void humorTestDump(const QString& presetName);
+
   /// Registra pulo quando a faixa atual é interrompida cedo (ver D-116).
   void recordSkipIfEarly(std::size_t nextIndex);
 

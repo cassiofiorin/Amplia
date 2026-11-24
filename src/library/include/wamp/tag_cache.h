@@ -93,6 +93,14 @@ class TagCache final {
   /// 1 = ouviu até o fim, 2 = recusou (removeu da fila sem tocar).
   void recordRadioEvent(const std::string& path, int kind, const RadioContext& context);
 
+  /// Presets de clima salvos pelo usuário, na ordem em que foram criados. Os de fábrica
+  /// vivem no código (`factoryHumorPresets()`) e não aparecem aqui.
+  std::vector<HumorPreset> humorPresets(std::string* error);
+  /// Grava um preset novo e devolve o id; 0 quando o nome já existe ou a gravação falha.
+  int addHumorPreset(const HumorPreset& preset, std::string* error);
+  bool renameHumorPreset(int id, const std::string& name, std::string* error);
+  bool removeHumorPreset(int id, std::string* error);
+
   /// Valores da análise local de um caminho. Devolve `false` se a faixa não está no banco.
   bool analysisFor(const std::string& path, float* bpm, int* keyPc, int* keyMajor,
                        bool* valid, int* confidence = nullptr) const;

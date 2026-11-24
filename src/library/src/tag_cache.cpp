@@ -113,6 +113,24 @@ bool TagCache::ensureSchema(std::string* error) {
                " ctx_bpm INTEGER NOT NULL DEFAULT -1, ctx_key TEXT,"
                " ctx_genre TEXT, ctx_artist TEXT, ts INTEGER NOT NULL);",
                nullptr, nullptr, nullptr);
+  // Presets de clima salvos pelo usuário (D-121). Os de fábrica são código, não banco:
+  // assim não há como corromper o ponto de partida, só salvar variações com nome próprio.
+  sqlite3_exec(db_,
+               "CREATE TABLE IF NOT EXISTS humor_presets ("
+               " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+               " name TEXT NOT NULL,"
+               " agitation REAL NOT NULL DEFAULT 50,"
+               " tone REAL NOT NULL DEFAULT 50,"
+               " stability REAL NOT NULL DEFAULT 50,"
+               " blend REAL NOT NULL DEFAULT 0.5,"
+               " genres TEXT,"
+               " created INTEGER NOT NULL);",
+               nullptr, nullptr, nullptr);
+  // Nome é o rótulo na árvore: dois iguais deixariam o usuário sem saber qual é qual.
+  sqlite3_exec(db_,
+               "CREATE UNIQUE INDEX IF NOT EXISTS humor_presets_name"
+               " ON humor_presets (name COLLATE NOCASE);",
+               nullptr, nullptr, nullptr);
   return true;
 }
 
@@ -730,9 +748,104 @@ std::vector<RadioSeed> TagCache::recentPlays(int limit, std::string* error) {
   return recent;
 }
 
+std::vector<HumorPreset> TagCache::humorPresets(std::string* error) {
+  std::vector<HumorPreset> presets;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco não aberto";
+    return presets;
+  }
+  const char* sql =
+      "SELECT id, name, agitation, tone, stability, blend, coalesce(genres,'')"
+      " FROM humor_presets ORDER BY id;";
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "consulta dos presets falhou";
+    return presets;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    HumorPreset preset;
+    preset.id = sqlite3_column_int(statement, 0);
+    preset.factory = false;
+    preset.name = columnText(statement, 1);
+    preset.point.agitation = sqlite3_column_double(statement, 2);
+    preset.point.tone = sqlite3_column_double(statement, 3);
+    preset.point.stability = sqlite3_column_double(statement, 4);
+    preset.blend = sqlite3_column_double(statement, 5);
+    preset.genres = columnText(statement, 6);
+    presets.push_back(std::move(preset));
+  }
+  sqlite3_finalize(statement);
+  return presets;
+}
+
+int TagCache::addHumorPreset(const HumorPreset& preset, std::string* error) {
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco não aberto";
+    return 0;
+  }
+  sqlite3_stmt* statement = nullptr;
+  const char* sql =
+      "INSERT INTO humor_presets (name, agitation, tone, stability, blend, genres, created)"
+      " VALUES (?1, ?2, ?3, ?4, ?5, ?6, CAST(strftime('%s','now') AS INTEGER));";
+  if (sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "gravação do preset falhou";
+    return 0;
+  }
+  bindText(statement, 1, preset.name);
+  sqlite3_bind_double(statement, 2, preset.point.agitation);
+  sqlite3_bind_double(statement, 3, preset.point.tone);
+  sqlite3_bind_double(statement, 4, preset.point.stability);
+  sqlite3_bind_double(statement, 5, preset.blend);
+  bindText(statement, 6, preset.genres);
+  const bool ok = sqlite3_step(statement) == SQLITE_DONE;
+  sqlite3_finalize(statement);
+  if (!ok) {
+    // Nome repetido é o caso comum (o índice único barra): a tela avisa e pede outro nome.
+    if (error != nullptr) *error = "já existe um preset com esse nome";
+    return 0;
+  }
+  return static_cast<int>(sqlite3_last_insert_rowid(db_));
+}
+
+bool TagCache::renameHumorPreset(int id, const std::string& name, std::string* error) {
+  if (db_ == nullptr || id <= 0 || name.empty()) {
+    if (error != nullptr) *error = "preset inválido";
+    return false;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "UPDATE humor_presets SET name = ?2 WHERE id = ?1;", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "renomeação do preset falhou";
+    return false;
+  }
+  sqlite3_bind_int(statement, 1, id);
+  bindText(statement, 2, name);
+  const bool ok = sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(db_) > 0;
+  sqlite3_finalize(statement);
+  if (!ok && error != nullptr) *error = "não foi possível renomear o preset";
+  return ok;
+}
+
+bool TagCache::removeHumorPreset(int id, std::string* error) {
+  if (db_ == nullptr || id <= 0) {
+    if (error != nullptr) *error = "preset inválido";
+    return false;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "DELETE FROM humor_presets WHERE id = ?1;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "remoção do preset falhou";
+    return false;
+  }
+  sqlite3_bind_int(statement, 1, id);
+  const bool ok = sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(db_) > 0;
+  sqlite3_finalize(statement);
+  if (!ok && error != nullptr) *error = "não foi possível remover o preset";
+  return ok;
+}
+
 void TagCache::recordRadioEvent(const std::string& path, int kind,
-                                const RadioContext& context) {
-  if (db_ == nullptr || path.empty()) return;
+                                const RadioContext& context) {  if (db_ == nullptr || path.empty()) return;
   sqlite3_stmt* statement = nullptr;
   const char* sql =
       "INSERT INTO radio_events (path, kind, ctx_bpm, ctx_key, ctx_genre, ctx_artist, ts)"

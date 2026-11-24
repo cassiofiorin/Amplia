@@ -59,12 +59,64 @@ std::vector<std::string> radioPick(const RadioSeed& seed,
                                    const std::vector<RadioCandidate>& candidates,
                                    std::size_t wanted, std::size_t discoveryEvery = 7);
 
+/// Ponto no plano Agitação × Tom, com a largura do alvo. Ver D-121.
+/// Agitação: 0 = calmo e lento, 100 = agitado e rápido (vem do BPM).
+/// Tom: 0 = frio (menor), 100 = quente (maior) — a valência que a gente consegue medir.
+/// Estabilidade: 0 = alvo estreito, 100 = alvo largo, com deriva ancorada na geração.
+struct HumorPoint {
+  double agitation = 50.0;
+  double tone = 50.0;
+  double stability = 50.0;
+};
+
+/// Onde uma faixa cai no plano. Sem BPM ou sem tom a leitura é neutra (50) e o eixo é
+/// dado como desconhecido — o alvo não pode punir o que ainda não foi analisado.
+struct HumorReading {
+  double agitation = 50.0;
+  double tone = 50.0;
+  bool hasBpm = false;
+  bool hasTone = false;
+};
+
+HumorReading radioHumorReading(double bpm, int keyPc, int keyMajor);
+
+/// Largura (desvio-padrão) do decaimento em torno do alvo, a partir da estabilidade.
+double radioHumorWidth(double stability);
+
+/// Pontuação de clima: decaimento gaussiano no plano. Sem nenhum eixo conhecido a faixa
+/// fica no neutro (0.5) em vez de sumir — senão, sem análise, a estação nasce vazia.
+double radioScore(const HumorPoint& point, const RadioCandidate& candidate);
+
+/// Um preset é um ponto + largura + o léxico de gênero que dá identidade à estação.
+/// Os de fábrica são fixos; a variação do usuário é salva como preset próprio (D-121).
+struct HumorPreset {
+  int id = 0;            ///< 0 nos de fábrica; id do banco nos salvos
+  bool factory = true;
+  std::string name;
+  HumorPoint point;
+  double blend = 0.5;    ///< 0 = só o clima, 1 = só o histórico
+  std::string genres;    ///< léxico separado por vírgula; vazio = qualquer gênero
+};
+
+/// Presets de fábrica. São dados, não código por clima: a geração só lê a tabela.
+std::vector<HumorPreset> factoryHumorPresets();
+
+/// Ajuste do léxico do preset sobre o gênero da faixa: 1.0 quando casa, 0.6 quando o gênero
+/// é conhecido e está fora e 0.85 quando não há gênero para comparar (não punir o que o
+/// arquivo não declara). Léxico vazio = sem ajuste.
+double radioGenreLean(const std::string& genres, const std::string& genre);
+
 /// Semente composta: a faixa que está tocando e o "clima de agora" (o que venho ouvindo)
 /// entram numa média ponderada. `blend` 0 = só a faixa; 1 = só o clima.
 struct RadioMix {
   RadioSeed track;
   RadioSeed history;  ///< centroide do histórico; sem campos = não há histórico
   double blend = 0.0;
+  /// Quando true, a estação é de clima: o alvo substitui a faixa da semente e o `blend`
+  /// passa a misturar clima com histórico.
+  bool hasHumor = false;
+  HumorPoint humor;
+  std::string genres;  ///< léxico do preset; vazio = sem ajuste de gênero
 
   bool hasHistory() const;
 };

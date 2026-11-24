@@ -2524,3 +2524,46 @@ tag não aparecia em lugar nenhum (o BPM da tag estava no formulário, o tom nã
   (Camelot). O leitor recusava "Am" (o `M` era confundido com parte do nome da nota) e as
   tabelas do Camelot estavam invertidas — 8A dava Fá menor em vez de Lá menor. Nenhuma das
   duas coisas aparecia antes porque o tom da tag não ia para a tela.
+
+## D-121 — Clima é um ponto num plano, e o preset é um pino nele
+
+As estações por clima nascem de dois eixos que a análise local já consegue medir — e não de
+uma lista de nomes no código. "Alegre", "Treino", "Dia frio" viram **coordenadas**.
+
+- **Agitação** (0–100) vem do BPM: 50 BPM → 0, 190 BPM → 100, em escala log, com dobra/metade
+  antes (40 e 80 caem no mesmo lugar — pulso percebido, não o número da tag). **Tom** (0–100)
+  vem do modo: menor → 0 ("frio"), maior → 100 ("quente"). É a valência que a gente mede; a
+  outra metade (brilho, textura) fica para quando a energia medida for guardada.
+- **Estabilidade é largura, não posição.** Agitação e Tom dizem *para onde* a estação aponta;
+  a estabilidade diz *quanto o alvo abraça*: `σ = 0,08 + 0,27·estabilidade/100`, e a nota cai
+  gaussiana (`0,08 + 0,92·exp(-d²/σ²)`). Se fosse um terceiro eixo de posição, dois presets com
+  os mesmos Agitação/Tom soariam diferente sem motivo visível. A deriva que a estabilidade alta
+  permite é **ancorada**: o alvo pode andar no plano, nunca a mais de 0,5 do ponto do preset,
+  então "Dia frio" não vira "Treino" sozinho.
+- **Tom é categoria, não gradiente contínuo.** A análise entrega maior ou menor; "frio" é 0 e
+  "quente" é 100, e os presets de fábrica ficam nos extremos (Foco, que aceita os dois, fica em
+  50). Alvo em 50 ± 10 significa **indiferença**: o eixo do tom sai da conta em vez de punir os
+  dois lados. Sem essa regra, um preset em 30 penalizava toda faixa menor — que é o lado certo.
+- **Sem medição, neutro em vez de vazio.** Faixa sem BPM ou sem tom fica de fora da distância,
+  e o neutro é 0,25: **abaixo** de um casamento decente e **acima** de um desastre (0,08). Com
+  um eixo só, `0,25 + 0,65·(gauss − 0,25)` — informação parcial não vale o mesmo que a
+  completa. Sem essa regra, uma biblioteca ainda não analisada (hoje: 0 de 7.650) produziria
+  estação vazia; com ela, o neutro é a base e a ordem vem do léxico, da nota e das escutas.
+  A calibragem foi verificada fora do app (`radio.cpp` compilado avulso com casos sintéticos):
+  sem o piso e com o neutro em 0,5, a faixa *não medida* ganhava de todas as medidas.
+- **Léxico de gênero dá identidade** onde o plano não distingue: casa → 1,0; gênero conhecido
+  e fora → 0,6; arquivo sem gênero → 0,85 (não punir o que o arquivo não declara). É o único
+  ajuste que **não** deriva com a estabilidade — identidade não é humor.
+- **Presets de fábrica são código; variações são banco.** `factoryHumorPresets()` devolve os
+  sete pontos iniciais e não tem escrita; o que o usuário salva vai para `humor_presets`
+  (nome único, sem diferenciar maiúsculas, porque o nome é o rótulo na árvore). Mover os
+  sliders sobre um preset de fábrica cria uma *variação*; "Salvar como…" batiza a cópia e
+  sair do nó descarta o que não foi salvo. O preset guarda o estado inteiro — agitação, tom,
+  estabilidade, mistura e léxico — senão o nome salvo não reproduziria o som.
+- **Na geração**, `RadioMix` ganhou `hasHumor`/`humor`/`genres`: com clima o alvo substitui a
+  faixa da semente e o `blend` passa a misturar **clima × histórico** (0 = só o clima, 1 = só
+  o que venho ouvindo). A mesma máquina `radioPick` serve às três coisas — semente, mistura e
+  clima — sem um caminho de código por clima.
+- **A tela vem depois**: os sliders (com o aviso laranja "modificações não aplicadas" e a
+  aplicação no Tocar) e o nó na árvore são o passo seguinte; esta etapa entrega a tabela, a
+  pontuação e a persistência, já verificadas pelo hook `AMPLIA_HUMOR_TEST`/`AMPLIA_HUMOR_WRITE`.

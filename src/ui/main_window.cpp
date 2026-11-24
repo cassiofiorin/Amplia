@@ -4113,6 +4113,9 @@ void MainWindow::openLibrary() {
     library_->selectStation();
     qInfo("amplia: rádio local blend=%d", seedBlend_);
   }
+  if (qEnvironmentVariableIsSet("AMPLIA_HUMOR_TEST")) {
+    humorTestDump(qEnvironmentVariable("AMPLIA_HUMOR_TEST"));
+  }
   library_->show();
   library_->raise();
   library_->activateWindow();
@@ -4450,6 +4453,85 @@ std::vector<wamp::LibraryEntry> MainWindow::stationRows() {
     rows.push_back(std::move(entry));
   }
   return rows;
+}
+
+void MainWindow::humorTestDump(const QString& presetName) {
+  if (cache_ == nullptr) return;
+  std::string error;
+  std::vector<wamp::HumorPreset> presets = wamp::factoryHumorPresets();
+  for (const wamp::HumorPreset& saved : cache_->humorPresets(&error)) presets.push_back(saved);
+
+  const QString wanted = presetName.trimmed().toLower();
+  const wamp::HumorPreset* chosen = nullptr;
+  for (const wamp::HumorPreset& preset : presets) {
+    if (QString::fromStdString(preset.name).toLower() == wanted) {
+      chosen = &preset;
+      break;
+    }
+  }
+  if (chosen == nullptr) {
+    qInfo("amplia: humor '%s' não existe", qPrintable(presetName));
+    return;
+  }
+
+  std::vector<wamp::RadioCandidate> pool = cache_->radioPool(&error);
+  const std::vector<wamp::RadioSeed> recent = cache_->recentPlays(5, &error);
+  wamp::RadioMix mix;
+  mix.hasHumor = true;
+  mix.humor = chosen->point;
+  mix.genres = chosen->genres;
+  mix.blend = std::clamp(chosen->blend, 0.0, 1.0);
+  mix.history = wamp::radioHistorySeed(recent);
+
+  int measured = 0;
+  for (const wamp::RadioCandidate& candidate : pool) {
+    if (candidate.bpm > 0.0) ++measured;
+  }
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 10);
+  qInfo("amplia: humor '%s' agitação=%.0f tom=%.0f estabilidade=%.0f mistura=%.2f",
+        qPrintable(QString::fromStdString(chosen->name)), chosen->point.agitation,
+        chosen->point.tone, chosen->point.stability, mix.blend);
+  qInfo("amplia: léxico='%s' · pool %d faixas, %d com BPM medido/tag",
+        chosen->genres.c_str(), static_cast<int>(pool.size()), measured);
+  for (const std::string& path : picked) {
+    for (const wamp::RadioCandidate& candidate : pool) {
+      if (candidate.path != path) continue;
+      const wamp::HumorReading reading =
+          wamp::radioHumorReading(candidate.bpm, candidate.keyPc, candidate.keyMajor);
+      qInfo("  %.3f  ag=%.0f tom=%.0f  %s | %s | %s", wamp::radioScore(mix, candidate),
+            reading.agitation, reading.tone, candidate.artist.c_str(),
+            candidate.album.c_str(), candidate.genre.c_str());
+      break;
+    }
+  }
+  if (!qEnvironmentVariableIsSet("AMPLIA_HUMOR_WRITE")) return;
+
+  // Ida e volta da persistência sem UI: gravar, recusar nome repetido, renomear, listar e
+  // remover. Só roda com o hook explícito e sempre apaga o que criou.
+  wamp::HumorPreset sample = *chosen;
+  sample.name = "Teste automático";
+  sample.factory = false;
+  sample.point.agitation = 42.0;
+  sample.point.tone = 43.0;
+  sample.point.stability = 44.0;
+  sample.blend = 0.25;
+  sample.genres = "rock, jazz";
+  error.clear();
+  const int id = cache_->addHumorPreset(sample, &error);
+  qInfo("amplia: gravar preset id=%d erro='%s'", id, error.c_str());
+  if (id <= 0) return;
+  const int repeated = cache_->addHumorPreset(sample, &error);
+  qInfo("amplia: nome repetido devolveu id=%d erro='%s'", repeated, error.c_str());
+  const bool renamed = cache_->renameHumorPreset(id, "Teste automático 2", &error);
+  qInfo("amplia: renomear=%d", renamed ? 1 : 0);
+  for (const wamp::HumorPreset& saved : cache_->humorPresets(&error)) {
+    qInfo("  salvo id=%d nome='%s' ag=%.0f tom=%.0f est=%.0f mistura=%.2f fábrica=%d generos='%s'",
+          saved.id, saved.name.c_str(), saved.point.agitation, saved.point.tone,
+          saved.point.stability, saved.blend, saved.factory ? 1 : 0, saved.genres.c_str());
+  }
+  qInfo("amplia: remover=%d", cache_->removeHumorPreset(id, &error) ? 1 : 0);
+  qInfo("amplia: restam %d preset(s) salvos",
+        static_cast<int>(cache_->humorPresets(&error).size()));
 }
 
 void MainWindow::startRadioStation(const QString& seedPath) {
