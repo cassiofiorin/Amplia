@@ -39,7 +39,7 @@ QString helpText() {
 }
 
 QString translationCredits() {
-  const QString text = readResource(QStringLiteral(":/help/tradutores.txt"));
+  const QString text = readResource(QStringLiteral(":/help/idiomas.txt"));
   // pt_BR vira "PT-BR", en vira "EN": o rótulo é o que o usuário reconhece, não o código.
   const auto label = [](const QString& code) {
     const QString upper = code.toUpper();

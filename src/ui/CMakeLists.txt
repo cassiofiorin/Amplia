@@ -70,5 +70,5 @@ qt_add_resources(wamp "help"
   FILES
     "${CMAKE_SOURCE_DIR}/help/ajuda-pt.md"
     "${CMAKE_SOURCE_DIR}/help/ajuda-en.md"
-    "${CMAKE_SOURCE_DIR}/help/tradutores.txt"
+    "${CMAKE_SOURCE_DIR}/help/idiomas.txt"
 )

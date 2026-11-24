@@ -10,9 +10,9 @@ namespace wamp::ui {
 /// nos recursos: quem traduz mexe num arquivo de texto, nunca no código.
 QString helpText();
 
-/// Créditos de tradução de todos os idiomas, em texto corrido ("PT-BR (Nativo) Fulano;
-/// EN (Nativo) Beltrano"), lidos de `help/tradutores.txt`. Idioma sem nome mostra "aberta",
-/// que é o convite ao pull request.
+/// Idiomas da ferramenta em texto corrido ("PT-BR (Nativo) Fulano; EN (Nativo) Beltrano"),
+/// lidos de `help/idiomas.txt`. Português e inglês são nativos, não traduções; idioma sem
+/// nome mostra "aberta", que é o convite ao pull request.
 QString translationCredits();
 
 /// Janela da ajuda: um `QTextBrowser` mostrando o Markdown do idioma ativo.

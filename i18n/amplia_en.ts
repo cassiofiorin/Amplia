@@ -1363,8 +1363,8 @@ Album gain: %2</translation>
         <translation>About Amplia</translation>
     </message>
     <message>
-        <source>Um player novo, com a alma do Winamp.</source>
-        <translation>A new player with the soul of Winamp.</translation>
+        <source>Um novo player com inspiração na alma do Winamp.</source>
+        <translation>A new player inspired by the soul of Winamp.</translation>
     </message>
     <message>
         <source>Versão:</source>
@@ -1379,8 +1379,8 @@ Album gain: %2</translation>
         <translation>Build:</translation>
     </message>
     <message>
-        <source>Tradução: %1</source>
-        <translation>Translation: %1</translation>
+        <source>Idiomas: %1</source>
+        <translation>Languages: %1</translation>
     </message>
     <message>
         <source>aberta — mande a sua num PR</source>

@@ -418,8 +418,8 @@ código.
 
 `Ajuda ▸ Enviar opinião` abre as [issues](https://github.com/cassiofiorin/Amplia/issues).
 `Ajuda ▸ Sobre o Amplia…` mostra a versão, o commit, a data do build, o link dos lançamentos
-e os **créditos de tradução**, lidos de [`help/tradutores.txt`](help/tradutores.txt): quem
-manda um PR de tradução aparece ali sem tocar em código.
+e os **idiomas da ferramenta**, lidos de [`help/idiomas.txt`](help/idiomas.txt): português
+e inglês são nativos, e um idioma novo aparece ali sem tocar em código.
 
 ### Jump to File (`,`)
 
@@ -509,7 +509,7 @@ cmake --build build
 ```
 wamp/
 ├── docs/              arquitetura, decisões e roadmap
-├── help/              ajuda em Markdown (PT/EN) e créditos de tradução
+├── help/              ajuda em Markdown (PT/EN) e a lista de idiomas
 ├── packaging/         manifest Flatpak, .desktop e ícone
 ├── scripts/           build-flatpak.sh
 └── src/
@@ -942,8 +942,8 @@ edit a text file, never the code.
 
 `Help ▸ Send feedback` opens the [issues](https://github.com/cassiofiorin/Amplia/issues).
 `Help ▸ About Amplia…` shows the version, commit, build date, the releases link and the
-**translation credits** read from [`help/tradutores.txt`](help/tradutores.txt): whoever sends
-a translation PR shows up there without touching code.
+**languages** read from [`help/idiomas.txt`](help/idiomas.txt): Portuguese and English are
+native, and a new language shows up there without touching code.
 
 ### Jump to File (`,`)
 
@@ -1032,7 +1032,7 @@ cmake --build build
 ```
 wamp/
 ├── docs/              architecture, decisions and roadmap
-├── help/              help in Markdown (PT/EN) and translation credits
+├── help/              help in Markdown (PT/EN) and the language list
 ├── packaging/         Flatpak manifest, .desktop and icon
 ├── scripts/           build-flatpak.sh
 └── src/

@@ -2636,11 +2636,11 @@ entrou no lugar foi o link das issues, que é o canal real de retorno do projeto
 - **O texto da ajuda não vive no código.** Fica em `help/ajuda-pt.md` e `help/ajuda-en.md`,
   Markdown puro compilado nos recursos Qt; o mesmo arquivo é a documentação do repositório
   e o README linka o par. Quem traduz mexe num arquivo de texto e numa linha de
-  `help/tradutores.txt` — nenhum `tr()` novo, nenhum rebuild de tradução.
+  `help/idiomas.txt` — nenhum `tr()` novo, nenhum rebuild de tradução.
 - **O idioma da ajuda segue o idioma da interface** (`activeLanguageCode()`), não o locale
   da máquina: quem escolheu inglês no app recebe a ajuda em inglês mesmo com o desktop em
   português. Idioma sem arquivo cai no inglês, que é a aposta para quem não lê português.
-- **Crédito de tradução por PR.** `help/tradutores.txt` tem uma linha por idioma, com nome e
+- **Crédito por idioma e por PR.** `help/idiomas.txt` tem uma linha por idioma, com nome e
   PR; o "Sobre" mostra a linha do idioma ativo e, quando ainda está vaga ("—"), convida a
   mandar a sua. O autor do PR vira contribuidor sem ninguém editar código.
 - Janela da ajuda: `QTextBrowser` com `setMarkdown`, links externos abertos no navegador do
@@ -2653,7 +2653,7 @@ entrou no lugar foi o link das issues, que é o canal real de retorno do projeto
 O slogan "um Winamp para o Linux" descreve o que o projeto **não** é. O Amplia é um player
 novo: a janela, o desenho e o código são nossos, e a referência ao Winamp é de **alma** —
 uma janela só, tudo à mão, a música tocando enquanto se mexe na lista. O "Sobre" passa a
-dizer "Um player novo, com a alma do Winamp", e a ajuda abre do mesmo jeito. A fidelidade
+dizer "Um novo player com inspiração na alma do Winamp", e a ajuda abre do mesmo jeito. A fidelidade
 que existe é de **formato e de hábito** (`.wsz`, `.eqf`, `.m3u`, teclas), não de código.
 
 A versão também estava mentindo: `0.1.0-rc1` descrevia um projeto que já entregou player,
@@ -2663,6 +2663,11 @@ ROADMAP chama pelo nome (plugins `.so`, skins, o que a F3 ainda deve). O sufixo 
 `AMPLIA_RELEASE` no `version.h.in` e aparece na barra de status e no "Sobre"
 (`0.9.0-rc2 (hash)`); no pacote final, basta esvaziar a variável.
 
-Créditos de tradução: `help/tradutores.txt` passa a ter `código | nome | nativo`, e o
-"Sobre" mostra **texto corrido** ("PT-BR (Nativo) Cassio Fiorin; EN (Nativo) Cassio
-Fiorin") em vez de lista — o espaço para uma tradução nova é o próprio texto, sem moldura.
+Idiomas: o "Sobre" não fala em "tradução". Português e inglês são **idiomas nativos** —
+foram escritos como texto de origem, não traduzidos um do outro —, então o rótulo é
+**Idiomas** e os dois aparecem como `(Nativo)`. A lista é `help/idiomas.txt` no formato
+`código | nome | nativo`, mostrada em **texto corrido** ("PT-BR (Nativo) Cassio Fiorin; EN
+(Nativo) Cassio Fiorin"): o espaço para um idioma novo é o próprio texto, sem moldura.
+
+O slogan ganhou a palavra que faltava: "Um novo player **com inspiração na** alma do
+Winamp". Não há código do Winamp no projeto, nem cópia, nem porta: há inspiração de alma.

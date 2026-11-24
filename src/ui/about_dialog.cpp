@@ -30,7 +30,7 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
   auto* title = new QLabel(tr("Amplia"), this);
   title->setObjectName(QStringLiteral("dynamicsTitle"));
   // O Amplia não é um Winamp para Linux: é um player novo que bebe na fonte do Winamp.
-  auto* subtitle = new QLabel(tr("Um player novo, com a alma do Winamp."), this);
+  auto* subtitle = new QLabel(tr("Um novo player com inspiração na alma do Winamp."), this);
   subtitle->setObjectName(QStringLiteral("hint"));
 
   auto* details = new QFormLayout();
@@ -41,9 +41,9 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
   details->addRow(tr("Commit:"), new QLabel(QString::fromLatin1(AMPLIA_GIT), this));
   details->addRow(tr("Build:"), new QLabel(buildDate(), this));
 
-  // Créditos: o nome vem do arquivo de tradutores, então quem manda um PR de tradução
-  // aparece aqui sem tocar em código. Sem nome, a linha convida a mandar.
-  auto* translators = new QLabel(tr("Tradução: %1").arg(translationCredits()), this);
+  // Idiomas: os nomes vêm do arquivo de idiomas, então quem cuida de um aparece aqui sem
+  // tocar em código. PT-BR e EN são nativos; idioma sem nome convida a mandar o PR.
+  auto* translators = new QLabel(tr("Idiomas: %1").arg(translationCredits()), this);
   translators->setObjectName(QStringLiteral("hint"));
   translators->setWordWrap(true);
 

@@ -1,6 +1,6 @@
 # Amplia Help
 
-Amplia is a new player for the Linux desktop with the soul of Winamp: one window, no
+Amplia is a new player for the Linux desktop, inspired by the soul of Winamp: one window, no
 browser, and the music keeps playing while you fiddle with the list.
 
 ## The main window
@@ -142,8 +142,10 @@ Everything lives inside the Flatpak sandbox, under `~/.var/app/io.github.cassiof
 <https://github.com/cassiofiorin/Amplia/issues>. A good report says what you did, what you
 expected and what happened — and, for sound issues, the file format helps.
 
-## Translating Amplia
+## Languages
 
-The help for each language is a text file in this folder (`ajuda-pt.md`, `ajuda-en.md`), and
-the translator list sits in `tradutores.txt` — it shows up in `Sobre o Amplia…`. Translators
-only touch their own file and one line of text: no code.
+Portuguese and English are **native languages** of the tool: both were written as source
+text, not translated from each other. The help for each language is a text file in this
+folder (`ajuda-pt.md`, `ajuda-en.md`), and the list sits in `idiomas.txt` — it shows up in
+`Sobre o Amplia…`. A new language joins as a translation and only touches its own file and
+one line of text: no code involved.

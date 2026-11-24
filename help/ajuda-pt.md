@@ -1,7 +1,7 @@
 # Ajuda do Amplia
 
-O Amplia é um player novo para o desktop Linux, com a alma do Winamp: uma janela só, sem
-navegador, e a música tocando enquanto você mexe na lista.
+O Amplia é um player novo para o desktop Linux, com inspiração na alma do Winamp: uma janela
+só, sem navegador, e a música tocando enquanto você mexe na lista.
 
 ## A janela principal
 
@@ -139,8 +139,10 @@ Tudo vive dentro do Flatpak, em `~/.var/app/io.github.cassiofiorin.Amplia/`:
 <https://github.com/cassiofiorin/Amplia/issues>. Um relato bom diz o que você fez, o que
 esperava e o que aconteceu — e, se for som, o formato do arquivo ajuda.
 
-## Traduzir o Amplia
+## Idiomas
 
-A ajuda de cada idioma é um arquivo de texto nesta pasta (`ajuda-pt.md`, `ajuda-en.md`), e a
-lista de tradutores fica em `tradutores.txt` — ela aparece em `Sobre o Amplia…`. Quem traduz
-mexe só no seu arquivo e numa linha de texto: nada de código.
+Português e inglês são **idiomas nativos** da ferramenta: os dois foram escritos como texto
+de origem, não traduzidos um do outro. A ajuda de cada idioma é um arquivo de texto nesta
+pasta (`ajuda-pt.md`, `ajuda-en.md`), e a lista fica em `idiomas.txt` — ela aparece em
+`Sobre o Amplia…`. Um idioma novo entra como tradução e mexe só no seu arquivo e numa linha
+de texto: nada de código.

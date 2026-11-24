@@ -1,8 +1,0 @@
-# Tradutores — uma linha por idioma: código | nome | nativo
-#
-# "nativo" é quem traduziu lendo o idioma-fonte sem intermediário; aparece como
-# "(Nativo)" no Sobre. Quem traduz a interface e a ajuda: troque o "—" pelo seu nome e
-# pelo número do PR ao abrir o pull request — nada de código é tocado.
-# A ajuda de cada idioma fica em help/ajuda-<código>.md.
-pt_BR | Cassio Fiorin | nativo
-en | Cassio Fiorin | nativo

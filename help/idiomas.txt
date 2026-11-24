@@ -1,0 +1,8 @@
+# Idiomas — uma linha por idioma: código | nome | nativo
+#
+# Português (PT-BR) e inglês (EN) são idiomas nativos da ferramenta, não traduções de um
+# original: os dois foram escritos como texto de origem. Os demais entram como tradução.
+# Quem cuida de um idioma troca o "—" pelo seu nome e pelo PR; nada de código é tocado.
+# A ajuda de cada idioma fica em help/ajuda-<código>.md.
+pt_BR | Cassio Fiorin | nativo
+en | Cassio Fiorin | nativo
