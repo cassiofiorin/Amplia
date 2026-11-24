@@ -127,14 +127,13 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     auto* item = new QTreeWidgetItem(local, QStringList{QString::fromUtf8(def.name)});
     item->setData(0, kViewRole, static_cast<int>(def.view));
   }
-  // Segunda seção da árvore: mostra o estado da análise e, dentro dela, o nó da Rádio
-  // local — o primeiro mix que já funciona (os climas ainda não).
+  // Segunda seção da árvore: o grupo Humor, com um nó por preset.
   dynamicsItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Humor")});
   dynamicsItem_->setData(0, kViewRole, -1);
-  // O nó da rádio mora dentro das composições dinâmicas: é o primeiro "tipo de mix" que
-  // funciona sem base analisada — os climas entram depois. -2 no papel, para não se
-  // confundir com o -1 do painel de análise.
-  stationItem_ = new QTreeWidgetItem(dynamicsItem_, QStringList{tr("Rádio local")});
+  // A Rádio local é irmã do grupo, não filha: ela não é um humor — parte da faixa que toca e
+  // da mistura, sem ponto no plano. Fica logo abaixo, no mesmo nível, porque é a outra
+  // alavanca da mesma altura. -2 no papel, para não se confundir com o -1 do grupo.
+  stationItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Rádio local")});
   stationItem_->setData(0, kViewRole, -2);
   dynamicsItem_->setExpanded(true);
   tree_->setCurrentItem(local->child(0));
@@ -143,7 +142,9 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // Lado direito: busca, tabela e rodapé.
   auto* right = new QWidget(splitter);
   auto* rightLayout = new QVBoxLayout(right);
-  rightLayout->setContentsMargins(0, 0, 0, 0);
+  // 20px da linha do divisor: o mesmo respiro para o painel, a busca, a tabela e o rodapé —
+  // antes o rodapé e o painel de análise tinham 100px e o resto zero, e o desenho ficava torto.
+  rightLayout->setContentsMargins(20, 0, 0, 0);
   rightLayout->setSpacing(6);
 
   searchBar_ = new QWidget(right);
@@ -277,7 +278,10 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   connect(humorRemoveButton_, &QPushButton::clicked, this,
           [this] { emit humorDeleteRequested(humorPresetId()); });
   auto* humorFoot = new QHBoxLayout();
-  humorFoot->addWidget(humorPending_, 1);
+  humorFoot->addWidget(humorPending_);
+  // O esticador segura os botões no tamanho natural: sem ele, o aviso oculto fazia os dois
+  // botões se dividirem a linha inteira.
+  humorFoot->addStretch(1);
   humorFoot->addWidget(humorSaveButton_);
   humorFoot->addWidget(humorRemoveButton_);
 
@@ -294,7 +298,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 
   dynamicsPanel_ = new QWidget(right);
   auto* dynamicsLayout = new QVBoxLayout(dynamicsPanel_);
-  dynamicsLayout->setContentsMargins(100, 24, 0, 0);
+  dynamicsLayout->setContentsMargins(0, 24, 0, 0);
   dynamicsTitle_ = new QLabel(tr("Analisando suas músicas"), dynamicsPanel_);
   dynamicsTitle_->setObjectName(QStringLiteral("dynamicsTitle"));
   dynamicsCount_ = new QLabel(dynamicsPanel_);
@@ -316,9 +320,6 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   auto* footer = new QHBoxLayout();
   summary_ = new QLabel(right);
   summary_->setObjectName(QStringLiteral("hint"));
-  // Respiro à esquerda: o resumo ficava colado na linha do divisor e "embolava" com a
-  // árvore ao lado.
-  footer->addSpacing(100);
   footer->addWidget(summary_, 1);
   playButton_ = new QPushButton(tr("Tocar"), right);
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
@@ -593,7 +594,7 @@ void LibraryWindow::setHumorPresets(const std::vector<wamp::HumorPreset>& preset
     for (QTreeWidgetItem* item : humorItems_) delete item;
     humorItems_.clear();
     humorPresets_ = presets;
-    // Presets antes de "Rádio local": inserir no começo empurra o nó da rádio para o fim.
+    // Todos os presets entram como filhos do grupo, na ordem do banco.
     for (std::size_t i = 0; i < humorPresets_.size(); ++i) {
       auto* item = new QTreeWidgetItem(QStringList{QString::fromStdString(humorPresets_[i].name)});
       item->setData(0, kViewRole, -3);
