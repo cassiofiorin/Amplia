@@ -23,7 +23,7 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ## Estado
 
-**Versão 0.9.3-rc3 (`v0.9.3-rc3`)**, em teste como pacote Flatpak; as builds publicadas
+**Versão 0.9.4-rc4 (`v0.9.4-rc4`)**, em teste como pacote Flatpak; as builds publicadas
 ficam em [Releases](https://github.com/cassiofiorin/Amplia/releases). É a primeira família
 de builds instaláveis para quem quer testar sem compilar: player, playlist, equalizador, display, visualização,
 temas, atalhos, inglês e a Biblioteca com árvore de visões, busca, estrelas e playcount.
@@ -50,7 +50,8 @@ O que ainda falta para a biblioteca completa está listado no [ROADMAP](docs/ROA
 | F2D.1 | Acoplamento de janelas (só X11) | avaliado, não planejado |
 | RC1 | Primeiro pacote público (`v0.1.0-rc1`) | **publicada** |
 | 0.9.1 | Fila, Humor, Rádio local, Ajuda bilíngue; menu e arrasto na Biblioteca (`v0.9.1`) | publicado |
-| 0.9.3-rc3 | Reordenar arrastando (playlist e fila), fila vazia que abre, playlist → fila (`v0.9.3-rc3`) | **em teste** |
+| 0.9.3-rc3 | Reordenar arrastando (playlist e fila), fila vazia que abre, playlist → fila (`v0.9.3-rc3`) | superada pela rc4 |
+| 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | **em teste** |
 
 O que já funciona está descrito em [**O que funciona hoje**](#o-que-funciona-hoje), mais
 abaixo. O detalhe de cada decisão está em [`docs/DECISIONS.md`](docs/DECISIONS.md) e o
@@ -436,7 +437,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`0.9.3-rc3 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
+(`0.9.4-rc4 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -634,7 +635,7 @@ and this README are mine. The record of how the project was built is in
 
 ## Status
 
-**Version 0.9.3-rc3 (`v0.9.3-rc3`)**, being tested as a Flatpak bundle; published builds
+**Version 0.9.4-rc4 (`v0.9.4-rc4`)**, being tested as a Flatpak bundle; published builds
 are on [Releases](https://github.com/cassiofiorin/Amplia/releases). It is the first family
 of installable builds for people who want to test without compiling: player, playlist, equalizer, display,
 visualization, themes, shortcuts, English and the Library with its view tree, search,
@@ -661,7 +662,8 @@ stars and play count. What is still missing for the full library is listed in th
 | F2D.1 | Window snapping (X11 only) | evaluated, not planned |
 | RC1 | First public bundle (`v0.1.0-rc1`) | **released** |
 | 0.9.1 | Queue, Humor, Local Radio, bilingual help; library menu and drag (`v0.9.1`) | released |
-| 0.9.3-rc3 | Drag to reorder (playlist and queue), empty queue opens, playlist → queue (`v0.9.3-rc3`) | **in testing** |
+| 0.9.3-rc3 | Drag to reorder (playlist and queue), empty queue opens, playlist → queue (`v0.9.3-rc3`) | superseded by rc4 |
+| 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | **in testing** |
 
 What already works is described in [**What works today**](#what-works-today). Each decision
 is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
