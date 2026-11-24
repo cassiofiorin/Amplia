@@ -1351,6 +1351,10 @@ Album gain: %2</translation>
         <source>Fechar</source>
         <translation>Close</translation>
     </message>
+    <message>
+        <source>(Nativo)</source>
+        <translation>(Native)</translation>
+    </message>
 </context>
 <context>
     <name>wamp::ui::AboutDialog</name>
@@ -1359,8 +1363,8 @@ Album gain: %2</translation>
         <translation>About Amplia</translation>
     </message>
     <message>
-        <source>Um Winamp para o Linux, feito de novo.</source>
-        <translation>A Winamp for Linux, rebuilt.</translation>
+        <source>Um player novo, com a alma do Winamp.</source>
+        <translation>A new player with the soul of Winamp.</translation>
     </message>
     <message>
         <source>Versão:</source>
@@ -1379,8 +1383,8 @@ Album gain: %2</translation>
         <translation>Translation: %1</translation>
     </message>
     <message>
-        <source>Tradução: aberta — mande a sua num pull request.</source>
-        <translation>Translation: open — send yours in a pull request.</translation>
+        <source>aberta — mande a sua num PR</source>
+        <translation>open — send yours in a PR</translation>
     </message>
     <message>
         <source>Lançamentos: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</source>

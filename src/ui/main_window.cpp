@@ -698,8 +698,11 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   versionLabel_->setObjectName(QStringLiteral("versionLabel"));
   versionLabel_->setToolTip(tr("Versão desta compilação do Amplia"));
   // Só os dois dados: o nome do app já está na janela, na bandeja e no menu.
-  versionLabel_->setText(QStringLiteral("%1 (%2)").arg(QStringLiteral(AMPLIA_VERSION),
-                                                       QStringLiteral(AMPLIA_GIT)));
+  // O canal entra colado (0.9.0-rc2) e o hash entre parênteses, para a mensagem ficar curta.
+  const QString version = QStringLiteral(AMPLIA_RELEASE).isEmpty()
+                              ? QStringLiteral(AMPLIA_VERSION)
+                              : QStringLiteral(AMPLIA_VERSION "-" AMPLIA_RELEASE);
+  versionLabel_->setText(QStringLiteral("%1 (%2)").arg(version, QStringLiteral(AMPLIA_GIT)));
   versionLabel_->setContentsMargins(8, 0, 6, 0);
   statusBar()->addPermanentWidget(versionLabel_);
 

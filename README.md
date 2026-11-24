@@ -23,7 +23,7 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ## Estado
 
-**Versão 0.1.0 — Release Candidate 1 (`v0.1.0-rc1`)**, publicada como pacote Flatpak em
+**Versão 0.9.0 — Release Candidate 2 (`v0.9.0-rc2`)**, publicada como pacote Flatpak em
 [Releases](https://github.com/cassiofiorin/Amplia/releases). É a primeira build instalável
 para quem quer testar sem compilar: player, playlist, equalizador, display, visualização,
 temas, atalhos, inglês e a Biblioteca com árvore de visões, busca, estrelas e playcount.
@@ -49,6 +49,7 @@ O que ainda falta para a biblioteca completa está listado no [ROADMAP](docs/ROA
 | F7 | Skins clássicas `.wsz` | não iniciada |
 | F2D.1 | Acoplamento de janelas (só X11) | avaliado, não planejado |
 | RC1 | Primeiro pacote público (`v0.1.0-rc1`) | **publicada** |
+| RC2 | Fila, Humor, Rádio local, Ajuda bilíngue (`v0.9.0-rc2`) | **em teste** |
 
 O que já funciona está descrito em [**O que funciona hoje**](#o-que-funciona-hoje), mais
 abaixo. O detalhe de cada decisão está em [`docs/DECISIONS.md`](docs/DECISIONS.md) e o
@@ -434,7 +435,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`0.1.0 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
+(`0.9.0-rc2 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -632,7 +633,7 @@ and this README are mine. The record of how the project was built is in
 
 ## Status
 
-**Version 0.1.0 — Release Candidate 1 (`v0.1.0-rc1`)**, published as a Flatpak bundle on
+**Version 0.9.0 — Release Candidate 2 (`v0.9.0-rc2`)**, published as a Flatpak bundle on
 [Releases](https://github.com/cassiofiorin/Amplia/releases). It is the first installable
 build for people who want to test without compiling: player, playlist, equalizer, display,
 visualization, themes, shortcuts, English and the Library with its view tree, search,
@@ -658,6 +659,7 @@ stars and play count. What is still missing for the full library is listed in th
 | F7 | Classic `.wsz` skins | not started |
 | F2D.1 | Window snapping (X11 only) | evaluated, not planned |
 | RC1 | First public bundle (`v0.1.0-rc1`) | **released** |
+| RC2 | Queue, Humor, Local Radio, bilingual help (`v0.9.0-rc2`) | **in testing** |
 
 What already works is described in [**What works today**](#what-works-today). Each decision
 is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
@@ -957,7 +959,7 @@ can build the whole queue in there.
 
 The bottom bar shows, on the left, the tag-reading progress when a large list is added
 (`Reading metadata… 12/400 — do not close`) and, on the right, the build version
-(`0.1.0 (96c818a)`) — project number and short commit, handy for bug reports.
+(`0.9.0-rc2 (96c818a)`) — project number and short commit, handy for bug reports.
 
 ### Player display
 

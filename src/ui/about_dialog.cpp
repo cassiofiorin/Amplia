@@ -29,21 +29,21 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
 
   auto* title = new QLabel(tr("Amplia"), this);
   title->setObjectName(QStringLiteral("dynamicsTitle"));
-  auto* subtitle = new QLabel(tr("Um Winamp para o Linux, feito de novo."), this);
+  // O Amplia não é um Winamp para Linux: é um player novo que bebe na fonte do Winamp.
+  auto* subtitle = new QLabel(tr("Um player novo, com a alma do Winamp."), this);
   subtitle->setObjectName(QStringLiteral("hint"));
 
   auto* details = new QFormLayout();
-  details->addRow(tr("Versão:"), new QLabel(QString::fromLatin1(AMPLIA_VERSION), this));
+  const QString version = QStringLiteral(AMPLIA_RELEASE).isEmpty()
+                              ? QString::fromLatin1(AMPLIA_VERSION)
+                              : QStringLiteral(AMPLIA_VERSION "-" AMPLIA_RELEASE);
+  details->addRow(tr("Versão:"), new QLabel(version, this));
   details->addRow(tr("Commit:"), new QLabel(QString::fromLatin1(AMPLIA_GIT), this));
   details->addRow(tr("Build:"), new QLabel(buildDate(), this));
 
   // Créditos: o nome vem do arquivo de tradutores, então quem manda um PR de tradução
   // aparece aqui sem tocar em código. Sem nome, a linha convida a mandar.
-  const QString credit = translatorCredit();
-  auto* translators = new QLabel(
-      credit.isEmpty() ? tr("Tradução: aberta — mande a sua num pull request.")
-                       : tr("Tradução: %1").arg(credit),
-      this);
+  auto* translators = new QLabel(tr("Tradução: %1").arg(translationCredits()), this);
   translators->setObjectName(QStringLiteral("hint"));
   translators->setWordWrap(true);
 

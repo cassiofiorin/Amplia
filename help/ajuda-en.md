@@ -1,7 +1,7 @@
 # Amplia Help
 
-Amplia is a Winamp reimplementation for the Linux desktop: one window, no browser, and the
-same old idea — the music keeps playing while you fiddle with the list.
+Amplia is a new player for the Linux desktop with the soul of Winamp: one window, no
+browser, and the music keeps playing while you fiddle with the list.
 
 ## The main window
 

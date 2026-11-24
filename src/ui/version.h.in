@@ -1,4 +1,6 @@
 // Gerado pelo CMake a partir de src/ui/version.h.in — não editar.
 #pragma once
 #define AMPLIA_VERSION "@PROJECT_VERSION@"
+// Canal da versão: "rc2" aparece como sufixo (0.9.0-rc2). Vazio no pacote final.
+#define AMPLIA_RELEASE "@AMPLIA_RELEASE@"
 #define AMPLIA_GIT "@AMPLIA_GIT_HASH@"

@@ -10,9 +10,10 @@ namespace wamp::ui {
 /// nos recursos: quem traduz mexe num arquivo de texto, nunca no código.
 QString helpText();
 
-/// Quem traduziu o idioma ativo, lido de `help/tradutores.txt`. Vazio quando ainda não há
-/// nome — o "Sobre" então convida a mandar o pull request.
-QString translatorCredit();
+/// Créditos de tradução de todos os idiomas, em texto corrido ("PT-BR (Nativo) Fulano;
+/// EN (Nativo) Beltrano"), lidos de `help/tradutores.txt`. Idioma sem nome mostra "aberta",
+/// que é o convite ao pull request.
+QString translationCredits();
 
 /// Janela da ajuda: um `QTextBrowser` mostrando o Markdown do idioma ativo.
 class HelpDialog final : public QDialog {

@@ -37,6 +37,8 @@ add_executable(wamp
 
 # Versão exibida na barra de status: número do projeto + commit. Header gerado evita
 # a dança de aspas das definições de compilação (-DAMPLIA_VERSION=0.1.0 perdia as aspas).
+# Canal da versão (o sufixo "rc2" de 0.9.0-rc2). Vazio quando o pacote for final.
+set(AMPLIA_RELEASE "rc2")
 configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
 set_target_properties(wamp PROPERTIES OUTPUT_NAME amplia)

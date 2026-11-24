@@ -1,9 +1,11 @@
 #include "help_dialog.h"
 
+#include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QPushButton>
 #include <QFile>
 #include <QHBoxLayout>
+#include <QStringList>
 #include <QTextBrowser>
 #include <QVBoxLayout>
 
@@ -36,20 +38,35 @@ QString helpText() {
   return QStringLiteral("# Ajuda\n\nO texto da ajuda não foi encontrado no pacote (%1).").arg(path);
 }
 
-QString translatorCredit() {
+QString translationCredits() {
   const QString text = readResource(QStringLiteral(":/help/tradutores.txt"));
-  const QString suffix = helpSuffix();
+  // pt_BR vira "PT-BR", en vira "EN": o rótulo é o que o usuário reconhece, não o código.
+  const auto label = [](const QString& code) {
+    const QString upper = code.toUpper();
+    return upper == QLatin1String("PT_BR") || upper == QLatin1String("PT") ? QStringLiteral("PT-BR")
+                                                                          : upper;
+  };
+  QStringList parts;
   for (const QString& line : text.split('\n')) {
     const QString trimmed = line.trimmed();
     if (trimmed.isEmpty() || trimmed.startsWith('#')) continue;
-    const QStringList parts = trimmed.split('|');
-    if (parts.size() < 2) continue;
-    if (parts[0].trimmed() != suffix) continue;
-    // "—" é o marcador de "ainda sem nome"; sai vazio para o Sobre convidar o PR.
-    const QString name = parts[1].trimmed();
-    return name == QStringLiteral("—") ? QString() : name;
+    const QStringList fields = trimmed.split('|');
+    if (fields.size() < 2) continue;
+    QString entry = label(fields[0].trimmed());
+    const bool native = fields.size() > 2 && fields[2].trimmed().compare(QStringLiteral("nativo"),
+                                                                        Qt::CaseInsensitive) == 0;
+    if (native) {
+      entry += QLatin1Char(' ') +
+               QCoreApplication::translate("wamp::ui::HelpDialog", "(Nativo)");
+    }
+    const QString name = fields[1].trimmed();
+    entry += QLatin1Char(' ') +
+             (name == QStringLiteral("—")
+                  ? QCoreApplication::translate("wamp::ui::HelpDialog", "aberta — mande a sua num PR")
+                  : name);
+    parts << entry;
   }
-  return QString();
+  return parts.join(QStringLiteral("; "));
 }
 
 HelpDialog::HelpDialog(QWidget* parent) : QDialog(parent) {

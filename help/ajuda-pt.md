@@ -1,7 +1,7 @@
 # Ajuda do Amplia
 
-O Amplia é uma reimplementação do Winamp para o desktop Linux: uma janela só, sem
-navegador, com a mesma ideia de sempre — a música toca enquanto você mexe na lista.
+O Amplia é um player novo para o desktop Linux, com a alma do Winamp: uma janela só, sem
+navegador, e a música tocando enquanto você mexe na lista.
 
 ## A janela principal
 
