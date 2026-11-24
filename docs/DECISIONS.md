@@ -2736,3 +2736,28 @@ Qt desenhava "proibido").
   alterna `queuePanelUserHidden_`; a fila vazia mostra um convite ("A fila está vazia —
   solte faixas aqui.") em vez de sumir. Enfileirar abre a caixa, porque quem enfileira quer
   ver a fila.
+
+---
+
+## D-129 — A varredura da Biblioteca é incremental, e os filtros combinam
+
+A F3 fechou com dois itens que faltavam desde o começo da Biblioteca. O terceiro — capa de
+álbum — saiu da F3 e virou **F3.1**, depois do README: é cosmético e não atrapalha achar
+música. O critério de velocidade ("10 mil faixas em menos de um minuto") também não é
+bloqueio agora; a coleção de teste tem 7.650 faixas e a medição fica para quando houver
+uma máquina e um disco de referência.
+
+- **A varredura compara ficha, não caminho.** Cada arquivo entra na comparação com
+  caminho, tamanho e mtime (`wamp::TrackStamp`); `TagCache::staleFiles` devolve só o que é
+  novo ou mudou. A fila de indexação recebe apenas esses — arquivo intocado não é reaberto,
+  e o que mudou é relido do zero.
+- **Um caminho só de varredura.** `rescanLibrary()` monta as fichas de todas as raízes e
+  pergunta o que está estale; "Adicionar pasta…" chama a mesma rotina em vez de ter a sua
+  própria lista de faltantes. Menos código para duas respostas divergirem.
+- **Filtro é cláusula, não string colada.** `queryLibrary` recebe texto e os três filtros
+  exatos (artista, álbum, gênero) e monta a consulta com um parâmetro por cláusula
+  (`artist = ?N COLLATE NOCASE`), então os filtros combinam entre si e com a busca. As
+  caixas vêm de `distinctValues("artist" | "album" | "genre")` — sempre com o banco, nunca
+  de uma lista guardada na memória, que envelheceria depois de remover uma pasta.
+- **A escolha sobrevive ao recarregamento.** `setFilterOptions` reenche as caixas
+  preservando o valor escolhido (`findData`); quem troca de visão não perde o filtro.

@@ -194,6 +194,38 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   searchRow->addWidget(search_, 1);
   searchRow->addWidget(clear);
 
+  // Filtros combinados: cada caixa restringe a visão atual e conversa com as outras.
+  filterBar_ = new QWidget(right);
+  auto* filterRow = filterBar_;
+  auto* filterLayout = new QHBoxLayout(filterRow);
+  filterLayout->setContentsMargins(20, 0, 0, 0);
+  filterLayout->setSpacing(6);
+  auto makeBox = [filterRow](const QString& label) {
+    auto* box = new QComboBox(filterRow);
+    box->setMinimumContentsLength(10);
+    box->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    box->setToolTip(label);
+    return box;
+  };
+  artistBox_ = makeBox(tr("Filtrar por artista"));
+  albumBox_ = makeBox(tr("Filtrar por álbum"));
+  genreBox_ = makeBox(tr("Filtrar por gênero"));
+  filterLayout->addWidget(new QLabel(tr("Artista:"), filterRow));
+  filterLayout->addWidget(artistBox_, 1);
+  filterLayout->addWidget(new QLabel(tr("Álbum:"), filterRow));
+  filterLayout->addWidget(albumBox_, 1);
+  filterLayout->addWidget(new QLabel(tr("Gênero:"), filterRow));
+  filterLayout->addWidget(genreBox_, 1);
+  auto* clearFilters = new QPushButton(tr("Limpar filtros"), filterRow);
+  filterLayout->addWidget(clearFilters);
+  for (QComboBox* box : {artistBox_, albumBox_, genreBox_}) {
+    connect(box, &QComboBox::currentIndexChanged, this, [this](int) { emit filterChanged(); });
+  }
+  connect(clearFilters, &QPushButton::clicked, this, [this] {
+    for (QComboBox* box : {artistBox_, albumBox_, genreBox_}) box->setCurrentIndex(0);
+    emit filterChanged();
+  });
+
   table_ = new LibraryTable(right);
   table_->setColumnCount(8);
   table_->setHorizontalHeaderLabels({tr("Artista"), tr("Álbum"), tr("Faixa"), tr("Título"),
@@ -359,6 +391,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   rightLayout->addWidget(stationPanel_);
   rightLayout->addWidget(humorPanel_);
   rightLayout->addWidget(searchBar_);
+  rightLayout->addWidget(filterBar_);
   rightLayout->addWidget(table_, 1);
 
   auto* footer = new QHBoxLayout();
@@ -416,6 +449,9 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
             if (searchBar_ != nullptr) {
               // A busca filtra a biblioteca; nas prévias ela não teria efeito.
               searchBar_->setVisible(!stationActive_ && !humorActive_);
+              if (filterBar_ != nullptr) {
+                filterBar_->setVisible(!stationActive_ && !humorActive_);
+              }
             }
             if (stationPanel_ != nullptr) stationPanel_->setVisible(stationActive_);
             if (humorPanel_ != nullptr) humorPanel_->setVisible(humorActive_);
@@ -513,6 +549,41 @@ wamp::LibraryView LibraryWindow::view() const {
 }
 
 QString LibraryWindow::filter() const { return search_->text().trimmed(); }
+
+namespace {
+QString currentFilterText(const QComboBox* box) {
+  if (box == nullptr || box->currentIndex() <= 0) return QString();
+  return box->currentData().toString();
+}
+
+/// Enche a caixa mantendo a escolha: o "todos" é o item 0, o resto vem do banco.
+void fillFilterBox(QComboBox* box, const QString& allLabel,
+                   const std::vector<std::string>& values) {
+  if (box == nullptr) return;
+  const QString keep = currentFilterText(box);
+  const QSignalBlocker blocker(box);
+  box->clear();
+  box->addItem(allLabel, QString());
+  for (const std::string& value : values) {
+    const QString text = QString::fromStdString(value);
+    box->addItem(text, text);
+  }
+  const int at = keep.isEmpty() ? 0 : box->findData(keep);
+  box->setCurrentIndex(at >= 0 ? at : 0);
+}
+}  // namespace
+
+QString LibraryWindow::artistFilter() const { return currentFilterText(artistBox_); }
+QString LibraryWindow::albumFilter() const { return currentFilterText(albumBox_); }
+QString LibraryWindow::genreFilter() const { return currentFilterText(genreBox_); }
+
+void LibraryWindow::setFilterOptions(const std::vector<std::string>& artists,
+                                     const std::vector<std::string>& albums,
+                                     const std::vector<std::string>& genres) {
+  fillFilterBox(artistBox_, tr("Todos os artistas"), artists);
+  fillFilterBox(albumBox_, tr("Todos os álbuns"), albums);
+  fillFilterBox(genreBox_, tr("Todos os gêneros"), genres);
+}
 
 void LibraryWindow::setRows(const std::vector<wamp::LibraryEntry>& rows) {
   const QString selected =

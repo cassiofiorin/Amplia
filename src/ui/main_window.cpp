@@ -4444,6 +4444,9 @@ void MainWindow::openLibrary() {
     // Trocou de visão ou digitou na busca: refaz a consulta (barato, é só banco).
     connect(library_.get(), &wamp::ui::LibraryWindow::queryChanged, this,
             &MainWindow::refreshLibrary);
+    // Mudou artista/álbum/gênero na barra de filtros: mesma consulta, outros WHEREs.
+    connect(library_.get(), &wamp::ui::LibraryWindow::filterChanged, this,
+            &MainWindow::refreshLibrary);
     connect(library_.get(), &wamp::ui::LibraryWindow::playSelectionRequested, this,
             [this](const QStringList& paths) {
               if (paths.isEmpty()) return;
@@ -4645,8 +4648,17 @@ void MainWindow::refreshLibrary() {
     return;
   }
 
+  // As caixas de filtro refletem o banco: recarregar aqui mantém a lista de artistas certa
+  // depois de uma pasta nova ou de uma remoção.
+  library_->setFilterOptions(cache_->distinctValues("artist", &error),
+                             cache_->distinctValues("album", &error),
+                             cache_->distinctValues("genre", &error));
+
   std::vector<wamp::LibraryEntry> rows =
-      cache_->queryLibrary(library_->view(), library_->filter().toStdString(), 3, &error);
+      cache_->queryLibrary(library_->view(), library_->filter().toStdString(), 3, &error,
+                           library_->artistFilter().toStdString(),
+                           library_->albumFilter().toStdString(),
+                           library_->genreFilter().toStdString());
 
   // A consulta é sobre o banco inteiro; a Biblioteca mostra só o que está sob as raízes.
   rows.erase(std::remove_if(rows.begin(), rows.end(),
@@ -4740,7 +4752,9 @@ void MainWindow::rescanLibrary() {
   QApplication::setOverrideCursor(Qt::WaitCursor);
 
   std::string error;
-  std::vector<std::string> missing;
+  // A varredura é incremental: cada arquivo leva tamanho e mtime, e só entra na fila o que
+  // é novo ou mudou no disco desde a última leitura (D-129).
+  std::vector<wamp::TrackStamp> stamps;
   // Removidas pelo usuário: não voltam na varredura (D-108).
   const auto ignoredPaths = cache_->ignoredPaths(&error);
   const std::set<std::string> ignored(ignoredPaths.begin(), ignoredPaths.end());
@@ -4751,19 +4765,23 @@ void MainWindow::rescanLibrary() {
     for (const QString& file : files) {
       const std::string path = file.toStdString();
       if (ignored.count(path) > 0) continue;
-      wamp::TrackInfo info;
-      if (!cache_->lookupFast(path, &info)) missing.push_back(path);
+      const QFileInfo info(file);
+      stamps.push_back({path, static_cast<std::int64_t>(info.size()),
+                        static_cast<std::int64_t>(info.lastModified().toMSecsSinceEpoch())});
     }
   }
+  const std::vector<std::string> stale = cache_->staleFiles(stamps, &error);
 
   QApplication::restoreOverrideCursor();
   statusBar()->clearMessage();
 
-  if (!missing.empty()) {
+  if (!stale.empty()) {
     // Grava a fila antes de começar: se o app morrer no meio, a próxima execução retoma.
-    cache_->queueScan(missing);
-    metadataTotal_ += missing.size();
-    scanner_->enqueueAll(missing);
+    cache_->queueScan(stale);
+    metadataTotal_ += stale.size();
+    scanner_->enqueueAll(stale);
+    statusBar()->showMessage(
+        tr("%1 faixa(s) nova(s) ou alterada(s) na biblioteca").arg(stale.size()), 6000);
   }
   refreshLibrary();
 }
@@ -4785,15 +4803,9 @@ void MainWindow::addLibraryFolder() {
   int folders = 0;
   int ignored = 0;
   const QStringList files = expandAudioPaths({dir}, &folders, &ignored);
-  std::vector<std::string> paths;
-  paths.reserve(static_cast<std::size_t>(files.size()));
-  for (const QString& file : files) paths.push_back(file.toStdString());
 
-  const std::vector<std::string> missing = missesFor(paths);
-  if (!missing.empty()) {
-    metadataTotal_ += missing.size();
-    scanner_->enqueueAll(missing);
-  }
+  // rescanLibrary já compara tamanho/mtime de todas as raízes: a pasta nova entra junto
+  // com o que tiver mudado nas antigas, e uma faixa intocada não é reaberta.
   rescanLibrary();
   statusBar()->showMessage(tr("%1 faixa(s) na biblioteca").arg(files.size()), 6000);
 }

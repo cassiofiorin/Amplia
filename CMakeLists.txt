@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(WAmp VERSION 0.9.4 LANGUAGES CXX)
+project(WAmp VERSION 0.9.5 LANGUAGES CXX)
 
 # Versão mostrada na barra de status: número do projeto + commit curto, quando houver git.
 execute_process(

@@ -406,7 +406,10 @@ std::vector<std::string> TagCache::roots(std::string* error) {
 }
 
 std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::string& filter,
-                                                int days, std::string* error) {
+                                                int days, std::string* error,
+                                                const std::string& artist,
+                                                const std::string& album,
+                                                const std::string& genre) {
   std::vector<LibraryEntry> out;
   if (db_ == nullptr) {
     if (error != nullptr) *error = "banco fechado";
@@ -442,23 +445,35 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
       break;
   }
 
-  std::string text = filter;
-  const bool hasFilter = !text.empty();
-  if (hasFilter) {
+  // Cada filtro vira uma cláusula com o seu próprio parâmetro; combinar é somar cláusulas.
+  std::vector<std::pair<int, std::string>> binds;
+  auto addClause = [&where](const std::string& clause) {
+    where = where.empty() ? clause : "(" + where + ") AND " + clause;
+  };
+  const std::string text = filter;
+  if (!text.empty()) {
     std::string like = "%";
     for (char c : text) {
       if (c == '%' || c == '_') like.push_back('\\');
       like.push_back(c);
     }
     like.push_back('%');
-    text = like;
     // `ESCAPE` explicito: o texto ja vem com \ antes de % e _, mas sem a clausula o
     // SQLite trata \ como literal e a busca por esses caracteres devolve tudo.
-    const std::string clause =
-        "(title LIKE ?1 ESCAPE '\\' OR artist LIKE ?1 ESCAPE '\\'"
-        " OR album LIKE ?1 ESCAPE '\\' OR album_artist LIKE ?1 ESCAPE '\\')";
-    where = where.empty() ? clause : "(" + where + ") AND " + clause;
+    const std::string n = "?" + std::to_string(binds.size() + 1);
+    binds.push_back({static_cast<int>(binds.size()) + 1, like});
+    addClause("(title LIKE " + n + " ESCAPE '\\' OR artist LIKE " + n + " ESCAPE '\\'" +
+              " OR album LIKE " + n + " ESCAPE '\\' OR album_artist LIKE " + n + " ESCAPE '\\')");
   }
+  auto addExact = [&](const char* column, const std::string& value) {
+    if (value.empty()) return;
+    const std::string n = "?" + std::to_string(binds.size() + 1);
+    binds.push_back({static_cast<int>(binds.size()) + 1, value});
+    addClause(std::string(column) + " = " + n + " COLLATE NOCASE");
+  };
+  addExact("artist", artist);
+  addExact("album", album);
+  addExact("genre", genre);
 
   std::string order = "artist COLLATE NOCASE, album COLLATE NOCASE, track_no, title";
   if (view == LibraryView::MostPlayed) order = "playcount DESC, artist COLLATE NOCASE, title";
@@ -479,7 +494,7 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
     if (error != nullptr) *error = sqlite3_errmsg(db_);
     return out;
   }
-  if (hasFilter) bindText(statement, 1, text);
+  for (const auto& bind : binds) bindText(statement, bind.first, bind.second);
 
   while (sqlite3_step(statement) == SQLITE_ROW) {
     LibraryEntry entry;
@@ -507,6 +522,63 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
     entry.rating = sqlite3_column_int(statement, 16);
     entry.lastplay = sqlite3_column_int64(statement, 17);
     out.push_back(std::move(entry));
+  }
+  sqlite3_finalize(statement);
+  return out;
+}
+
+std::vector<std::string> TagCache::distinctValues(const std::string& column,
+                                                  std::string* error) {
+  std::vector<std::string> out;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco fechado";
+    return out;
+  }
+  if (column != "artist" && column != "album" && column != "genre") {
+    if (error != nullptr) *error = "coluna desconhecida";
+    return out;
+  }
+  const std::string sql = "SELECT DISTINCT " + column + " FROM tracks" +
+                          " WHERE " + column + " IS NOT NULL AND " + column + " <> ''" +
+                          " ORDER BY " + column + " COLLATE NOCASE;";
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = sqlite3_errmsg(db_);
+    return out;
+  }
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    const unsigned char* value = sqlite3_column_text(statement, 0);
+    if (value != nullptr) out.emplace_back(reinterpret_cast<const char*>(value));
+  }
+  sqlite3_finalize(statement);
+  return out;
+}
+
+std::vector<std::string> TagCache::staleFiles(const std::vector<TrackStamp>& files,
+                                              std::string* error) {
+  std::vector<std::string> out;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "banco fechado";
+    return out;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT size, mtime FROM tracks WHERE path = ?;", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = sqlite3_errmsg(db_);
+    return out;
+  }
+  for (const TrackStamp& file : files) {
+    if (file.path.empty()) continue;
+    bindText(statement, 1, file.path);
+    const int step = sqlite3_step(statement);
+    bool stale = step != SQLITE_ROW;
+    if (step == SQLITE_ROW) {
+      const std::int64_t size = sqlite3_column_int64(statement, 0);
+      const std::int64_t mtime = sqlite3_column_int64(statement, 1);
+      stale = size != file.size || mtime != file.modifiedMs;
+    }
+    sqlite3_reset(statement);
+    if (stale) out.push_back(file.path);
   }
   sqlite3_finalize(statement);
   return out;

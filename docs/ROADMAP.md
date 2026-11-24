@@ -228,17 +228,33 @@ escolha sobrevive ao restart. *(Atingido em 20/11, com "seguir o sistema" penden
 - [x] Esquema SQLite + migrações (reusa `library.db`; tabela `roots`)
 - [x] Janela com lista, duração e o mesmo contador de metadados do app
 - [x] Adicionar pasta… + Atualizar + tocar direto da lista
-- [ ] Varredura incremental de pastas (mtime), em thread própria
+- [x] Varredura incremental de pastas (mtime): só o arquivo novo ou alterado é reaberto
 - [x] Árvore de visões do ML (todas, áudio, recentes, nunca tocadas, mais tocadas, melhor avaliadas)
 - [x] Busca por texto com `LIKE` (FTS5 fica para quando a coleção passar de ~10 mil)
-- [ ] Filtros combinados por artista/álbum/gênero
+- [x] Filtros combinados por artista/álbum/gênero (três caixas que se somam à busca)
 - [x] Fila de indexação persistida (`scan_queue`) + retomada na abertura
 - [x] Playcount e "última reprodução" (regra de 350 ms, como o ML original)
 - [x] Nota 0–5 no banco (estrelas desenhadas na tela)
-- [ ] Capa de álbum extraída das tags + cache
+- [ ] Capa de álbum extraída das tags + cache → **mudou de fase: F3.1**, depois do README
 
 **Pronto quando:** 10 mil faixas indexadas em menos de um minuto e busca respondendo em
-menos de 100 ms.
+menos de 100 ms. **Adiado:** a medição fica para quando houver uma máquina e um disco de
+referência; a coleção de desenvolvimento tem 7.650 faixas e o critério não bloqueia a fase.
+
+A Biblioteca está **fechada**: a varredura é incremental (compara tamanho e mtime antes de
+reabrir) e os filtros de artista/álbum/gênero combinam com a busca e entre si (D-129).
+
+---
+
+## F3.1 — Capa de álbum (depois do README)
+
+Saiu da F3 a pedido do autor: é semi-cosmético e não muda achar música.
+
+- [ ] Ler a capa embutida nas tags (e a `folder.jpg`/`cover.jpg` da pasta como queda)
+- [ ] Cache em disco por álbum, com tamanho limitado
+- [ ] Mostrar no painel do player, no Alt+3 e na lista da Biblioteca
+
+**Pronto quando:** a capa aparece no Alt+3 sem abrir o arquivo duas vezes.
 
 ---
 

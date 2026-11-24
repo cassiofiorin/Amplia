@@ -23,12 +23,14 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ## Estado
 
-**Versão 0.9.4-rc4 (`v0.9.4-rc4`)**, em teste como pacote Flatpak; as builds publicadas
+**Versão 0.9.5-rc5 (`v0.9.5-rc5`)**, em teste como pacote Flatpak; as builds publicadas
 ficam em [Releases](https://github.com/cassiofiorin/Amplia/releases). É a primeira família
 de builds instaláveis para quem quer testar sem compilar: player, playlist, equalizador, display, visualização,
 temas, atalhos, inglês e a Biblioteca com árvore de visões, busca, estrelas e playcount.
-O que ainda falta para a biblioteca completa está listado no [ROADMAP](docs/ROADMAP.md)
-(varredura incremental, filtros combinados e capa de álbum).
+A Biblioteca está fechada: varredura incremental (só o arquivo novo ou alterado é
+reaberto), filtros de artista/álbum/gênero que combinam com a busca, árvore de visões,
+estrelas e playcount. A capa de álbum saiu para a **F3.1**, depois deste README — é
+cosmética e não muda achar música.
 
 | Fase | Entrega | Situação |
 |---|---|---|
@@ -43,7 +45,8 @@ O que ainda falta para a biblioteca completa está listado no [ROADMAP](docs/ROA
 | F2E | Aparência (esquemas de cor, editor de quatro cores, CSV) | **concluída** |
 | F5 | Atalhos (paridade de teclado com o original) | **concluída** |
 | F6a/b | Idioma (infraestrutura e inglês completo) | **concluída** |
-| F3 | Biblioteca SQLite: árvore, busca, estrelas, playcount | **básica entregue** (incremental, filtros e capa pela frente) |
+| F3 | Biblioteca SQLite: árvore, busca, filtros, varredura incremental, estrelas, playcount | **concluída** |
+| F3.1 | Capa de álbum (tags + cache) | planejada, depois do README |
 | F4 | Plugins `.so` (DSP/visualização) | não iniciada |
 | F6c | Documentação pública (este README bilíngue, `NOTICE`) | **concluída** |
 | F7 | Skins clássicas `.wsz` | não iniciada |
@@ -51,7 +54,8 @@ O que ainda falta para a biblioteca completa está listado no [ROADMAP](docs/ROA
 | RC1 | Primeiro pacote público (`v0.1.0-rc1`) | **publicada** |
 | 0.9.1 | Fila, Humor, Rádio local, Ajuda bilíngue; menu e arrasto na Biblioteca (`v0.9.1`) | publicado |
 | 0.9.3-rc3 | Reordenar arrastando (playlist e fila), fila vazia que abre, playlist → fila (`v0.9.3-rc3`) | superada pela rc4 |
-| 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | **em teste** |
+| 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | superada pela rc5 |
+| 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | **em teste** |
 
 O que já funciona está descrito em [**O que funciona hoje**](#o-que-funciona-hoje), mais
 abaixo. O detalhe de cada decisão está em [`docs/DECISIONS.md`](docs/DECISIONS.md) e o
@@ -437,7 +441,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`0.9.4-rc4 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
+(`0.9.5-rc5 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -635,12 +639,13 @@ and this README are mine. The record of how the project was built is in
 
 ## Status
 
-**Version 0.9.4-rc4 (`v0.9.4-rc4`)**, being tested as a Flatpak bundle; published builds
+**Version 0.9.5-rc5 (`v0.9.5-rc5`)**, being tested as a Flatpak bundle; published builds
 are on [Releases](https://github.com/cassiofiorin/Amplia/releases). It is the first family
 of installable builds for people who want to test without compiling: player, playlist, equalizer, display,
 visualization, themes, shortcuts, English and the Library with its view tree, search,
-stars and play count. What is still missing for the full library is listed in the
-[ROADMAP](docs/ROADMAP.md) (incremental scan, combined filters and album art).
+artist/album/genre filters, incremental scan, stars and play count. The Library is
+closed; album art moved to **F3.1**, after this README, because it is cosmetic and does
+not change finding music.
 
 | Phase | Delivery | Status |
 |---|---|---|
@@ -655,7 +660,8 @@ stars and play count. What is still missing for the full library is listed in th
 | F2E | Appearance (color schemes, four-color editor, CSV) | **done** |
 | F5 | Shortcuts (keyboard parity with the original) | **done** |
 | F6a/b | Language (infrastructure and full English) | **done** |
-| F3 | SQLite library: view tree, search, stars, play count | **basic, shipped** (incremental, filters, art ahead) |
+| F3 | SQLite library: view tree, search, filters, incremental scan, stars, play count | **done** |
+| F3.1 | Album art (tags + cache) | planned, after the README |
 | F4 | `.so` plugins (DSP/visualization) | not started |
 | F6c | Public documentation (this bilingual README, `NOTICE`) | **done** |
 | F7 | Classic `.wsz` skins | not started |
@@ -663,7 +669,8 @@ stars and play count. What is still missing for the full library is listed in th
 | RC1 | First public bundle (`v0.1.0-rc1`) | **released** |
 | 0.9.1 | Queue, Humor, Local Radio, bilingual help; library menu and drag (`v0.9.1`) | released |
 | 0.9.3-rc3 | Drag to reorder (playlist and queue), empty queue opens, playlist → queue (`v0.9.3-rc3`) | superseded by rc4 |
-| 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | **in testing** |
+| 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | superseded by rc5 |
+| 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | **in testing** |
 
 What already works is described in [**What works today**](#what-works-today). Each decision
 is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in

@@ -24,6 +24,14 @@ enum class LibraryView {
   TopRated = 7,
 };
 
+/// Ficha do arquivo no disco, do jeito que a varredura incremental compara: caminho,
+/// tamanho e mtime. Quem não mudou desde a última leitura não é reaberto.
+struct TrackStamp {
+  std::string path;
+  std::int64_t size = 0;
+  std::int64_t modifiedMs = 0;
+};
+
 /// Faixa da Biblioteca com os campos que só o banco guarda (nota, contagem, datas).
 struct LibraryEntry {
   TrackInfo info;
@@ -120,9 +128,21 @@ class TagCache final {
   void setRating(const std::string& path, int rating);
 
   /// Consulta uma visão da Biblioteca, opcionalmente filtrando por texto em
-  /// título/artista/álbum. `days` vale para "adicionados/modificados há N dias".
+  /// título/artista/álbum e por artista/álbum/gênero exatos (vazio = todos). Os filtros
+  /// combinam entre si e com o texto. `days` vale para "adicionados/modificados há N dias".
   std::vector<LibraryEntry> queryLibrary(LibraryView view, const std::string& filter,
-                                         int days, std::string* error);
+                                         int days, std::string* error,
+                                         const std::string& artist = {},
+                                         const std::string& album = {},
+                                         const std::string& genre = {});
+
+  /// Valores distintos de `artist`, `album` ou `genre`, em ordem alfabética (sem os
+  /// vazios). Serve para encher os filtros da Biblioteca. Outra coluna devolve vazio.
+  std::vector<std::string> distinctValues(const std::string& column, std::string* error);
+
+  /// Quais fichas precisam ser (re)lidas — as que não estão no índice e as que mudaram de
+  /// tamanho ou mtime. É a varredura incremental: só o que mudou desde a última vez.
+  std::vector<std::string> staleFiles(const std::vector<TrackStamp>& files, std::string* error);
 
   /// Todos os caminhos já indexados, em ordem alfabética.
   std::vector<std::string> allPaths(std::string* error);

@@ -37,6 +37,14 @@ class LibraryWindow final : public QWidget {
 
   wamp::LibraryView view() const;
   QString filter() const;
+  /// Filtros exatos escolhidos nas caixas (vazio = todos).
+  QString artistFilter() const;
+  QString albumFilter() const;
+  QString genreFilter() const;
+  /// Enche as caixas de artista/álbum/gênero preservando a escolha atual.
+  void setFilterOptions(const std::vector<std::string>& artists,
+                        const std::vector<std::string>& albums,
+                        const std::vector<std::string>& genres);
   /// Seleciona uma visão pelo índice da árvore (0 = todas). Usado também pelos testes.
   void selectView(int row);
 
@@ -75,6 +83,8 @@ class LibraryWindow final : public QWidget {
  signals:
   /// Mudou a visão ou o texto de busca: a MainWindow refaz a consulta.
   void queryChanged();
+  /// Um dos filtros exatos mudou (a busca de texto já usa queryChanged).
+  void filterChanged();
   void addFolderRequested();
   void refreshRequested();
   void playRequested(const QString& path);
@@ -140,6 +150,10 @@ class LibraryWindow final : public QWidget {
   QPushButton* humorRevertButton_ = nullptr;
   std::vector<wamp::HumorPreset> humorPresets_;
   QWidget* searchBar_ = nullptr;
+  QWidget* filterBar_ = nullptr;
+  QComboBox* artistBox_ = nullptr;
+  QComboBox* albumBox_ = nullptr;
+  QComboBox* genreBox_ = nullptr;
   bool stationActive_ = false;
   bool humorActive_ = false;
   QLineEdit* search_ = nullptr;
