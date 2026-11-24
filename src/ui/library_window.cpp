@@ -2,6 +2,7 @@
 
 #include <QClipboard>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QCursor>
 #include <QDesktopServices>
 #include <QFileInfo>
@@ -36,6 +37,25 @@ namespace {
 constexpr int kViewRole = Qt::UserRole;
 /// Índice do humor no vetor de presets (valor guardado em cada item do combo).
 constexpr int kPresetRole = Qt::UserRole + 1;
+constexpr int kPresetNameRole = Qt::UserRole + 2;
+
+/// Os nomes dos humores de fábrica nascem no motor (`radio.cpp`) como **dado**, não como texto
+/// de interface. Aqui eles ganham tradução na hora de exibir; o nome original fica guardado no
+/// item, porque é ele que identifica o preset (léxico da estação, "Salvar como…", banco).
+const char* const kFactoryHumorNames[] = {
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Treino"),
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Alegre"),
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Dia de sol"),
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Trabalho duro"),
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Dia frio"),
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Pra baixo"),
+    QT_TRANSLATE_NOOP("wamp::ui::HumorPresets", "Foco"),
+};
+
+QString humorLabel(const wamp::HumorPreset& preset) {
+  if (!preset.factory) return QString::fromStdString(preset.name);
+  return QCoreApplication::translate("wamp::ui::HumorPresets", preset.name.c_str());
+}
 
 /// A tabela da biblioteca arrastável: o arrasto carrega as **URLs** das faixas, que é o que
 /// a playlist (e o gerenciador de arquivos) sabem receber. O QTableWidget padrão arrasta os
@@ -73,13 +93,13 @@ struct ViewDef {
 const ViewDef kViews[] = {
     // Rótulos curtos de propósito: a árvore tem 210 px e os nomes longos do original
     // ("Adicionadas recentemente") não cabem. A janela de cada visão vai no parêntese.
-    {"Todas as faixas", wamp::LibraryView::All},
-    {"Adicionadas (3 dias)", wamp::LibraryView::RecentlyAdded},
-    {"Modificadas (3 dias)", wamp::LibraryView::RecentlyModified},
-    {"Tocadas (2 semanas)", wamp::LibraryView::RecentlyPlayed},
-    {"Nunca tocadas", wamp::LibraryView::NeverPlayed},
-    {"Mais tocadas", wamp::LibraryView::MostPlayed},
-    {"Melhor avaliadas", wamp::LibraryView::TopRated},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Todas as faixas"), wamp::LibraryView::All},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Adicionadas (3 dias)"), wamp::LibraryView::RecentlyAdded},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Modificadas (3 dias)"), wamp::LibraryView::RecentlyModified},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Tocadas (2 semanas)"), wamp::LibraryView::RecentlyPlayed},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Nunca tocadas"), wamp::LibraryView::NeverPlayed},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Mais tocadas"), wamp::LibraryView::MostPlayed},
+    {QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", "Melhor avaliadas"), wamp::LibraryView::TopRated},
 };
 
 QString durationText(qint64 ms) {
@@ -159,7 +179,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   auto* local = new QTreeWidgetItem(tree_, QStringList{tr("Biblioteca local")});
   local->setExpanded(true);
   for (const ViewDef& def : kViews) {
-    auto* item = new QTreeWidgetItem(local, QStringList{QString::fromUtf8(def.name)});
+    auto* item = new QTreeWidgetItem(local, QStringList{QCoreApplication::translate("wamp::ui::LibraryWindow", def.name)});
     item->setData(0, kViewRole, static_cast<int>(def.view));
   }
   // Segunda seção da árvore: o nó "Humor". A lista de humores mora no combo do painel —
@@ -684,9 +704,10 @@ void LibraryWindow::setHumorPresets(const std::vector<wamp::HumorPreset>& preset
     humorBox_->clear();
     for (std::size_t i = 0; i < humorPresets_.size(); ++i) {
       const wamp::HumorPreset& preset = humorPresets_[i];
-      humorBox_->addItem(QString::fromStdString(preset.name));
+      humorBox_->addItem(humorLabel(preset));
       const int item = static_cast<int>(i);
       humorBox_->setItemData(item, static_cast<int>(i), kPresetRole);
+      humorBox_->setItemData(item, QString::fromStdString(preset.name), kPresetNameRole);
       // Os salvos vêm depois dos de fábrica; o tooltip diz de onde cada um veio.
       humorBox_->setItemData(item,
                              preset.factory
@@ -696,8 +717,13 @@ void LibraryWindow::setHumorPresets(const std::vector<wamp::HumorPreset>& preset
     }
   }
   if (!keep.isEmpty()) {
-    const int at = humorBox_->findText(keep);
-    if (at >= 0) humorBox_->setCurrentIndex(at);
+    // Procura pelo nome original, não pelo rótulo: o rótulo muda com o idioma.
+    for (int at = 0; at < humorBox_->count(); ++at) {
+      if (humorBox_->itemData(at, kPresetNameRole).toString() == keep) {
+        humorBox_->setCurrentIndex(at);
+        break;
+      }
+    }
   }
   if (humorActive_) applyHumorDraftFromPreset();
 }
@@ -705,13 +731,19 @@ void LibraryWindow::setHumorPresets(const std::vector<wamp::HumorPreset>& preset
 void LibraryWindow::selectHumor(const QString& name) {
   // Primeiro o nó (o painel só existe com o Humor aberto), depois o combo.
   if (dynamicsItem_ != nullptr) tree_->setCurrentItem(dynamicsItem_);
-  const int at = humorBox_->findText(name);
-  if (at >= 0) humorBox_->setCurrentIndex(at);
+  for (int at = 0; at < humorBox_->count(); ++at) {
+    if (humorBox_->itemData(at, kPresetNameRole).toString() == name) {
+      humorBox_->setCurrentIndex(at);
+      return;
+    }
+  }
 }
 
 QString LibraryWindow::humorPresetName() const {
-  return humorBox_ != nullptr && humorBox_->currentIndex() >= 0 ? humorBox_->currentText()
-                                                                : QString();
+  if (humorBox_ == nullptr || humorBox_->currentIndex() < 0) return QString();
+  // O combo mostra o rótulo traduzido; quem identifica o preset é o nome original.
+  const QVariant stored = humorBox_->itemData(humorBox_->currentIndex(), kPresetNameRole);
+  return stored.isValid() ? stored.toString() : humorBox_->currentText();
 }
 
 int LibraryWindow::humorPresetId() const {

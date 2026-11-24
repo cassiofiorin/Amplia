@@ -56,7 +56,8 @@ cosmética e não muda achar música.
 | 0.9.1 | Fila, Humor, Rádio local, Ajuda bilíngue; menu e arrasto na Biblioteca (`v0.9.1`) | publicado |
 | 0.9.3-rc3 | Reordenar arrastando (playlist e fila), fila vazia que abre, playlist → fila (`v0.9.3-rc3`) | superada pela rc4 |
 | 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | superada pela rc5 |
-| 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | **em teste** |
+| 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | superada pela rc6 |
+| 0.9.6-rc6 | Inglês completo: 178 textos que faltavam, inclusive a janela da Biblioteca (`v0.9.6-rc6`) | **em teste** |
 
 Cada fase concluída sai numa versão com **todos os formatos de empacotamento** disponíveis
 (hoje só Flatpak; a F8 cria AppImage, `.deb`, `.rpm` e o portátil).
@@ -675,7 +676,8 @@ not change finding music.
 | 0.9.1 | Queue, Humor, Local Radio, bilingual help; library menu and drag (`v0.9.1`) | released |
 | 0.9.3-rc3 | Drag to reorder (playlist and queue), empty queue opens, playlist → queue (`v0.9.3-rc3`) | superseded by rc4 |
 | 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | superseded by rc5 |
-| 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | **in testing** |
+| 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | superseded by rc6 |
+| 0.9.6-rc6 | Complete English: 178 missing strings, including the Library window (`v0.9.6-rc6`) | **in testing** |
 
 Every finished phase ships a version with **every packaging format** available at the time
 (Flatpak only today; F8 adds AppImage, `.deb`, `.rpm` and a portable tarball).

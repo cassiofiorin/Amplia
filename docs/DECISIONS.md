@@ -2799,3 +2799,22 @@ F6c do README.
 empacotadas; a tag `vX.Y.Z` gera todos os artefatos no mesmo workflow, com checksums; e
 metainfo do AppStream entra junto (sem ele, o ícone e a descrição não aparecem nem no Flathub
 nem nos menus de algumas distros).
+
+## D-131 — Nome de dado guarda o original; o rótulo é que se traduz
+
+A tradução do inglês fechou em 522 textos, mas dois grupos de texto não podiam simplesmente
+entrar no catálogo:
+
+- **Os sete rótulos da árvore da Biblioteca** (`Todas as faixas`, `Nunca tocadas`…) viviam numa
+  tabela `const char*` que nunca passava por `tr()`. Agora cada um é declarado com
+  `QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow", …)` e traduzido na hora de montar o item.
+- **Os nomes dos humores de fábrica** nascem no motor (`radio.cpp`) como **dado**, porque é o
+  nome que identifica o preset no banco, no léxico da estação e no "Salvar como…". Traduzir o
+  dado quebraria essas referências. A solução foi exibir o rótulo traduzido
+  (`QCoreApplication::translate("wamp::ui::HumorPresets", nome)`) e guardar o nome original no
+  item do combo (`kPresetNameRole`); `humorPresetName()` e `selectHumor()` passaram a ler o
+  original, nunca o rótulo.
+
+**Regra geral:** texto que **identifica** não se traduz; texto que **descreve** se traduz na
+borda da interface. O motor trabalha com identificadores estáveis; a janela é quem conhece o
+idioma.
