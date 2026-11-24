@@ -2595,3 +2595,17 @@ preset — os sete de fábrica e os salvos, nessa ordem — e **Rádio local** p
 - **A janela avisa o que falta medir**: o rodapé da prévia mostra "N faixa(s) · X de Y
   medidas · P% clima, Q% do que venho ouvindo". Com a biblioteca ainda não analisada, é o
   painel que explica por que a estação não muda muito de clima — e não um texto de ajuda.
+
+## D-123 — Dia frio não é tristeza: o frio é temperatura, não valência
+
+O preset "Dia frio" apontava para tom 0 ("frio" = menor, na nossa escala), o que na prática
+significava "triste". Frio é outra coisa: é temperatura. O preset passa a **não opinar sobre o
+modo** (tom 50, indiferente) e a abraçar mais (estabilidade 60).
+
+- Antes: 70 BPM menor 0,775 · 70 BPM maior 0,062 — uma faixa folk em maior era praticamente
+  banida do dia frio.
+- Depois: 0,572 para os dois modos, e 140 BPM cai para 0,113 (o que o preset quer excluir é a
+  agitação, não o modo).
+- Quem separa "Dia frio" de "Pra baixo" agora é o **léxico** (folk/indie/jazz ×
+  slowcore/emo/blues) e a agitação: "Pra baixo" continua em tom 0 (0,593 no menor, 0,062 no
+  maior). Ou seja, tristeza virou o único preset que exige menor — e é o que o nome promete.

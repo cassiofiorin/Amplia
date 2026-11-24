@@ -305,7 +305,10 @@ std::vector<HumorPreset> factoryHumorPresets() {
   add("Alegre", 70.0, 100.0, 55.0, "pop, dance, ska, reggae, disco, funk, soul");
   add("Dia de sol", 55.0, 100.0, 60.0, "pop, folk, mpb, bossa, samba, sertanejo, soul, reggae");
   add("Trabalho duro", 80.0, 0.0, 45.0, "industrial, rock, metal, alternativo, alternative, grunge");
-  add("Dia frio", 25.0, 0.0, 50.0, "folk, acústico, acustico, indie, shoegaze, ambient, jazz");
+  // Frio é temperatura, não tristeza: o dia frio aceita maior e menor, e o alvo é mais largo.
+  // Quem separa o "dia frio" do "pra baixo" é o léxico (folk/indie/jazz × slowcore/emo/blues)
+  // e a agitação — não o modo. Ver D-123.
+  add("Dia frio", 25.0, 50.0, 60.0, "folk, acústico, acustico, indie, shoegaze, ambient, jazz");
   add("Pra baixo", 15.0, 0.0, 40.0, "slowcore, emo, blues, indie, post-rock, post rock");
   add("Foco", 40.0, 50.0, 30.0, "ambient, lofi, lo-fi, clássico, classico, jazz, eletrônica, eletronica");
   return presets;
