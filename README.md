@@ -27,17 +27,22 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ## Estado
 
-**Versão 0.9.6-rc6 (`v0.9.6-rc6`)**, a primeira build com a **interface inteira nos dois
-idiomas** — 522 textos, nenhum pendente, incluindo a janela da Biblioteca e os nomes dos
-humores. As builds publicadas ficam em
-[Releases](https://github.com/cassiofiorin/Amplia/releases); o escopo desta entrega está em
-[`docs/MILESTONE-0.9.6-rc6.md`](docs/MILESTONE-0.9.6-rc6.md), e o pacote é instalável sem
-compilar (veja [Instalar o pacote pronto](#instalar-o-pacote-pronto)).
+**Versão 0.9.7-rc7 (`v0.9.7-rc7`)** — a primeira build em que a **biblioteca sobrevive a
+mudança de esquema** (o banco tem número de versão e migra sozinho, sem perder linha) e a
+última antes do 1.0. Vem com as correções da auditoria externa: a rádio passou a distinguir
+tom relativo de paralelo, o I/O do motor saiu de baixo do mutex de estado (seek em arquivo de
+rede não trava mais a janela) e as esperas de rede do scrobbling têm teto de tempo. As builds
+publicadas ficam em [Releases](https://github.com/cassiofiorin/Amplia/releases); o pacote é
+instalável sem compilar (veja [Instalar o pacote pronto](#instalar-o-pacote-pronto)).
 
 A Biblioteca está fechada: varredura incremental (só o arquivo novo ou alterado é
 reaberto), filtros de artista/álbum/gênero que combinam com a busca, árvore de visões,
 estrelas e playcount. A capa de álbum saiu para a **F3.1**, depois deste README — é
 cosmética e não muda achar música.
+
+**Instalar fora do Flatpak não é requisito do 1.0.** O alvo é o Fedora Atomic/Bazzite, onde
+Flatpak é o caminho normal; AppImage, `.deb` e `.rpm` continuam na **F8**, como evolução da
+solução, não como porta de entrada.
 
 | Fase | Entrega | Situação |
 |---|---|---|
@@ -64,7 +69,8 @@ cosmética e não muda achar música.
 | 0.9.3-rc3 | Reordenar arrastando (playlist e fila), fila vazia que abre, playlist → fila (`v0.9.3-rc3`) | superada pela rc4 |
 | 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | superada pela rc5 |
 | 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | superada pela rc6 |
-| 0.9.6-rc6 | Inglês completo: 178 textos que faltavam, inclusive a janela da Biblioteca (`v0.9.6-rc6`) | **em teste** |
+| 0.9.6-rc6 | Inglês completo: 178 textos que faltavam, inclusive a janela da Biblioteca (`v0.9.6-rc6`) | superada pela rc7 |
+| 0.9.7-rc7 | Última antes do 1.0: esquema da biblioteca versionado, correções da auditoria, volume alinhado ao contador (`v0.9.7-rc7`) | **em teste** |
 
 Cada fase concluída sai numa versão com **todos os formatos de empacotamento** disponíveis
 (hoje só Flatpak; a F8 cria AppImage, `.deb`, `.rpm` e o portátil).
@@ -76,14 +82,16 @@ plano em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 ## Instalar o pacote pronto
 
 A release traz um bundle Flatpak (`Amplia-<versão>-x86_64.flatpak`). Ele roda no runtime do
-KDE, que o próprio `flatpak` baixa do Flathub na primeira instalação.
+KDE, que o próprio `flatpak` baixa do Flathub na primeira instalação. É o formato de suporte
+do projeto: Bazzite e Fedora Atomic (o alvo original), e qualquer distro com Flatpak. Quem
+prefere compilar tem o [Como compilar](#como-compilar); os outros formatos vêm na F8.
 
 ```bash
 # 1. baixe o bundle da release (ou use a página de Releases)
-curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.6-rc6/Amplia-0.9.6-rc6-x86_64.flatpak
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.7-rc7/Amplia-0.9.7-rc7-x86_64.flatpak
 
 # 2. instale só para o seu usuário
-flatpak install --user ./Amplia-0.9.6-rc6-x86_64.flatpak
+flatpak install --user ./Amplia-0.9.7-rc7-x86_64.flatpak
 
 # 3. rode
 flatpak run io.github.cassiofiorin.Amplia
@@ -476,7 +484,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`0.9.5-rc5 (96c818a)`) — número do projeto e commit curto, útil para reportar erro.
+(`0.9.7-rc7 (a1b2c3d)`, com o commit curto do build no lugar do exemplo) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -683,17 +691,22 @@ and this README are mine. The record of how the project was built is in
 
 ## Status
 
-**Version 0.9.6-rc6 (`v0.9.6-rc6`)**, the first build with the **whole interface in both
-languages** — 522 strings, none pending, including the Library window and the mood names.
-Published builds are on [Releases](https://github.com/cassiofiorin/Amplia/releases); the
-scope of this release is in [`docs/MILESTONE-0.9.6-rc6.md`](docs/MILESTONE-0.9.6-rc6.md),
-and the package installs without compiling (see
-[Installing the ready-made package](#installing-the-ready-made-package)).
+**Version 0.9.7-rc7 (`v0.9.7-rc7`)** — the first build where the **library survives a schema
+change** (the database carries a version number and migrates itself without losing a row), and
+the last one before 1.0. It brings the external audit fixes: the radio now tells relative from
+parallel keys, the engine I/O left the state mutex (seeking on a network file no longer freezes
+the window), and scrobbling network waits have a time cap. Published builds are on
+[Releases](https://github.com/cassiofiorin/Amplia/releases), and the package installs without
+compiling (see [Installing the ready-made package](#installing-the-ready-made-package)).
 
 The Library is closed: incremental scan (only a new or changed file is reopened),
 artist/album/genre filters that combine with the search, the view tree, stars and play
 count. Album art moved to **F3.1**, after this README, because it is cosmetic and does not
 change finding music.
+
+**Installing outside Flatpak is not a 1.0 requirement.** The target is Fedora Atomic/Bazzite,
+where Flatpak is the normal path; AppImage, `.deb` and `.rpm` stay in **F8**, as an evolution
+of the solution, not as a front door.
 
 | Phase | Delivery | Status |
 |---|---|---|
@@ -720,7 +733,8 @@ change finding music.
 | 0.9.3-rc3 | Drag to reorder (playlist and queue), empty queue opens, playlist → queue (`v0.9.3-rc3`) | superseded by rc4 |
 | 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | superseded by rc5 |
 | 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | superseded by rc6 |
-| 0.9.6-rc6 | Complete English: 178 missing strings, including the Library window (`v0.9.6-rc6`) | **in testing** |
+| 0.9.6-rc6 | Complete English: 178 missing strings, including the Library window (`v0.9.6-rc6`) | superseded by rc7 |
+| 0.9.7-rc7 | Last before 1.0: versioned library schema, audit fixes, volume aligned with the clock (`v0.9.7-rc7`) | **in testing** |
 
 Every finished phase ships a version with **every packaging format** available at the time
 (Flatpak only today; F8 adds AppImage, `.deb`, `.rpm` and a portable tarball).
@@ -732,14 +746,17 @@ is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
 ## Installing the ready-made package
 
 Each release carries a Flatpak bundle (`Amplia-<version>-x86_64.flatpak`). It runs on the
-KDE runtime, which `flatpak` itself downloads from Flathub on the first install.
+KDE runtime, which `flatpak` itself downloads from Flathub on the first install. Flatpak is
+the supported format: Bazzite and Fedora Atomic (the original target), plus any distro that
+has Flatpak. If you prefer to compile, see [How to build](#how-to-build); the other formats
+come with F8.
 
 ```bash
 # 1. download the bundle from the release (or use the Releases page)
-curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.6-rc6/Amplia-0.9.6-rc6-x86_64.flatpak
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.7-rc7/Amplia-0.9.7-rc7-x86_64.flatpak
 
 # 2. install it for your user only
-flatpak install --user ./Amplia-0.9.6-rc6-x86_64.flatpak
+flatpak install --user ./Amplia-0.9.7-rc7-x86_64.flatpak
 
 # 3. run it
 flatpak run io.github.cassiofiorin.Amplia
@@ -1047,7 +1064,7 @@ can build the whole queue in there.
 
 The bottom bar shows, on the left, the tag-reading progress when a large list is added
 (`Reading metadata… 12/400 — do not close`) and, on the right, the build version
-(`0.9.1 (96c818a)`) — project number and short commit, handy for bug reports.
+(`0.9.7-rc7 (a1b2c3d)`, with the build's short commit in place of the example) — project number and short commit, handy for bug reports.
 
 ### Player display
 

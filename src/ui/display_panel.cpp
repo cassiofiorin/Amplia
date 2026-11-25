@@ -201,7 +201,9 @@ QRect DisplayPanel::barRect() const {
   return QRect(10, height() - 15, info.left() - 10 - 8, 4);
 }
 
-QRect DisplayPanel::durationRect() const { return QRect(width() - 16 - 40, height() - 22, 40, 16); }
+QRect DisplayPanel::durationRect() const {
+  return QRect(width() - kTimeInset - 40, height() - 22, 40, 16);
+}
 
 QRect DisplayPanel::lineRect(int index) const {
   // Coluna da esquerda: o texto acompanha a largura do relógio, deixando a direita

@@ -2850,3 +2850,42 @@ Um teste no `smoke` fixa os três números: com todos os outros eixos zerados, o
 sumiram, e o projeto passou a ter CI (`.github/workflows/build.yml`): build no Ubuntu 24.04 e um
 job que falha se o catálogo inglês tiver texto pendente. O teste de fumaça **não** roda no CI de
 propósito — ele abre dispositivo de áudio de verdade e falharia por ambiente, não por código.
+
+## D-133 — A biblioteca tem versão de esquema, e a migração nunca perde linha
+
+O `library.db` já migrava por tentativa (`ALTER TABLE … ADD COLUMN` para cada coluna nova,
+erro ignorado quando a coluna já existia), mas nada dizia **qual** versão o arquivo tinha.
+Sem esse número não há como recusar um banco de versão futura nem saber o que já foi aplicado.
+
+Agora `PRAGMA user_version` é a marca:
+
+- `kSchemaVersion = 1` em `tag_cache.cpp` descreve a forma atual (faixas, raízes, fila de
+  varredura, ignorados, presets de humor, eventos da rádio).
+- Banco com `user_version = 0` (todo banco criado até a 0.9.6) passa pelos `CREATE`/`ALTER`
+  idempotentes e sai marcado como 1 — **com as linhas que já tinha**. Migração é sempre
+  "levar o banco antigo até a versão corrente", nunca recriar.
+- Banco com versão **maior** que a do código é recusado: o app avisa "a biblioteca foi criada
+  por uma versão mais nova do Amplia" e não toca no arquivo. Antes, uma coluna removida no
+  futuro viraria "a biblioteca sumiu" sem explicação.
+- Subir de versão de esquema, daqui pra frente, obriga a acrescentar um passo em
+  `ensureSchema` (e, no 1.0, a promessa é explícita: mudança de esquema só com migração;
+  quebra de compatibilidade é 2.0).
+
+O aviso de falha ao abrir o banco também saiu do log: aparece numa caixa, porque biblioteca
+vazia sem explicação parece perda de dados.
+
+## D-134 — O transporte termina onde o contador termina, e o título da árvore não é uma visão
+
+Duas correções de desenho apontadas no uso:
+
+- **Barra de volume**: ela esticava até a borda da janela e atravessava a faixa dos botões de
+  estado (EQ/ML/PL), ficando mais larga que o display. Agora a linha do transporte ganha uma
+  margem à direita igual à coluna de estado (28 px) + o respiro (6 px) + a margem interna do
+  contador de tempo (16 px, exposta como `DisplayPanel::kTimeInset`). O volume termina
+  alinhado ao "3:41".
+- **"Biblioteca local"**: o nó de topo é um título, não uma visão — clicar nele não filtra
+  nada. Sem `Qt::ItemIsSelectable` e com o texto no tom desabilitado da paleta, ele deixa de
+  receber seleção. O clique no texto é engolido na viewport (senão o Qt limpa a seleção
+  antes de qualquer conserto) e devolve o destaque para a última visão escolhida
+  (`lastViewItem_`); a setinha de recolher, que fica à esquerda do retângulo do item,
+  continua valendo — recolher a árvore não sumiu.

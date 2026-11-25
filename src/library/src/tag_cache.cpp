@@ -55,7 +55,37 @@ bool TagCache::open(std::string* error) {
   return ensureSchema(error);
 }
 
+namespace {
+/// Versão do esquema desta biblioteca. Subir de versão = acrescentar um passo em
+/// `ensureSchema` que leve um banco antigo até aqui, sem perder linha nenhuma.
+/// 1 = tudo o que existia até a 0.9.6 (tracks + raízes + fila + ignorados + presets).
+constexpr int kSchemaVersion = 1;
+
+int readUserVersion(sqlite3* db) {
+  int version = 0;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &statement, nullptr) != SQLITE_OK) {
+    return 0;
+  }
+  if (sqlite3_step(statement) == SQLITE_ROW) version = sqlite3_column_int(statement, 0);
+  sqlite3_finalize(statement);
+  return version;
+}
+}  // namespace
+
 bool TagCache::ensureSchema(std::string* error) {
+  // Antes de mexer em qualquer coisa: um banco escrito por uma versão mais nova não pode
+  // ser rebaixado às cegas (colunas removidas viram "biblioteca sumiu").
+  const int version = readUserVersion(db_);
+  if (version > kSchemaVersion) {
+    if (error != nullptr) {
+      *error =
+          "a biblioteca foi criada por uma versão mais nova do Amplia — atualize o "
+          "aplicativo para abri-la";
+    }
+    return false;
+  }
+
   const char* schema =
       "CREATE TABLE IF NOT EXISTS tracks ("
       " path TEXT PRIMARY KEY,"
@@ -131,6 +161,20 @@ bool TagCache::ensureSchema(std::string* error) {
                "CREATE UNIQUE INDEX IF NOT EXISTS humor_presets_name"
                " ON humor_presets (name COLLATE NOCASE);",
                nullptr, nullptr, nullptr);
+
+  // Só agora o banco tem a forma da versão corrente: grava a marca. Bancos antigos
+  // (user_version = 0) passam pelos CREATE/ALTER acima e saem daqui como versão 1, com as
+  // linhas que já tinham — é o caminho de migração, e ele é idempotente.
+  if (version != kSchemaVersion) {
+    char* message = nullptr;
+    const std::string pragma = "PRAGMA user_version = " + std::to_string(kSchemaVersion) + ";";
+    if (sqlite3_exec(db_, pragma.c_str(), nullptr, nullptr, &message) != SQLITE_OK) {
+      if (error != nullptr) *error = message != nullptr ? message : "falha ao marcar a versão";
+      if (message != nullptr) sqlite3_free(message);
+      return false;
+    }
+    if (message != nullptr) sqlite3_free(message);
+  }
   return true;
 }
 

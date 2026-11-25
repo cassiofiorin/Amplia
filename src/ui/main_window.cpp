@@ -461,6 +461,15 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   if (!cache_->open(&cacheError)) {
     qWarning("amplia: cache de tags indisponível: %s", cacheError.c_str());
     cache_.reset();
+    // O caso que importa é o banco de uma versão mais nova: sem aviso a biblioteca
+    // apareceria vazia e pareceria perda de dados. A janela ainda não existe na tela,
+    // então o aviso sai depois que ela sobe.
+    if (!cacheError.empty()) {
+      const QString message = QString::fromStdString(cacheError);
+      QTimer::singleShot(400, this, [this, message] {
+        QMessageBox::warning(this, tr("Biblioteca"), message);
+      });
+    }
   }
 
   scanner_->setCallback([this](const std::string& path, const wamp::TrackInfo& info, bool ok) {
@@ -978,7 +987,16 @@ void MainWindow::buildUi() {
   displayRow->addWidget(display_, 1);
   displayRow->addWidget(sideWidget, 0, Qt::AlignVCenter);
   layout->addLayout(displayRow, 0);
-  layout->addLayout(row, 0);
+  // O transporte termina na coluna do contador de tempo total, não na borda da janela:
+  // antes a barra de volume atravessava a faixa da direita e ficava mais larga que o
+  // display. A margem é a coluna de estado + o respiro + a margem interna do contador.
+  auto* transportRow = new QHBoxLayout();
+  transportRow->setContentsMargins(0, 0, 0, 0);
+  transportRow->setSpacing(0);
+  transportRow->addLayout(row, 1);
+  transportRow->addSpacing(sideWidget->minimumWidth() + displayRow->spacing() +
+                           wamp::ui::DisplayPanel::kTimeInset);
+  layout->addLayout(transportRow, 0);
 
   // Editor de playlist em janela auxiliar: Qt::Tool com pai não entra na barra de tarefas
   // nem no Alt+Tab, e o compositor a mantém junto da principal. Assim o botão PL não

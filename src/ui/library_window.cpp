@@ -178,6 +178,10 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   tree_->setUniformRowHeights(true);
   auto* local = new QTreeWidgetItem(tree_, QStringList{tr("Biblioteca local")});
   local->setExpanded(true);
+  // O nó de topo é um título, não uma visão: clicar nele não filtra nada. Sem
+  // ItemIsSelectable ele não recebe seleção, e o texto fica no tom de "rótulo".
+  local->setFlags(local->flags() & ~Qt::ItemIsSelectable);
+  local->setForeground(0, tree_->palette().brush(QPalette::Disabled, QPalette::Text));
   for (const ViewDef& def : kViews) {
     auto* item = new QTreeWidgetItem(local, QStringList{QCoreApplication::translate("wamp::ui::LibraryWindow", def.name)});
     item->setData(0, kViewRole, static_cast<int>(def.view));
@@ -191,7 +195,8 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   // alavanca da mesma altura. -2 no papel, para não se confundir com o -1 do grupo.
   stationItem_ = new QTreeWidgetItem(tree_, QStringList{tr("Rádio local")});
   stationItem_->setData(0, kViewRole, -2);
-  tree_->setCurrentItem(local->child(0));
+  lastViewItem_ = local->child(0);
+  tree_->setCurrentItem(lastViewItem_);
   splitter->addWidget(tree_);
 
   // Lado direito: busca, tabela e rodapé.
@@ -268,6 +273,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
   table_->installEventFilter(this);
   table_->viewport()->installEventFilter(this);
+  tree_->viewport()->installEventFilter(this);
   // Rádio local: a prévia da estação fica logo acima da tabela — a tabela é a estação, o
   // painel é a única alavanca (a mistura da semente).
   stationPanel_ = new QWidget(right);
@@ -461,7 +467,15 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 
   connect(tree_, &QTreeWidget::currentItemChanged, this,
           [this](QTreeWidgetItem* current, QTreeWidgetItem*) {
-            if (current == nullptr) return;
+            // Clicar no título ("Biblioteca local") não é escolher uma visão: volta para a
+            // última escolhida em vez de deixar a árvore sem seleção.
+            if (current == nullptr) {
+              if (lastViewItem_ != nullptr) tree_->setCurrentItem(lastViewItem_);
+              return;
+            }
+            if (current->data(0, kViewRole).isValid() || current->childCount() == 0) {
+              lastViewItem_ = current;
+            }
             const QVariant value = current->data(0, kViewRole);
             const int role = value.isNull() ? 0 : value.toInt();
             humorActive_ = role == -1;
@@ -482,7 +496,14 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
               emit humorPointChanged(false);
               return;
             }
-            if (value.isNull()) return;
+            if (value.isNull()) {
+              // Título pelo teclado: o Qt limpa a seleção depois deste sinal, então o
+              // conserto espera o próximo ciclo do laço de eventos.
+              QTimer::singleShot(0, this, [this] {
+                if (lastViewItem_ != nullptr) tree_->setCurrentItem(lastViewItem_);
+              });
+              return;
+            }
             emit queryChanged();
           });
   connect(table_, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem* item) {
@@ -869,6 +890,20 @@ void LibraryWindow::showContextMenu(const QPoint& position) {
 }
 
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == tree_->viewport() && event->type() == QEvent::MouseButtonPress) {
+    auto* mouse = static_cast<QMouseEvent*>(event);
+    QTreeWidgetItem* item = tree_->itemAt(mouse->position().toPoint());
+    // "Biblioteca local" é rótulo, não visão: clicar nele não troca a lista nem apaga a
+    // seleção. Engolir o press evita que o Qt limpe a seleção antes do nosso conserto.
+    if (item != nullptr && item == tree_->topLevelItem(0)) {
+      // A setinha de recolher fica à esquerda do retângulo do item: nela o clique vale.
+      const QRect rect = tree_->visualItemRect(item);
+      if (mouse->position().x() >= rect.left()) {
+        if (lastViewItem_ != nullptr) tree_->setCurrentItem(lastViewItem_);
+        return true;
+      }
+    }
+  }
   const bool fromTable =
       watched == table_ || watched == table_->viewport();
   if (fromTable && event->type() == QEvent::MouseButtonPress) {

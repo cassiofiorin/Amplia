@@ -18,6 +18,10 @@ class DisplayPanel final : public QWidget {
   Q_OBJECT
 
  public:
+  /// Margem interna à direita: o contador de tempo termina aqui dentro do display. Quem
+  /// desenha algo que deve alinhar com ele (a barra de volume) soma este valor.
+  static constexpr int kTimeInset = 16;
+
   explicit DisplayPanel(QWidget* parent = nullptr);
 
   void setState(wamp::PlaybackState state);

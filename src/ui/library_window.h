@@ -129,6 +129,8 @@ class LibraryWindow final : public QWidget {
   QTreeWidget* tree_ = nullptr;
   QTableWidget* table_ = nullptr;
   QTreeWidgetItem* dynamicsItem_ = nullptr;
+  /// Última visão escolhida de fato (o título não conta).
+  QTreeWidgetItem* lastViewItem_ = nullptr;
   QTreeWidgetItem* stationItem_ = nullptr;
   QWidget* stationPanel_ = nullptr;
   QLabel* stationHint_ = nullptr;
