@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.cassiofiorin.Amplia</id>
+
+  <name>Amplia</name>
+  <summary>Audio player for Linux in the spirit of Winamp</summary>
+  <summary xml:lang="pt_BR">Tocador de áudio para Linux com a alma do Winamp</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <developer id="io.github.cassiofiorin">
+    <name>Cassio Fiorin</name>
+  </developer>
+
+  <description>
+    <p>
+      Amplia is a native audio player for Linux with the behaviour people remember from
+      Winamp: one window, a playlist that plays, an equalizer, and no browser in the middle.
+    </p>
+    <p>
+      It is a new player, not a port and not a copy — the code is written from scratch and the
+      inspired-by surface is the one that made that player comfortable to use.
+    </p>
+    <p>What it does:</p>
+    <ul>
+      <li>Plays MP3, AAC/M4A, FLAC, Ogg Vorbis, Opus and WAV, gapless, with bitrate, sample rate and channels on the display.</li>
+      <li>Playlist with ordering, shuffle, repeat, drag to reorder, fonts and per-track metadata.</li>
+      <li>A single queue for what comes next, with the origin of each entry: playlist, library or radio.</li>
+      <li>Local library with SQLite: search, filters by artist, album and genre, ratings, play counts and views for recently added, played and most played.</li>
+      <li>Mood radio: a target between agitation and key, with stability and a blend of mood and listening history, plus local radio from the track playing.</li>
+      <li>10-band equalizer, themes, ReplayGain, MPRIS, tray icon, Last.fm and ListenBrainz scrobbling.</li>
+      <li>Help, tag editor and about window, in Portuguese and English.</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.cassiofiorin.Amplia.desktop</launchable>
+
+  <url type="homepage">https://github.com/cassiofiorin/Amplia</url>
+  <url type="bugtracker">https://github.com/cassiofiorin/Amplia/issues</url>
+  <url type="vcs-browser">https://github.com/cassiofiorin/Amplia</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>The main window, with the display, transport and playlist</caption>
+      <caption xml:lang="pt_BR">A janela principal, com display, transporte e playlist</caption>
+      <image>https://raw.githubusercontent.com/cassiofiorin/Amplia/main/docs/img/player.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The local library, with search and filters</caption>
+      <caption xml:lang="pt_BR">A biblioteca local, com busca e filtros</caption>
+      <image>https://raw.githubusercontent.com/cassiofiorin/Amplia/main/docs/img/biblioteca.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Mood radio: the target, the sliders and the preview</caption>
+      <caption xml:lang="pt_BR">Rádio por humor: o alvo, os controles e a prévia</caption>
+      <image>https://raw.githubusercontent.com/cassiofiorin/Amplia/main/docs/img/humor.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The queue, showing where each track came from</caption>
+      <caption xml:lang="pt_BR">A fila, mostrando de onde veio cada faixa</caption>
+      <image>https://raw.githubusercontent.com/cassiofiorin/Amplia/main/docs/img/fila.png</image>
+    </screenshot>
+  </screenshots>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+
+  <keywords>
+    <keyword>audio</keyword>
+    <keyword>music</keyword>
+    <keyword>player</keyword>
+    <keyword>playlist</keyword>
+    <keyword>mp3</keyword>
+    <keyword>flac</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.9.7" date="2026-11-25">
+      <description>
+        <p>Last release before 1.0.</p>
+        <ul>
+          <li>The library has a schema version, and opening a newer database warns instead of showing an empty library.</li>
+          <li>The volume slider ends where the total time counter ends; the tree title is no longer a view.</li>
+          <li>English is complete: 522 translated texts, none pending.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.6" date="2026-11-20">
+      <description>
+        <p>Complete English, including the library window and the mood names.</p>
+      </description>
+    </release>
+  </releases>
+
+  <provides>
+    <binary>amplia</binary>
+  </provides>
+</component>

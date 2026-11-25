@@ -2,7 +2,8 @@
 Type=Application
 Name=Amplia
 GenericName=Audio Player
-Comment=Tocador de áudio nativo com o comportamento do Winamp
+Comment=A native audio player with the behaviour of Winamp
+Comment[pt_BR]=Tocador de áudio nativo com o comportamento do Winamp
 Exec=amplia %U
 Icon=io.github.cassiofiorin.Amplia
 Terminal=false
@@ -10,3 +11,4 @@ Categories=AudioVideo;Audio;Player;
 MimeType=audio/mpeg;audio/flac;audio/ogg;audio/x-vorbis+ogg;audio/opus;audio/x-wav;audio/mp4;audio/x-m4a;
 StartupWMClass=Amplia
 Keywords=audio;music;player;mp3;flac;ogg;
+Keywords[pt_BR]=áudio;música;tocador;mp3;flac;ogg;

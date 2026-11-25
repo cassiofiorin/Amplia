@@ -55,6 +55,16 @@ install(FILES
   "${CMAKE_SOURCE_DIR}/packaging/io.github.cassiofiorin.Amplia.svg"
   DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
 
+# Licença e avisos no lugar que o Flatpak espera ($FLATPAK_DEST/share/licenses/<app-id>).
+# O metainfo do AppStream NÃO entra por aqui: o flatpak-builder 1.4 roda `appstreamcli
+# compose` quando encontra um metainfo instalado, e essa etapa depende de um addon que a
+# nossa máquina não tem (o build local quebraria). O metainfo viaja pelo manifesto de
+# empacotamento, que é onde o Flathub o instala. Ver packaging/*.metainfo.xml.
+install(FILES
+  "${CMAKE_SOURCE_DIR}/COPYING"
+  "${CMAKE_SOURCE_DIR}/NOTICE"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/io.github.cassiofiorin.Amplia")
+
 # Traduções: o .ts vive em i18n/ e o lrelease embute o .qm no binário. O caminho avulso
 # (AppDataLocation/i18n) é tentado antes, para quem traduz sem recompilar.
 set(AMPLIA_TS_FILES

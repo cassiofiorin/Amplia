@@ -2889,3 +2889,21 @@ Duas correções de desenho apontadas no uso:
   antes de qualquer conserto) e devolve o destaque para a última visão escolhida
   (`lastViewItem_`); a setinha de recolher, que fica à esquerda do retângulo do item,
   continua valendo — recolher a árvore não sumiu.
+
+## D-135 — O metainfo viaja pelo manifesto, não pelo CMake
+
+O Flathub exige um metainfo do AppStream, e o caminho de instalação óbvio seria uma regra no
+`src/ui/CMakeLists.txt`. Testei e não dá: o flatpak-builder 1.4.12 roda `appstreamcli compose`
+sozinho ao terminar o build, sempre que encontra um metainfo instalado, e essa etapa exige um
+addon que não temos aqui (o erro é `AppStream Compose binary '/usr/libexec/appstreamcli-compose'
+was not found`). Com o metainfo vindo do CMake, o build local passa a falhar no fim — troco um
+requisito de loja por um build quebrado toda vez.
+
+Então: o CMake continua instalando desktop, ícone e **licença** (`COPYING` e `NOTICE` em
+`share/licenses/io.github.cassiofiorin.Amplia`, que é onde o pacote espera achar), e o
+metainfo mora em `packaging/io.github.cassiofiorin.Amplia.metainfo.xml` à espera do manifesto.
+Quem instala o metainfo é o manifesto de empacotamento (`install -Dm644 …` para
+`$FLATPAK_DEST/share/metainfo/`) — e lá o Flathub tem o ferramental completo.
+
+O XML foi validado com `appstreamcli validate` (SDK 6.10): sem erros; resta um pedido de
+pedanteria, o "A" maiúsculo do app-id, que é aceito pela loja e não vale renomear.
