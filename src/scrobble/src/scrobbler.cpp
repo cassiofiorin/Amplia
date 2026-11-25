@@ -68,6 +68,22 @@ QString lastfmError(const QByteArray& data) {
   return message.isEmpty() ? QString::fromUtf8(data.left(200)) : message;
 }
 
+/// Espera a resposta com teto de tempo. Autenticação roda no thread da UI, e uma
+/// conexão pendurada não pode congelar a janela: aborta e devolve false.
+bool waitReply(QNetworkReply* reply, int timeoutMs = 15000) {
+  QEventLoop loop;
+  QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+  QTimer guard;
+  guard.setSingleShot(true);
+  QObject::connect(&guard, &QTimer::timeout, &loop, [reply, &loop] {
+    reply->abort();
+    loop.quit();
+  });
+  guard.start(timeoutMs);
+  loop.exec();
+  return reply->isFinished() && reply->error() != QNetworkReply::OperationCanceledError;
+}
+
 }  // namespace
 
 struct Scrobbler::Impl {
@@ -405,12 +421,10 @@ bool Scrobbler::requestLastfmToken(QString* token, QString* authUrl, QString* er
                     QStringLiteral("application/x-www-form-urlencoded"));
   QNetworkReply* reply = impl_->nam->post(request, query.toString(QUrl::FullyEncoded).toUtf8());
 
-  QEventLoop loop;
-  connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-  loop.exec();
-
+  const bool answered = waitReply(reply);
   const QByteArray data = reply->readAll();
   reply->deleteLater();
+  if (!answered && error != nullptr) *error = tr("O Last.fm não respondeu a tempo.");
   const QString value = jsonString(data, QStringLiteral("token"));
   if (value.isEmpty()) {
     if (error) *error = lastfmError(data);
@@ -441,11 +455,10 @@ bool Scrobbler::exchangeLastfmToken(const QString& token, std::string* sessionKe
                     QStringLiteral("application/x-www-form-urlencoded"));
   QNetworkReply* reply = impl_->nam->post(request, query.toString(QUrl::FullyEncoded).toUtf8());
 
-  QEventLoop loop;
-  connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-  loop.exec();
+  const bool answered = waitReply(reply);
   const QByteArray data = reply->readAll();
   reply->deleteLater();
+  if (!answered && error != nullptr) *error = tr("O Last.fm não respondeu a tempo.");
 
   const QJsonDocument doc = QJsonDocument::fromJson(data);
   const QString key = doc.object().value(QStringLiteral("session")).toObject()
@@ -468,11 +481,13 @@ bool Scrobbler::validateListenbrainzToken(const QString& token, QString* error) 
   request.setRawHeader("Authorization", "Token " + token.toUtf8());
   QNetworkReply* reply = impl_->nam->get(request);
 
-  QEventLoop loop;
-  connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-  loop.exec();
+  const bool answered = waitReply(reply);
   const QByteArray data = reply->readAll();
   reply->deleteLater();
+  if (!answered) {
+    if (error != nullptr) *error = tr("O ListenBrainz não respondeu a tempo.");
+    return false;
+  }
 
   const QJsonDocument doc = QJsonDocument::fromJson(data);
   if (doc.object().value(QStringLiteral("valid")).toBool()) return true;

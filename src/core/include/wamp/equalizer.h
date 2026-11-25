@@ -85,7 +85,7 @@ class Equalizer {
   double limiterDecay_ = 0.999;
   double preampDb_ = 0.0;
   double sampleRate_ = 48000.0;
-  bool enabled_ = false;
+  std::atomic<bool> enabled_{false};  // UI escreve, thread de áudio lê
 
   // Estado dos filtros por banda e por canal (até estéreo, como o resto do app).
   std::array<std::array<double, 2>, kBands> z1_{};

@@ -348,14 +348,16 @@ bool PlayerEngine::load(const std::string& path) {
     impl_->eof.store(false);
     impl_->prebuffered = false;
     impl_->track = TrackInfo{};
-    {
-      std::lock_guard<std::mutex> io(impl_->decoderMutex);
-      impl_->decoder.reset();
-    }
-    impl_->nextDecoder.reset();
     impl_->nextPath.clear();
     impl_->switchAfterFrames.store(0);
     impl_->switchPending.store(false);
+  }
+  // O `nextDecoder` também é um decoder: solta fora do mutex de estado para não
+  // esperar quem estiver lendo (regra: nunca segurar `mutex` esperando `decoderMutex`).
+  {
+    std::lock_guard<std::mutex> io(impl_->decoderMutex);
+    impl_->decoder.reset();
+    impl_->nextDecoder.reset();
   }
   impl_->cv.notify_all();
 
@@ -366,14 +368,16 @@ bool PlayerEngine::load(const std::string& path) {
     return false;
   }
 
+  const TrackInfo info = decoder->info();
+  const std::int64_t duration = decoder->durationMs();
+  {
+    std::lock_guard<std::mutex> io(impl_->decoderMutex);
+    impl_->decoder = std::move(decoder);
+  }
   {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->track = decoder->info();
-    impl_->durationMs.store(decoder->durationMs());
-    {
-      std::lock_guard<std::mutex> io(impl_->decoderMutex);
-      impl_->decoder = std::move(decoder);
-    }
+    impl_->track = info;
+    impl_->durationMs.store(duration);
     impl_->error.clear();
     impl_->state.store(PlaybackState::Paused);
   }
@@ -382,17 +386,25 @@ bool PlayerEngine::load(const std::string& path) {
 }
 
 void PlayerEngine::play() {
+  bool rewind = false;
   {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    if (impl_->decoder == nullptr) return;
     if (impl_->state.load() == PlaybackState::Playing) return;
+    rewind = impl_->eof.load();
+  }
 
-    // Depois de um fim de faixa, o decoder está em EOF: volta ao começo.
-    if (impl_->eof.load()) {
-      {
-        std::lock_guard<std::mutex> io(impl_->decoderMutex);
-        impl_->decoder->seek(0);
-      }
+  // Depois de um fim de faixa, o decoder está em EOF: volta ao começo. O seek é I/O,
+  // então roda fora do mutex de estado (num NAS, isso não pode segurar a UI).
+  {
+    std::lock_guard<std::mutex> io(impl_->decoderMutex);
+    if (impl_->decoder == nullptr) return;
+    if (rewind) impl_->decoder->seek(0);
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (impl_->state.load() == PlaybackState::Playing) return;
+    if (rewind) {
       impl_->playedFrames.store(0);
       impl_->eof.store(false);
       impl_->prebuffered = false;
@@ -437,40 +449,56 @@ void PlayerEngine::stop() {
     impl_->playedFrames.store(0);
     impl_->eof.store(false);
     impl_->prebuffered = false;
-    impl_->nextDecoder.reset();
     impl_->switchAfterFrames.store(0);
     impl_->switchPending.store(false);
-    if (impl_->decoder) {
-      std::lock_guard<std::mutex> io(impl_->decoderMutex);
-      impl_->decoder->seek(0);
-    }
+  }
+  // I/O do decoder fora do mutex de estado: parar não pode esperar um NAS responder.
+  {
+    std::lock_guard<std::mutex> io(impl_->decoderMutex);
+    impl_->nextDecoder.reset();
+    if (impl_->decoder) impl_->decoder->seek(0);
   }
   impl_->cv.notify_all();
 }
 
 void PlayerEngine::seek(std::int64_t positionMs) {
+  bool playing = false;
+  bool hasDecoder = false;
+  std::string visibleTrack;
   {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    if (impl_->decoder == nullptr) return;
-    const bool playing = impl_->state.load() == PlaybackState::Playing;
+    playing = impl_->state.load() == PlaybackState::Playing;
+    visibleTrack = impl_->track.path;
     if (impl_->output) impl_->output->setPaused(true);
-
-    // A faixa já foi trocada no EOF mas o áudio dela ainda não começou: o seek do
-    // usuário é sobre a faixa visível, então reabre ela antes de reposicionar.
-    std::lock_guard<std::mutex> io(impl_->decoderMutex);
-    if (impl_->switchAfterFrames.load() > 0) {
-      impl_->switchAfterFrames.store(0);
-      impl_->switchPending.store(false);
-      const std::string visible = impl_->track.path;
-      auto reverted = makeFFmpegDecoder();
-      std::string revertError;
-      if (reverted->open(visible, &revertError)) impl_->decoder = std::move(reverted);
-    }
     impl_->ring.clear();
     impl_->eof.store(false);
     impl_->prebuffered = false;
-    if (!impl_->decoder->seek(positionMs)) {
-      impl_->error = "seek falhou";
+  }
+
+  // Todo o I/O acontece só sob `decoderMutex`, nunca sob o mutex de estado: um seek
+  // num arquivo de rede devolvia a janela travada porque a UI precisava do mutex.
+  bool ok = false;
+  {
+    std::lock_guard<std::mutex> io(impl_->decoderMutex);
+    hasDecoder = impl_->decoder != nullptr;
+    if (hasDecoder) {
+      // A faixa já foi trocada no EOF mas o áudio dela ainda não começou: o seek do
+      // usuário é sobre a faixa visível, então reabre ela antes de reposicionar.
+      if (impl_->switchAfterFrames.load() > 0) {
+        impl_->switchAfterFrames.store(0);
+        impl_->switchPending.store(false);
+        auto reverted = makeFFmpegDecoder();
+        std::string revertError;
+        if (reverted->open(visibleTrack, &revertError)) impl_->decoder = std::move(reverted);
+      }
+      ok = impl_->decoder->seek(positionMs);
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (!ok) {
+      if (hasDecoder) impl_->error = "seek falhou";
       return;
     }
     impl_->playedFrames.store(framesForMs(positionMs));

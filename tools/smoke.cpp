@@ -11,7 +11,6 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
-#include <vector>
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
@@ -23,10 +22,9 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <fstream>
-#include <cstring>
 
 #include "wamp/eq_preset.h"
+#include "wamp/radio.h"
 #include "wamp/replay_gain.h"
 
 #include "wamp/equalizer.h"
@@ -815,6 +813,52 @@ int main(int argc, char** argv) {
     two.push(stereo.data(), 4096, 2);
     const auto pair = two.analyze(0.066);
     check(pair.levelL > 0.5f && pair.levelR < 0.1f, "estéreo separa os canais");
+  }
+
+  // ── Rádio: relativo × paralelo na roda de Camelot ─────────────────────────────
+  // Um erro aqui contamina a estação inteira, e as duas funções são puras: cabe no
+  // teste de fumaça.
+  {
+    wamp::RadioSeed seed;
+    seed.path = "/x/seed.mp3";
+    seed.artist = "A";
+    seed.album = "X";
+    seed.genre = "rock";
+    seed.year = 2000;
+    seed.bpm = 120.0;
+    seed.keyPc = 0;     // Dó
+    seed.keyMajor = 1;  // maior → 8B
+
+    const auto candidate = [](const char* path, int pc, int major) {
+      wamp::RadioCandidate c;
+      c.path = path;
+      c.bpm = 0.0;  // sem tempo, sem nota, sem histórico: isola o peso do tom
+      c.keyPc = pc;
+      c.keyMajor = major;
+      return c;
+    };
+    const wamp::RadioCandidate relative = candidate("/x/rel.mp3", 9, 0);   // Lá menor, 8A
+    const wamp::RadioCandidate parallel = candidate("/x/par.mp3", 0, 0);   // Dó menor, 5A
+    const wamp::RadioCandidate same = candidate("/x/same.mp3", 0, 1);      // Dó maior, 8B
+
+    const double wSame = wamp::radioScore(seed, same);
+    const double wRel = wamp::radioScore(seed, relative);
+    const double wPar = wamp::radioScore(seed, parallel);
+    check(wSame > wRel && wRel > wPar,
+          "tom: mesmo acorde > relativo > paralelo");
+    // 0,15 do peso de tom × 0,775 do fator de aceitação (nenhuma ouvida).
+    check(wRel > 0.070 && wRel < 0.090, "relativo (8B × 8A) pesa 0,7");
+    check(wPar > 0.025 && wPar < 0.045, "paralelo (8B × 5A) pesa 0,3, não 0,7");
+    check(wamp::radioCamelot(9, 0) == "8A" && wamp::radioCamelot(0, 1) == "8B",
+          "roda de Camelot: Lá menor é 8A, Dó maior é 8B");
+
+    std::vector<wamp::RadioCandidate> pool = {relative, parallel, same};
+    wamp::RadioCandidate self = same;
+    self.path = seed.path;
+    pool.push_back(self);
+    const auto picked = wamp::radioPick(seed, pool, 4);
+    check(std::find(picked.begin(), picked.end(), seed.path) == picked.end(),
+          "a rádio nunca sugere a própria semente");
   }
 
   std::printf("\n%s\n", failures == 0 ? "tudo certo" : "houve falhas");

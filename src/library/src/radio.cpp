@@ -25,13 +25,21 @@ double tempoWeight(double a, double b) {
   return std::max(0.0, 1.0 - distance / 0.12);
 }
 
-/// Compatibilidade harmônica na roda de Camelot: mesmo código, vizinho e relativo.
+/// Compatibilidade harmônica na roda de Camelot.
+///
+/// - mesmo tom: 1.0
+/// - **relativo**: mesmo número, letra diferente (Dó maior 8B × Lá menor 8A) — a
+///   escala é a mesma, só muda onde ela pousa;
+/// - **paralelo**: mesma tônica, modo trocado (Dó maior 8B × Dó menor 5A) — divide a
+///   raiz, não a escala; vale pouco, mas não é zero;
+/// - vizinho na roda (número a um passo, mesma letra): 0.6.
 double keyWeight(int pcA, int majorA, int pcB, int majorB) {
   if (pcA < 0 || pcB < 0) return 0.0;
   if (pcA == pcB && majorA == majorB) return 1.0;
   const int codeA = majorA != 0 ? kMajorCode[pcA] : kMinorCode[pcA];
   const int codeB = majorB != 0 ? kMajorCode[pcB] : kMinorCode[pcB];
-  if (pcA == pcB && majorA != majorB) return 0.7;  // relativo maior/menor
+  if (codeA == codeB && majorA != majorB) return 0.7;  // relativo: 8B × 8A
+  if (pcA == pcB && majorA != majorB) return 0.3;      // paralelo: 8B × 5A
   const int step = std::abs(codeA - codeB);
   if (majorA == majorB && (step == 1 || step == 11)) return 0.6;
   return 0.0;

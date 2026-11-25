@@ -452,6 +452,20 @@ Decidido em D-079: **um arquivo só**, português no topo, separador e inglês a
 - [x] Galeria de capturas (biblioteca, humor, ajuda) e a imagem da fila junto do parágrafo dela.
 - [x] Crédito a quem traduz: `help/idiomas.txt` alimenta o Sobre, e o crédito é do autor do PR.
 
+## Dívida técnica — o `MainWindow` precisa de controladores
+
+A auditoria externa apontou o tamanho do `src/ui/main_window.cpp`: **5.587 linhas e 163 métodos**
+(era 4.338/115 antes da fila e do humor). Ele acumula quatro papéis: janela, player, fila e
+biblioteca. Não é urgente, mas cada entrega nova fica mais cara.
+
+- [ ] Extrair `PlaylistController` (carregar/salvar, ordens, enfileirar, arrastar)
+- [ ] Extrair `QueueController` (fila, origens, sementes, painel)
+- [ ] Extrair `LibraryController` (raízes, varredura, humores, prévia)
+- [ ] `MainWindow` fica só com janela, menus, atalhos e o que liga os três
+
+**Pronto quando:** nenhum controlador passar de ~1.200 linhas e o `main_window.cpp` ficar abaixo
+de 2.000.
+
 ## F8 — Empacotamento e release (a primeira depois da F6c)
 
 Publicar deixa de ser só Flatpak: **cada fase concluída sai em todos os formatos disponíveis**

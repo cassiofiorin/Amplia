@@ -98,9 +98,9 @@ void Equalizer::setSampleRate(double sampleRate) {
   reset();
 }
 
-void Equalizer::setEnabled(bool enabled) { enabled_ = enabled; }
+void Equalizer::setEnabled(bool enabled) { enabled_.store(enabled); }
 
-bool Equalizer::enabled() const { return enabled_; }
+bool Equalizer::enabled() const { return enabled_.load(); }
 
 void Equalizer::setGains(const std::array<double, kBands>& gainsDb) {
   gains_ = gainsDb;
@@ -119,7 +119,7 @@ double Equalizer::preamp() const { return preampDb_; }
 void Equalizer::reset() { resetRequested_.store(true); }
 
 void Equalizer::process(float* samples, int frames, int channels) {
-  if (!enabled_ || samples == nullptr || frames <= 0) return;
+  if (!enabled_.load(std::memory_order_relaxed) || samples == nullptr || frames <= 0) return;
   if (channels <= 0) return;
   if (channels > 2) channels = 2;
 

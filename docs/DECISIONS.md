@@ -2818,3 +2818,35 @@ entrar no catálogo:
 **Regra geral:** texto que **identifica** não se traduz; texto que **descreve** se traduz na
 borda da interface. O motor trabalha com identificadores estáveis; a janela é quem conhece o
 idioma.
+
+## D-132 — A rádio distingue relativo de paralelo, e o I/O saiu de baixo do mutex de estado
+
+A auditoria externa achou um erro de harmonia e três resíduos de concorrência. Todos foram
+corrigidos e verificados.
+
+**O erro de harmonia.** `keyWeight` tratava `pcA == pcB && majorA != majorB` (Dó maior × Dó menor)
+como "relativo" e dava 0,7; o relativo de verdade (8B × 8A, mesma posição na roda de Camelot)
+ficava com 0. A estação de rádio estava premiando justamente o par mais distante em afeto.
+Agora:
+
+- `codeA == codeB && majorA != majorB` → **0,7** (relativo: 8B × 8A);
+- `pcA == pcB && majorA != majorB` → **0,3** (paralelo: 8B × 5A);
+- mesmo acorde → 1,0; vizinho na roda → 0,6.
+
+Um teste no `smoke` fixa os três números: com todos os outros eixos zerados, o mesmo acorde dá
+0,116, o relativo 0,081 e o paralelo 0,035.
+
+**Os resíduos de concorrência.**
+
+1. `enabled_` do equalizador virou `std::atomic<bool>` (a UI escrevia enquanto a worker lia).
+2. Em `player_engine.cpp`, o I/O do decoder deixou de rodar sob o mutex de estado: `load()`,
+   `play()` (rewind de EOF), `stop()` e `seek()` soltam o decoder e fazem o trabalho pesado só sob
+   `decoderMutex`. A regra virou explícita: **nunca segurar `mutex` esperando `decoderMutex`** —
+   era isso que ainda congelava a janela num seek em arquivo de rede.
+3. As três esperas de rede do scrobbler ganharam teto de 15 s (`waitReply`): autenticar no Last.fm
+   ou no ListenBrainz com a rede pendurada não trava mais a interface para sempre.
+
+**De brinde:** `project(WAmp …)` virou `project(Amplia …)`, os `#include` repetidos do smoke
+sumiram, e o projeto passou a ter CI (`.github/workflows/build.yml`): build no Ubuntu 24.04 e um
+job que falha se o catálogo inglês tiver texto pendente. O teste de fumaça **não** roda no CI de
+propósito — ele abre dispositivo de áudio de verdade e falharia por ambiente, não por código.

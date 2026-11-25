@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compilar (Ubuntu 24.04, Qt 6)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config \
+            qt6-base-dev qt6-base-dev-tools qt6-l10n-tools \
+            libavformat-dev libavcodec-dev libavutil-dev libswresample-dev \
+            libpipewire-0.3-dev libsqlite3-dev libsystemd-dev libtag1-dev
+
+      - name: Configurar
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Compilar
+        run: cmake --build build --parallel 2
+
+      # O teste de fumaça abre um dispositivo de áudio de verdade; num runner sem
+      # PipeWire ele falharia por ambiente, não por código. Roda na máquina de quem
+      # desenvolve: `./build/tools/wamp-smoke <arquivo>`. Aqui fica só o build.
+
+  i18n:
+    name: Traduções (0 pendentes)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar ferramentas do Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qt6-l10n-tools qt6-base-dev
+      - name: Compilar o catálogo e falhar se houver texto pendente
+        run: |
+          lrelease i18n/amplia_en.ts -qm /tmp/amplia_en.qm | tee /tmp/lrelease.log
+          grep -q "0 unfinished" /tmp/lrelease.log
