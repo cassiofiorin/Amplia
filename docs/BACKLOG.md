@@ -7,6 +7,7 @@ a prioridade se decide quando a iteração começa.
 | # | Data | Item | Onde | Estado |
 |---|---|---|---|---|
 | 1 | 25/11 | **Coluna "Ano" na Biblioteca**, como última coluna da tabela (depois de "Tocadas"). A `LibraryEntry` já traz `info.year`; a tabela mostra 8 colunas e o ano não está entre elas. Ordenar como número, igual a Duração/Nota | janela da Biblioteca, tabela de faixas | a fazer |
+| 1b | 25/11 | **Ordem padrão da tabela: Ano, Álbum, Faixa** (nessa prioridade). Decidir na hora se isso vale para todas as visões ou só para "Todas as faixas" — as visões "Adicionadas", "Modificadas", "Tocadas" e "Mais tocadas" hoje ordenam pela data/contagem | janela da Biblioteca | a fazer |
 | 2 | 25/11 | **Corte da `1.0.0`**: versão estável (sem `rc`), notas de release, README e a promessa de esquema/playlist | release | aguardando o ok |
 | 3 | 25/11 | **Empacotamento (F8)**: repositório Flatpak próprio assinado (build-export + build-update-repo, hospedado estático, remote via `.flatpakrepo`) e, depois, AppImage/`.deb`/`.rpm`/tar.gz | `docs/ROADMAP.md`, F8 | a fazer |
 | 4 | 25/11 | **Tradução inglesa**: os 522 textos foram gerados por IA. Se um dia houver submissão a loja que exija tradução humana, precisa de passada humana; fora disso, fica como está | `i18n/amplia_en.ts` | anotado |
