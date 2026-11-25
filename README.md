@@ -6,7 +6,7 @@ Player de áudio nativo para Linux, escrito em C++ com Qt 6 — playlist, fila, 
 
 ## Motivação e histórico
 
-Uso o Winamp há mais de vinte anos. Ele faz coisas que nenhum player moderno com a mesma competência (na minha opinião):
+Uso o Winamp há mais de vinte anos. Ele faz coisas que nenhum player moderno entrega com a mesma competência (na minha opinião):
 fila separada da playlist, o sorteio com nível, o display de tempo condensado com visualizador de picos de volume e visualização de bandas, o jeito de saltar para uma faixa digitando parte do nome. Tudo o que existe hoje é limitado e/ou burocrático demais ou exige Wine, então resolvi "modernizar" justamente o que eu gostava.
 
 Em setembro de 2024 a Llama Group abriu o código-fonte do Winamp, mas sob uma licença que proíbe distribuir versões modificadas — ou seja, um port direto não pode ser publicado a partir dele.
