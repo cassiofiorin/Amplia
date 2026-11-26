@@ -930,15 +930,17 @@ void MainWindow::buildUi() {
       },
       28);
   eqButton_->setCheckable(true);
-  eqButton_->setToolTip(tr("Equalizador (Alt+G)"));
-  connect(eqButton_, &QPushButton::toggled, this, [this](bool on) {
-    engine_->setEqualizerEnabled(on);
-    if (on) {
-      openEqualizer();
-    } else if (eqDialog_) {
+  eqButton_->setToolTip(tr("Equalizador (Alt+G) — acende quando o equalizador está ligado"));
+  // Este botão **abre a janela** e mostra o estado; quem liga e desliga o equalizador é o
+  // LED "EQ" do display, embaixo do relógio. Antes, entrar na janela pelo botão desligava a
+  // equalização sem o usuário pedir — e o som mudava.
+  connect(eqButton_, &QPushButton::clicked, this, [this] {
+    if (eqDialog_ != nullptr && eqDialog_->isVisible()) {
       eqDialog_->close();
+    } else {
+      openEqualizer();
     }
-    refresh();
+    refresh();  // o aceso é do equalizador, não de quem abriu a janela
   });
   sideButtons->addWidget(eqButton_);
 

@@ -108,8 +108,11 @@ void CoverCache::enqueue(const QString& key, const QString& samplePath, int size
     QString suffix = QStringLiteral("jpg");
     const QImage image = loadCoverImage(samplePath, &suffix);
     if (!image.isNull()) {
-      const QImage scaled = image.scaled(size, size, Qt::KeepAspectRatio,
-                                         Qt::SmoothTransformation);
+      // Só reduz. Ampliar arte pequena estica os pixels e a distorção aparece na hora.
+      const QImage scaled = (image.width() > size || image.height() > size)
+                                ? image.scaled(size, size, Qt::KeepAspectRatio,
+                                               Qt::SmoothTransformation)
+                                : image;
       const QString file = target + QLatin1Char('.') + suffix;
       scaled.save(file);
       if (!self) return;

@@ -16,6 +16,8 @@
 #include <QUrl>
 #include <QHeaderView>
 #include <QEvent>
+#include <QHelpEvent>
+#include <QToolTip>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QMenuBar>
@@ -154,6 +156,8 @@ constexpr int kStarPad = 4;
 constexpr int kCoverPixels = 18;
 constexpr int kCoverKeyRole = Qt::UserRole + 7;
 constexpr int kCoverPathRole = Qt::UserRole + 8;
+// Tamanho do tooltip de capa: o suficiente para reconhecer o disco sem inventar detalhe.
+constexpr int kTipPixels = 160;
 int starSliceWidth(int cellWidth) { return std::max(1, (cellWidth - 2 * kStarPad) / 5); }
 
 /// Desenha sempre as cinco estrelas: acesas até a nota, esmaecidas depois (nota 0 = cinco
@@ -390,6 +394,13 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   table_->setItemDelegateForColumn(3, new CoverDelegate(covers_, table_));
   connect(covers_, &CoverCache::loaded, table_->viewport(),
           QOverload<>::of(&QWidget::update));
+  connect(covers_, &CoverCache::loaded, this, [this] {
+    if (tipKey_.isEmpty()) return;
+    const QString file = covers_->filePath(tipKey_, kTipPixels);
+    if (file.isEmpty()) return;  // ainda não é esta capa
+    tipKey_.clear();
+    showCoverTip(tipPos_, file);
+  });
   table_->verticalHeader()->setVisible(false);
   table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   table_->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -1177,6 +1188,12 @@ void LibraryWindow::showContextMenu(const QPoint& position) {
   }
 }
 
+void LibraryWindow::showCoverTip(const QPoint& globalPos, const QString& file) const {
+  const QString html =
+      QStringLiteral("<img src=\"%1\">").arg(QUrl::fromLocalFile(file).toString());
+  QToolTip::showText(globalPos, html, const_cast<LibraryWindow*>(this));
+}
+
 bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
   if (watched == tree_->viewport() && event->type() == QEvent::MouseButtonPress) {
     auto* mouse = static_cast<QMouseEvent*>(event);
@@ -1191,6 +1208,33 @@ bool LibraryWindow::eventFilter(QObject* watched, QEvent* event) {
         return true;
       }
     }
+  }
+  if (watched == table_->viewport() && event->type() == QEvent::ToolTip) {
+    // A miniatura de 18 px é uma pista; o tooltip mostra a capa em tamanho de ver. Só a
+    // variante de 160 px, e o CoverCache nunca amplia: arte pequena sai no tamanho dela.
+    auto* help = static_cast<QHelpEvent*>(event);
+    const QModelIndex index = table_->indexAt(help->pos());
+    QTableWidgetItem* title = index.isValid() ? table_->item(index.row(), 3) : nullptr;
+    const QRect cell = index.isValid() ? table_->visualRect(index) : QRect();
+    const bool overCover =
+        title != nullptr && help->pos().x() >= cell.left() && help->pos().x() <= cell.left() + kCoverPixels + 4;
+    const QString key = overCover ? title->data(kCoverKeyRole).toString() : QString();
+    if (!key.isEmpty()) {
+      const QString file = covers_->filePath(key, kTipPixels);
+      if (!file.isEmpty()) {
+        showCoverTip(help->globalPos(), file);
+      } else {
+        // Primeira vez: extrai agora e mostra quando ficar pronto (não amplia nada).
+        tipKey_ = key;
+        tipPos_ = help->globalPos();
+        covers_->cover(key, title->data(kCoverPathRole).toString(), kTipPixels);
+        QToolTip::showText(help->globalPos(), tr("Carregando a capa…"), table_);
+      }
+      return true;
+    }
+    tipKey_.clear();
+    QToolTip::hideText();
+    return true;
   }
   const bool fromTable =
       watched == table_ || watched == table_->viewport();

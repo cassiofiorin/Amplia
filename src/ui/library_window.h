@@ -129,6 +129,7 @@ class LibraryWindow final : public QWidget {
 
  protected:
   bool eventFilter(QObject* watched, QEvent* event) override;
+  void showCoverTip(const QPoint& globalPos, const QString& file) const;
 
  private:
   /// Menu do clique direito na tabela (tocar, enfileirar, estação, copiar, abrir pasta,
@@ -148,6 +149,8 @@ class LibraryWindow final : public QWidget {
   /// para não refazer a consulta de milhares de linhas a cada execução contada).
   QTimer* playViewTimer_ = nullptr;
   class CoverCache* covers_ = nullptr;
+  QString tipKey_;
+  QPoint tipPos_;
   void schedulePlayViewRefresh();
   void touchLiveRow(int column, const QString& path, int value);
   QTreeWidgetItem* stationItem_ = nullptr;

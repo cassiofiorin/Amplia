@@ -9,6 +9,7 @@
 #include "wamp/audio_analyzer.h"
 #include "wamp/types.h"
 
+class QLabel;
 class QTimer;
 
 namespace wamp::ui {
@@ -82,6 +83,7 @@ class DisplayPanel final : public QWidget {
 
  private:
   void drawDigits(QPainter& painter, const QRect& area, const QString& text) const;
+
   struct Line {
     QString text;
     int width = 0;

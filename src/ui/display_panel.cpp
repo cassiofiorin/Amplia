@@ -4,6 +4,7 @@
 
 #include "icons.h"
 
+#include <QLabel>
 #include <QFont>
 #include <QFontMetrics>
 #include <QPainter>
@@ -109,6 +110,8 @@ QString formatClock(qint64 ms) {
 
 DisplayPanel::DisplayPanel(QWidget* parent) : QWidget(parent) {
   setObjectName(QStringLiteral("displayPanel"));
+  // A capa mostra uma versão ampliada ao passar o mouse.
+  setMouseTracking(true);
   setMinimumSize(320, 86);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   // Letreiro: quando o nome da faixa não cabe, ele corre da direita para a esquerda
@@ -217,19 +220,19 @@ QRect DisplayPanel::spectrumRect() const {
 }
 
 QRect DisplayPanel::coverRect() const {
-  // A capa é recompensa de quem alargou a janela: no tamanho padrão ela não aparece, para
-  // o espectro ficar com toda a largura. O corte é de largura, como no original — expandir
-  // é o gesto que revela.
-  if (width() < 700) return QRect();
+  // A capa é recompensa de quem alargou a janela, mas quem decide é a conta, não um número
+  // mágico: ela só entra se sobrar a largura do quadrado mais o mínimo do espectro.
   const QRect area = spectrumRect();
   const int meterW = std::clamp(area.width() / 16, 8, 22);
   const int meterGap = std::max(3, meterW / 4);
   const int baseLeft = area.left() + 2 * meterW + meterGap + 14;
   const int baseSpace = area.right() - baseLeft + 1;
-  const int side = std::clamp(area.height() - 8, 32, 64);
-  // A capa entra só quando sobra largura: as vinte bandas precisam de pelo menos 3 px cada,
-  // senão o espectro perde a leitura e o ganho estético vira perda.
-  if (baseSpace - (side + 12) < wamp::AudioAnalyzer::kBands * 3) return QRect();
+  // A capa tem a altura da faixa de barras: quadrada, ela acompanha a altura do analisador
+  // em vez de boiar no meio dele.
+  const int side = area.height() - 4;
+  // O espectro cede até 2 px por banda; abaixo disso ele deixa de ser leitura e a capa
+  // espera a próxima largura. É o mínimo para o quadrado existir, sem folga extra.
+  if (baseSpace - (side + 12) < wamp::AudioAnalyzer::kBands * 2) return QRect();
   return QRect(baseLeft, area.top() + 2, side, area.height() - 4);
 }
 
@@ -502,9 +505,12 @@ void DisplayPanel::paintEvent(QPaintEvent* /*event*/) {
     const int barsLeft =
         area.left() + 2 * meterW + meterGap + 14 + (cover.isNull() ? 0 : cover.width() + 12);
     const int barsSpace = area.right() - barsLeft + 1;
-    // Largura inteira igual para todas as bandas; o início é recuado para que a última
-    // encoste na borda direita (o mesmo eixo do fim do número da duração).
-    const int barW = std::max(2, barsSpace / wamp::AudioAnalyzer::kBands);
+    // Barras coladas, com o vão de 1 px de sempre — o espaçamento é o mesmo em qualquer
+    // largura; o que muda é a largura da barra, com teto para o espectro não engordar quando
+    // a janela alarga. Sem o teto, alargar só inflava as colunas.
+    const int barW = std::clamp(barsSpace / wamp::AudioAnalyzer::kBands, 2, 12);
+    // A sobra fica à esquerda das barras: o bloco de LEDs nasce colado à direita (eixo do fim
+    // da duração) e o respiro de largura é o vão entre a capa e o espectro.
     const int barsStart = area.right() + 1 - barW * wamp::AudioAnalyzer::kBands;
 
     if (!cover.isNull() && !albumArt_.isNull()) {
