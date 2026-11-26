@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QPixmap>
 #include <QPoint>
 #include <QRect>
 #include <QString>
@@ -37,6 +38,13 @@ class DisplayPanel final : public QWidget {
   /// 0 = desligado, 1 = repetir a lista, 2 = repetir a faixa.
   void setRepeatMode(int mode);
   void setShuffleActive(bool active);
+
+  /// Capa do álbum da faixa atual. Só aparece quando a janela está larga o bastante para
+  /// caber entre os medidores e o espectro — expandir revela informação, como no original.
+  void setAlbumArt(const QPixmap& art);
+
+  /// Área da capa, ou um retângulo nulo quando ela está escondida pela largura.
+  QRect coverRect() const;
 
   /// Alterna o relógio entre decorrido e restante (como clicar no tempo do original).
   void setShowRemaining(bool remaining);
@@ -106,6 +114,7 @@ class DisplayPanel final : public QWidget {
   QTimer* marqueeTimer_ = nullptr;
   Line lines_[2];
   wamp::AudioAnalyzer::Frame visual_;
+  QPixmap albumArt_;
   bool remaining_ = false;
   bool dragging_ = false;
 };

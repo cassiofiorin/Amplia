@@ -147,6 +147,7 @@ class LibraryWindow final : public QWidget {
   /// Avisa a MainWindow que a visão por tocada precisa ser reconsultada (debounce curto,
   /// para não refazer a consulta de milhares de linhas a cada execução contada).
   QTimer* playViewTimer_ = nullptr;
+  class CoverCache* covers_ = nullptr;
   void schedulePlayViewRefresh();
   void touchLiveRow(int column, const QString& path, int value);
   QTreeWidgetItem* stationItem_ = nullptr;

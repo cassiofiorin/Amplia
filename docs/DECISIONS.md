@@ -2985,3 +2985,26 @@ gravação, e colapsá-las faria a estação sugerir o ao vivo no lugar do estú
 casamento de tiragens e a separação de gravações, e roda por `ctest` no CI — é o único teste do
 projeto que pode rodar num runner, porque o `wamp-smoke` abre dispositivo de áudio. O teste é o
 que impede alguém de "só ajustar" a regra e mudar a chave de uma biblioteca inteira sem perceber.
+
+## D-138 — A capa entra pela largura que sobra, e o anterior segue o sorteio
+
+**A capa não disputa espaço: ela ocupa o que já estava vazio.** O painel do player tem os
+medidores L/R à esquerda e vinte bandas de espectro à direita, com um corredor de respiro entre
+eles. Alargar a janela só engordava as bandas. A capa do álbum entra nesse corredor **quando há
+largura para ela** (janela com 700 px ou mais, e ainda assim só se as vinte bandas mantiverem
+pelo menos 3 px cada). No tamanho padrão ela não aparece, e nada mais se mexe — é a mesma ideia do
+display clássico, que revela mais informação conforme a janela cresce.
+
+O cache é **por álbum**, não por faixa: as doze faixas de um disco compartilham uma leitura só, e a
+chave é a identidade da obra (`norm/v1`), então uma tag que alterna caixa ou acento entre as
+faixas não parte o álbum em dois. A extração roda em `QThreadPool`; o painel pede o pixmap e
+recebe nulo enquanto carrega, sem marcador cinza — no display, um retângulo vazio chamaria mais
+atenção que a própria capa.
+
+**O botão "anterior" com sorteio ligado anda no histórico do sorteio.** Antes ele usava
+`previousIndex()`, a ordem da lista — justamente a ordem que o sorteio ignorou. Agora a `Playlist`
+guarda os caminhos tocados desde que o sorteio ligou (cem entradas) e "anterior" devolve a faixa
+que tocou imediatamente antes, mesmo que na lista ela esteja longe. Repetir a mesma faixa não
+duplica a entrada, e desfazer uma volta não prende o botão na mesma faixa. O histórico guarda
+**caminhos**, não índices: reordenar ou arrastar linhas não estraga a memória. Com o sorteio
+desligado, nada muda.

@@ -67,6 +67,17 @@ class Playlist {
   /// Esquece o histórico recente (ao ligar o sorteio ou trocar a playlist).
   void resetShuffle();
 
+  /// Registra no histórico do sorteio a faixa que começou a tocar. Repetir a mesma faixa
+  /// não duplica a entrada — é o que mantém "anterior" coerente depois de voltar uma vez.
+  void noteShufflePlay(std::size_t index);
+
+  /// Anterior **na ordem do sorteio**: a faixa que tocou imediatamente antes desta, mesmo
+  /// que na lista ela esteja longe. `kNone` quando não há histórico suficiente.
+  std::size_t shuffledPreviousIndex() const;
+
+  /// Desfaz a última entrada do histórico (quem chama já vai tocar a anterior).
+  void dropLastShufflePlay();
+
   /// Formato .m3u simples (uma linha por caminho, `#` como comentário). Caminhos
   /// relativos são resolvidos a partir do diretório do arquivo.
   /// Formatos: .m3u/.m3u8, .pls, .b4s e .wpl (ver `playlist_file.h`).
@@ -83,6 +94,9 @@ class Playlist {
   std::mt19937 rng_{std::random_device{}()};
   /// Últimas faixas sorteadas, para não repetir logo em seguida.
   std::vector<std::string> recent_;
+  /// O caminho que o sorteio percorreu, na ordem em que foi tocado. É a memória do botão
+  /// "anterior": com ⇄ ligado, voltar significa voltar no que se ouviu, não na lista.
+  std::vector<std::string> history_;
 };
 
 }  // namespace wamp

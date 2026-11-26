@@ -2,6 +2,7 @@ add_executable(wamp
   click_slider.h
   main.cpp
   main_window.cpp
+  cover_cache.cpp
   main_window.h
   display_panel.cpp
   display_panel.h

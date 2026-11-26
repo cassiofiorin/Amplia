@@ -10,6 +10,10 @@ browser, and the music keeps playing while you fiddle with the list.
   the file has something to show.
 - **Buttons**: previous, play, pause, stop, next, eject and volume. `L R` is the level
   meter; `EQ` and `123` light up the equalizer and the track counter.
+- **A wider window reveals more**: the panel uses whatever width is left. Widened, the
+  window fits the **album cover** in the gap between the level meters and the spectrum — if
+  there is no room for the twenty bands to stay readable, the cover simply does not appear,
+  and nothing else moves.
 - **Scrolling title**: the title bar shows the track and artist, scrolling when it does not
   fit.
 - **Footer**: on the left the metadata queue counter and the version; on the right the

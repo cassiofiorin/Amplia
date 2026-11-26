@@ -132,6 +132,17 @@ ThemeDialog::ThemeDialog(const QColor& background, const QColor& accent, const Q
   }
   copyRow->addWidget(presetCombo_, 1);
   right->addLayout(copyRow);
+
+  // A janela larga revela mais: o painel distribui o espaço que sobra, e a capa só cabe
+  // quando há vão entre os medidores e o espectro. Fica como dica porque é o tipo de
+  // detalhe que ninguém descobre sozinho.
+  auto* widthHint = new QLabel(
+      tr("Alargar a janela revela mais: o vão entre os medidores e o espectro recebe a capa "
+         "do álbum quando houver espaço para ela, e as bandas do espectro crescem junto."),
+      this);
+  widthHint->setWordWrap(true);
+  widthHint->setEnabled(false);
+  right->addWidget(widthHint);
   right->addStretch(1);
   columns->addLayout(right, 1);
 

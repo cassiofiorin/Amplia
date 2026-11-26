@@ -2,6 +2,8 @@
 
 #include "translator.h"
 
+#include "cover_cache.h"
+
 #include <QClipboard>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -147,6 +149,11 @@ QString starsText(int rating) {
 
 /// Cinco fatias de estrela por célula, com o mesmo passo usado no clique.
 constexpr int kStarPad = 4;
+
+// Capa do álbum na lista: 18 px cabem na altura de linha sem mexer no espaçamento.
+constexpr int kCoverPixels = 18;
+constexpr int kCoverKeyRole = Qt::UserRole + 7;
+constexpr int kCoverPathRole = Qt::UserRole + 8;
 int starSliceWidth(int cellWidth) { return std::max(1, (cellWidth - 2 * kStarPad) / 5); }
 
 /// Desenha sempre as cinco estrelas: acesas até a nota, esmaecidas depois (nota 0 = cinco
@@ -192,6 +199,59 @@ class StarsDelegate final : public QStyledItemDelegate {
     }
     painter->restore();
   }
+};
+
+/// Capa do álbum à esquerda do título. O pixmap vem do cache (que carrega fora da interface);
+/// enquanto não chega, o espaço fica reservado — assim a coluna não "pula" quando a imagem
+/// aparece.
+class CoverDelegate final : public QStyledItemDelegate {
+ public:
+  explicit CoverDelegate(CoverCache* covers, QObject* parent)
+      : QStyledItemDelegate(parent), covers_(covers) {}
+
+  void paint(QPainter* painter, const QStyleOptionViewItem& option,
+             const QModelIndex& index) const override {
+    QStyleOptionViewItem opt = option;
+    initStyleOption(&opt, index);
+    const QString text = opt.text;
+
+    const QString key = index.data(kCoverKeyRole).toString();
+    QPixmap pixmap;
+    if (!key.isEmpty() && covers_ != nullptr) {
+      pixmap = covers_->cover(key, index.data(kCoverPathRole).toString(), kCoverPixels);
+    }
+
+    opt.text.clear();
+    const QWidget* widget = opt.widget;
+    QStyle* style = widget != nullptr ? widget->style() : QApplication::style();
+    style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, widget);
+    if (pixmap.isNull() && text.isEmpty()) return;
+
+    painter->save();
+    int left = opt.rect.left() + 4;
+    if (!pixmap.isNull()) {
+      const int top = opt.rect.top() + (opt.rect.height() - kCoverPixels) / 2;
+      painter->drawPixmap(left, top, pixmap);
+      left += kCoverPixels + 6;
+    } else if (!key.isEmpty()) {
+      // Ainda carregando: um retângulo discreto marca o lugar da capa.
+      QColor placeholder = opt.palette.color(QPalette::Text);
+      placeholder.setAlphaF(0.12f);
+      const int top = opt.rect.top() + (opt.rect.height() - kCoverPixels) / 2;
+      painter->fillRect(QRect(left, top, kCoverPixels, kCoverPixels), placeholder);
+      left += kCoverPixels + 6;
+    }
+    painter->setPen(opt.palette.color(QPalette::Text));
+    painter->setFont(opt.font);
+    const QRect textRect(left, opt.rect.top(), opt.rect.right() - left, opt.rect.height());
+    const QFontMetrics metrics(opt.font);
+    painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft,
+                      metrics.elidedText(text, Qt::ElideRight, textRect.width()));
+    painter->restore();
+  }
+
+ private:
+  CoverCache* covers_ = nullptr;
 };
 
 }  // namespace
@@ -326,6 +386,10 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
                                      tr("Duração"), tr("Gênero"), tr("Nota"), tr("Tocadas"),
                                      tr("Pulos"), tr("Ano"), QString()});
   table_->setItemDelegateForColumn(6, new StarsDelegate(table_));
+  covers_ = new CoverCache(this);
+  table_->setItemDelegateForColumn(3, new CoverDelegate(covers_, table_));
+  connect(covers_, &CoverCache::loaded, table_->viewport(),
+          QOverload<>::of(&QWidget::update));
   table_->verticalHeader()->setVisible(false);
   table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   table_->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -806,6 +870,14 @@ void LibraryWindow::setRows(const std::vector<wamp::LibraryEntry>& rows) {
     make(1, QString::fromStdString(entry.info.album));
     make(2, entry.info.trackNo > 0 ? QString::number(entry.info.trackNo) : QString());
     QTableWidgetItem* titleItem = make(3, QString::fromStdString(entry.info.title));
+    // A capa é por álbum; a chave vem da identidade da obra, e o caminho é só a amostra
+    // para a extração (embutida ou `folder.jpg`).
+    if (!entry.info.album.empty()) {
+      const QString key = CoverCache::albumKey(QString::fromStdString(entry.info.artist),
+                                               QString::fromStdString(entry.info.album));
+      titleItem->setData(kCoverKeyRole, key);
+      titleItem->setData(kCoverPathRole, QString::fromStdString(entry.info.path));
+    }
     const QString duration = durationText(entry.info.durationMs);
     durationWidth = std::max(durationWidth, metrics.horizontalAdvance(duration));
     make(4, duration);

@@ -42,6 +42,7 @@ class QVBoxLayout;
 
 
 namespace wamp::ui {
+class CoverCache;
 class DisplayPanel;
 class EqualizerDialog;
 class JumpDialog;
@@ -219,6 +220,8 @@ class MainWindow final : public QMainWindow {
   void updateWindowTitle();
   /// Capa embutida → arquivo em ~/.cache para o `mpris:artUrl` do applet.
   void updateArtwork(const wamp::TrackInfo& track);
+  /// Põe no display a capa do álbum da faixa atual (nula enquanto o cache carrega).
+  void refreshPanelArt();
   /// Apaga do cache de capas o que ninguém abriu em 30 dias (uma passada por execução,
   /// fora da thread da interface). A capa da faixa atual nunca é apagada.
   void pruneArtCache();
@@ -368,6 +371,8 @@ class MainWindow final : public QMainWindow {
 
   /// Arquivo local da capa da faixa atual ("" = sem capa).
   std::string artPath_;
+  /// Capa por álbum: a mesma que a lista usa, servida do disco em `<Cache>/covers`.
+  wamp::ui::CoverCache* covers_ = nullptr;
 
   /// Faixa que o engine vai emendar quando a atual acabar ("" = nenhuma).
   std::string nextUpPath_;

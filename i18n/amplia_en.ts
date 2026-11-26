@@ -1342,6 +1342,10 @@ The files stay on disk.</numerusform>
         <translation>— pick a scheme —</translation>
     </message>
     <message>
+        <source>Alargar a janela revela mais: o vão entre os medidores e o espectro recebe a capa do álbum quando houver espaço para ela, e as bandas do espectro crescem junto.</source>
+        <translation>A wider window reveals more: the gap between the level meters and the spectrum holds the album cover when there is room for it, and the spectrum bands grow along with it.</translation>
+    </message>
+    <message>
         <source>Salvar como…</source>
         <translation>Save as…</translation>
     </message>

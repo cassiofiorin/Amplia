@@ -8,6 +8,7 @@
 #include "wamp/tag_editor.h"
 
 #include "equalizer_dialog.h"
+#include "cover_cache.h"
 #include "display_panel.h"
 #include "icons.h"
 
@@ -72,6 +73,7 @@
 #include <QSet>
 #include <QSettings>
 #include <QSignalBlocker>
+#include <QPixmap>
 #include <QStandardPaths>
 #include <QPushButton>
 #include <QSlider>
@@ -821,6 +823,10 @@ void MainWindow::buildUi() {
   // O display ocupa o lugar do título e da barra de posição: relógio, informações do
   // arquivo, faixa e a própria barra (que agora é o controle de posição).
   display_ = new wamp::ui::DisplayPanel(central);
+  // A capa do painel sai do mesmo cache por álbum que a lista usa. A extração roda em
+  // thread separada; quando termina, `loaded` pede o desenho de novo.
+  covers_ = new wamp::ui::CoverCache(this);
+  connect(covers_, &wamp::ui::CoverCache::loaded, this, [this] { refreshPanelArt(); });
   // Altura fixa: o painel tem geometria desenhada à mão e não pode ser comprimido pela
   // lista da playlist quando ela abre.
   display_->setFixedHeight(display_->sizeHint().height());
@@ -1920,6 +1926,7 @@ bool MainWindow::openPath(const QString& path, bool autoplay) {
   }
   if (index == wamp::Playlist::kNone) index = playlist_->add(native);
   playlist_->setCurrent(index);
+  if (shuffle_) playlist_->noteShufflePlay(index);
   wamp::TrackInfo cached;
   if (!cachedInfo(native, &cached)) scanner_->enqueue(native);
   rebuildPlaylist();
@@ -3152,6 +3159,16 @@ void MainWindow::playPrevious() {
   if (engine_->positionMs() > 3000) {
     engine_->seek(0);
     return;
+  }
+  if (shuffle_) {
+    // Com sorteio ligado, "anterior" anda no que você ouviu, não na ordem da lista — que é
+    // justamente o que o sorteio embaralhou.
+    const std::size_t previous = playlist_->shuffledPreviousIndex();
+    if (previous != wamp::Playlist::kNone) {
+      playlist_->dropLastShufflePlay();
+      playIndex(previous);
+      return;
+    }
   }
   playIndex(playlist_->previousIndex());
 }
@@ -5639,7 +5656,10 @@ void MainWindow::pruneArtCache() {
 
 void MainWindow::updateArtwork(const wamp::TrackInfo& track) {
   artPath_.clear();
-  if (track.path.empty()) return;
+  if (track.path.empty()) {
+    refreshPanelArt();
+    return;
+  }
 
   // O applet do KDE só sabe carregar uma URL, então a capa vira um arquivo no cache,
   // nomeado por caminho + data de modificação + origem: mudou o arquivo ou a fonte da
@@ -5680,18 +5700,36 @@ void MainWindow::updateArtwork(const wamp::TrackInfo& track) {
     }
     if (QFile::exists(file)) {
       artPath_ = file.toStdString();
+      refreshPanelArt();
       return;
     }
   }
 
   // 2) Sem tag, a capa da pasta: é assim que a maioria das discografias vem do Windows.
   const QString cover = QString::fromStdString(wamp::TagEditor::folderCover(track.path));
-  if (cover.isEmpty()) return;
+  if (cover.isEmpty()) {
+    refreshPanelArt();
+    return;
+  }
   QString suffix = QFileInfo(cover).suffix().toLower();
   if (suffix.isEmpty()) suffix = QStringLiteral("jpg");
   const QString file = cacheDir + QLatin1Char('/') + digestFor("folder") + QLatin1Char('.') + suffix;
   if (!QFile::exists(file)) QFile::copy(cover, file);
   if (QFile::exists(file)) artPath_ = file.toStdString();
+  refreshPanelArt();
+}
+
+void MainWindow::refreshPanelArt() {
+  if (display_ == nullptr) return;
+  const wamp::TrackInfo track = engine_->track();
+  if (covers_ == nullptr || track.path.empty() || track.album.empty()) {
+    display_->setAlbumArt(QPixmap());
+    return;
+  }
+  const QString key = wamp::ui::CoverCache::albumKey(QString::fromStdString(track.artist),
+                                                    QString::fromStdString(track.album));
+  // Nulo enquanto carrega: o `loaded` volta aqui e põe a imagem no lugar.
+  display_->setAlbumArt(covers_->cover(key, QString::fromStdString(track.path), 128));
 }
 
 void MainWindow::updateWindowTitle() {

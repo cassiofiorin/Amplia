@@ -157,7 +157,32 @@ bool Playlist::recentlyPlayed(std::size_t index) const {
   return false;
 }
 
-void Playlist::resetShuffle() { recent_.clear(); }
+void Playlist::resetShuffle() {
+  recent_.clear();
+  history_.clear();
+}
+
+void Playlist::noteShufflePlay(std::size_t index) {
+  if (index >= items_.size()) return;
+  const std::string& path = items_[index];
+  if (!history_.empty() && history_.back() == path) return;
+  history_.push_back(path);
+  // Cem faixas de memória: o suficiente para voltar bastante sem crescer sem limite.
+  while (history_.size() > 100) history_.erase(history_.begin());
+}
+
+std::size_t Playlist::shuffledPreviousIndex() const {
+  if (history_.size() < 2) return kNone;
+  const std::string& previous = history_[history_.size() - 2];
+  for (std::size_t i = 0; i < items_.size(); ++i) {
+    if (items_[i] == previous) return i;
+  }
+  return kNone;
+}
+
+void Playlist::dropLastShufflePlay() {
+  if (!history_.empty()) history_.pop_back();
+}
 
 std::size_t Playlist::shuffledNextIndex(double level) {
   const std::size_t count = items_.size();

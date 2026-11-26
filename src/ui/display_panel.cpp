@@ -216,6 +216,28 @@ QRect DisplayPanel::spectrumRect() const {
   return QRect(206, 38, width() - 206 - 16, 94);
 }
 
+QRect DisplayPanel::coverRect() const {
+  // A capa é recompensa de quem alargou a janela: no tamanho padrão ela não aparece, para
+  // o espectro ficar com toda a largura. O corte é de largura, como no original — expandir
+  // é o gesto que revela.
+  if (width() < 700) return QRect();
+  const QRect area = spectrumRect();
+  const int meterW = std::clamp(area.width() / 16, 8, 22);
+  const int meterGap = std::max(3, meterW / 4);
+  const int baseLeft = area.left() + 2 * meterW + meterGap + 14;
+  const int baseSpace = area.right() - baseLeft + 1;
+  const int side = std::clamp(area.height() - 8, 32, 64);
+  // A capa entra só quando sobra largura: as vinte bandas precisam de pelo menos 3 px cada,
+  // senão o espectro perde a leitura e o ganho estético vira perda.
+  if (baseSpace - (side + 12) < wamp::AudioAnalyzer::kBands * 3) return QRect();
+  return QRect(baseLeft, area.top() + 2, side, area.height() - 4);
+}
+
+void DisplayPanel::setAlbumArt(const QPixmap& art) {
+  albumArt_ = art;
+  update();
+}
+
 QRect DisplayPanel::clockRect() const { return QRect(36, 12, 160, 44); }
 
 QRect DisplayPanel::tagRect(int index) const {
@@ -476,12 +498,28 @@ void DisplayPanel::paintEvent(QPaintEvent* /*event*/) {
     // aparece como "o medidor é mais alto que as barras".
     const int meterTop = area.top() + 2;
     const int meterH = area.height() - 2;
-    const int barsLeft = area.left() + 2 * meterW + meterGap + 14;
+    const QRect cover = coverRect();
+    const int barsLeft =
+        area.left() + 2 * meterW + meterGap + 14 + (cover.isNull() ? 0 : cover.width() + 12);
     const int barsSpace = area.right() - barsLeft + 1;
     // Largura inteira igual para todas as bandas; o início é recuado para que a última
     // encoste na borda direita (o mesmo eixo do fim do número da duração).
     const int barW = std::max(2, barsSpace / wamp::AudioAnalyzer::kBands);
     const int barsStart = area.right() + 1 - barW * wamp::AudioAnalyzer::kBands;
+
+    if (!cover.isNull() && !albumArt_.isNull()) {
+      // Encaixe por aspecto dentro do quadro, com um fio discreto em volta: a capa é
+      // informação, não enfeite — não deve competir com o espectro.
+      QSize scaled = albumArt_.size();
+      scaled.scale(cover.size(), Qt::KeepAspectRatio);
+      const QRect target(cover.left() + (cover.width() - scaled.width()) / 2,
+                         cover.top() + (cover.height() - scaled.height()) / 2, scaled.width(),
+                         scaled.height());
+      painter.drawPixmap(target, albumArt_);
+      painter.setBrush(Qt::NoBrush);
+      painter.setPen(th().displayGrid);
+      painter.drawRect(target.adjusted(-1, -1, 0, 0));
+    }
 
     // Malha de fundo alinhada às colunas: uma fileira de pontos no eixo de cada medidor e no
     // eixo de cada banda. O vão entre os medidores e o espectro fica limpo — pontos ali

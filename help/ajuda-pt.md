@@ -10,6 +10,10 @@ só, sem navegador, e a música tocando enquanto você mexe na lista.
   o arquivo tem o que mostrar.
 - **Botões**: anterior, tocar, pausa, parar, próximo, ejetar e o volume. `L R` é o medidor
   de nível; `EQ` e `123` acendem o equalizador e o contador de faixas.
+- **Janela larga revela mais**: o painel aproveita a largura que sobra. Alargada, a janela
+  encaixa a **capa do álbum** no vão entre os medidores de nível e o espectro — se não
+  houver espaço para as vinte bandas continuarem legíveis, a capa simplesmente não
+  aparece, e nada mais se mexe.
 - **Título rolante**: a barra de título mostra a faixa e o artista, rolando quando não cabe.
 - **Rodapé**: à esquerda o contador da fila de leitura de metadados e a versão; à direita
   as mensagens passageiras.
