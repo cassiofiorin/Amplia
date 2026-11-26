@@ -296,11 +296,13 @@ uma identidade de faixa que sobrevive a mudar de máquina.
 - [ ] **Fingerprint** (`libchromaprint` empacotado) e consulta ao AcoustID → MusicBrainz
 - [ ] **Diálogo "Buscar tags…"** no Alt+3: candidatos com pontuação, comparação campo a campo,
       nada é sobrescrito sem confirmação; gravação pelo `TagEditor` (já com cópia temporária)
-- [ ] **Capa de álbum**: embutida (`APIC`) e `folder.jpg`/`cover.jpg` da pasta, cache por álbum
-      com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista — **feito**:
-      `CoverCache` por álbum (chave `norm/v1`, extração fora da thread da interface), miniatura
-      de 18 px na lista e capa no painel por revelação progressiva (só com a janela ≥ 700 px);
-      o Alt+3 já tinha a aba *Artwork* desde antes; falta só revisar com a biblioteca real
+- [x] **Capa de álbum**: embutida (`APIC`) e `folder.jpg`/`cover.jpg` da pasta, cache por álbum
+      com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista — `CoverCache`
+      por álbum (chave `norm/v1`, extração fora da thread da interface, nunca amplia arte
+      pequena), miniatura de 18 px na lista com tooltip de 160 px, e capa no painel por
+      revelação progressiva (entra quando sobra a largura do quadrado; a altura acompanha a
+      faixa de barras). O Alt+3 já tinha a aba *Artwork* desde antes. Revisado com a biblioteca
+      real (Bowie, Foo Fighters).
 - [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
 **Regras do autotag (o arquivo do autor é o caso de teste).** O acervo oficial não cobre
