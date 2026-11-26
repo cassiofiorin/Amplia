@@ -361,6 +361,19 @@ circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e 
   busca até o arquivo mudar"; no relatório do lote entra a linha "12 ignoradas (tag corrigida
   pelo app)". O diálogo de busca mostra a pilha *ignoradas* com o motivo e um "incluir mesmo
   assim" para quem quiser forçar.
+- **"Buscar por outra referência" dentro do Alt+3.** O diálogo não é um botão que devolve um
+  veredito: é uma consulta com campos **editáveis** (artista, título, álbum, pré-preenchidos com
+  a tag atual). Quando o casamento automático é baixo — ou não existe —, o usuário escreve ali
+  o nome que ele *sabe* que a gravação tem, busca de novo e escolhe da lista. A escolha humana
+  **vence a pontuação**: aplica mesmo com score baixo, porque quem confirmou foi ele.
+- **A pontuação fica visível, não decisória**: cada candidato mostra quais campos casaram
+  (mesmo artista, mesmo álbum, duração próxima, ano próximo) — é o mesmo vocabulário das razões
+  da estação, para o usuário julgar com o mesmo olho.
+- **O diário registra a origem**: `source: auto` (regra silenciosa) ou `source: user` (escolha
+  manual). Desfazer funciona igual nos dois; o relatório distingue os dois números.
+- **A referência manual pode ser lembrada**: por padrão o diálogo prefere a tag atual; se o
+  usuário buscou por outro texto, o próximo Alt+3 daquela faixa abre com a referência usada da
+  última vez (nunca sobrescrevendo a tag com ela).
 
 
 **Pronto quando:** um arquivo com tag errada é corrigido pelo diálogo e a capa aparece no
