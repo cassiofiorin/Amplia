@@ -30,7 +30,8 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
   auto* title = new QLabel(tr("Amplia"), this);
   title->setObjectName(QStringLiteral("dynamicsTitle"));
   // O Amplia não é um Winamp para Linux: é um player novo que bebe na fonte do Winamp.
-  auto* subtitle = new QLabel(tr("Um novo player com inspiração na alma do Winamp."), this);
+  auto* subtitle = new QLabel(tr("Um novo player de música! Inspirado na alma do Winamp, que busca ir mais longe, ser "
+                 "comunitário e colaborativo"), this);
   subtitle->setObjectName(QStringLiteral("hint"));
 
   auto* details = new QFormLayout();

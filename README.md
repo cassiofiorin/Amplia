@@ -2,6 +2,9 @@
 
 Português · [English](#english)
 
+> **Um novo player de música!** Inspirado na alma do Winamp, que busca ir mais longe, ser
+> comunitário e colaborativo.
+
 Player de áudio nativo para Linux, escrito em C++ com Qt 6 — playlist, fila, equalizador de 10 bandas, visualizador, scrobbling e controle de mídia, sem camada de emulação.
 
 ## Motivação e histórico
@@ -653,6 +656,9 @@ Feito por **Cassio Fiorin** — [github.com/cassiofiorin](https://github.com/cas
 # English
 
 [↑ Português](#amplia)
+
+> **A new music player!** Inspired by the soul of Winamp, aiming to go further: community-driven
+> and collaborative.
 
 A native Linux audio player written in C++ with Qt 6 — playlist, queue, 10-band EQ,
 visualizer, scrobbling and native media control, with no emulation layer.

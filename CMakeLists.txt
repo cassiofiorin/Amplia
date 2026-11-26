@@ -25,7 +25,15 @@ endif()
 include(GNUInstallDirs)
 
 find_package(Threads REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Widgets Network LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
+
+# O LinguistTools (lrelease/lupdate) só é preciso para embutir as traduções. Sem ele o
+# programa compila e roda em português; avisa em vez de derrubar o configure — é o que
+# acontece num runner de CI enxuto ou numa máquina que só quer compilar.
+find_package(Qt6 QUIET COMPONENTS LinguistTools)
+if(NOT Qt6LinguistTools_FOUND)
+  message(WARNING "LinguistTools não encontrado: o build sai sem traduções embutidas.")
+endif()
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET

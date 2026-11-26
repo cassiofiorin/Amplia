@@ -70,7 +70,9 @@ install(FILES
 set(AMPLIA_TS_FILES
   "${CMAKE_SOURCE_DIR}/i18n/amplia_en.ts"
 )
-qt_add_translations(wamp TS_FILES ${AMPLIA_TS_FILES} RESOURCE_PREFIX "/i18n")
+if(Qt6LinguistTools_FOUND)
+  qt_add_translations(wamp TS_FILES ${AMPLIA_TS_FILES} RESOURCE_PREFIX "/i18n")
+endif()
 
 # Ajuda: Markdown puro em help/, embutido nos recursos. Quem traduz edita um arquivo de
 # texto — nenhum código é tocado, e o README linka o mesmo arquivo.

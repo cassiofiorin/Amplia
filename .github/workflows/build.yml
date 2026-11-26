@@ -18,7 +18,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ pkg-config \
-            qt6-base-dev qt6-base-dev-tools qt6-l10n-tools \
+            qt6-base-dev qt6-base-dev-tools qt6-l10n-tools qt6-tools-dev \
             libavformat-dev libavcodec-dev libavutil-dev libswresample-dev \
             libpipewire-0.3-dev libsqlite3-dev libsystemd-dev libtag1-dev
 
@@ -41,7 +41,20 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends qt6-l10n-tools qt6-base-dev
+      # No Ubuntu o lrelease/lupdate ficam em /usr/lib/qt6/bin, fora do PATH.
+      - name: Catálogo em dia com o código
+        run: |
+          LUPDATE=/usr/lib/qt6/bin/lupdate
+          cp i18n/amplia_en.ts /tmp/atual.ts
+          "$LUPDATE" -recursive src -locations none -no-obsolete -ts /tmp/atual.ts > /tmp/lupdate.log 2>&1 || true
+          cat /tmp/lupdate.log
+          if grep -qE "Found [0-9]+ source text\(s\) \([1-9][0-9]* new" /tmp/lupdate.log; then
+            echo "::error::O código tem texto novo que não está em i18n/amplia_en.ts (rode lupdate)."
+            exit 1
+          fi
+
       - name: Compilar o catálogo e falhar se houver texto pendente
         run: |
-          lrelease i18n/amplia_en.ts -qm /tmp/amplia_en.qm | tee /tmp/lrelease.log
+          LRELEASE=/usr/lib/qt6/bin/lrelease
+          "$LRELEASE" i18n/amplia_en.ts -qm /tmp/amplia_en.qm | tee /tmp/lrelease.log
           grep -q "0 unfinished" /tmp/lrelease.log
