@@ -21,6 +21,7 @@
 
 #include <cerrno>
 #include <memory>
+#include <thread>
 #include <climits>
 #include "round_button.h"
 
@@ -173,6 +174,9 @@ namespace {
 constexpr char kMimePlaylistRows[] = "application/x-amplia-playlist-rows";
 constexpr char kMimeQueueRows[] = "application/x-amplia-queue-rows";
 constexpr char kMimeSource[] = "application/x-amplia-source";
+
+/// Quantas faixas a prévia da estação mostra (a fila nasce em blocos de 20).
+constexpr int kPreviewRows = 200;
 
 QString encodeRows(const QList<int>& rows) {
   QStringList parts;
@@ -621,10 +625,10 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
   // Escape de depuração: salva a janela auxiliar da playlist (sem capturar a tela).
   // Depuração: abrir a Biblioteca e fotografá-la, para testar sem teclado (a sessão de
   // teste não injeta atalhos).
-  // A análise local é "preguiçosa": só roda para o que toca. A cada 20 s olhamos se já
-  // há material suficiente (12 s) para gravar BPM/tonalidade no banco.
+  // A análise local é "preguiçosa": só roda para o que toca. A amostra continua 12 s, mas
+  // a primeira olhada é aos 5 s — em faixa curta, esperar 20 s perdia a chance de gravar.
   auto* analysisTimer = new QTimer(this);
-  analysisTimer->setInterval(20000);
+  analysisTimer->setInterval(5000);
   connect(analysisTimer, &QTimer::timeout, this, &MainWindow::saveTrackAnalysis);
   analysisTimer->start();
 
@@ -901,6 +905,37 @@ void MainWindow::buildUi() {
   playlistButton_->setToolTip(tr("Mostrar / ocultar a playlist"));
   connect(playlistButton_, &QPushButton::toggled, this, &MainWindow::setPlaylistVisible);
   sideButtons->addWidget(playlistButton_);
+
+  // Equalizador: o aceso é "ligado", o clique abre a janela — são dois estados, como no
+  // original. Desligar pelo botão fecha a janela.
+  eqButton_ = roundButton(
+      [](QPainter& painter, const QRectF& box, const QColor& color) {
+        painter.setPen(QPen(color, 1.6));
+        const double xs[3] = {0.28, 0.50, 0.72};
+        const double knobs[3] = {0.36, 0.66, 0.46};
+        for (int i = 0; i < 3; ++i) {
+          const double x = box.left() + box.width() * xs[i];
+          painter.drawLine(QPointF(x, box.top() + box.height() * 0.08),
+                           QPointF(x, box.top() + box.height() * 0.92));
+          const double y = box.top() + box.height() * knobs[i];
+          painter.setBrush(color);
+          painter.drawRect(QRectF(x - 2.2, y - 1.1, 4.4, 2.2));
+          painter.setBrush(Qt::NoBrush);
+        }
+      },
+      28);
+  eqButton_->setCheckable(true);
+  eqButton_->setToolTip(tr("Equalizador (Alt+G)"));
+  connect(eqButton_, &QPushButton::toggled, this, [this](bool on) {
+    engine_->setEqualizerEnabled(on);
+    if (on) {
+      openEqualizer();
+    } else if (eqDialog_) {
+      eqDialog_->close();
+    }
+    refresh();
+  });
+  sideButtons->addWidget(eqButton_);
 
   // Transporte circular, mute e volume — os botões redondos deixam mais largura para a
   // barra de volume do que os retangulares de antes.
@@ -2391,6 +2426,7 @@ void MainWindow::playNext() {
     if (nextUpFromQueue_) {
       playlist_->dequeue();
       refreshQueue();
+      maybeReplenishStation();
     }
     if (!openPath(next)) {
       // Faixa da fila/nova não abriu (arquivo ausente): segue adiante pela lista.
@@ -2684,6 +2720,9 @@ void MainWindow::buildTray() {
     close();
   });
 
+  // O menu pode ficar minutos sem ser aberto: sincroniza na abertura, senão ele mostra o
+  // aleatório/repetir de quando foi montado.
+  connect(trayMenu_.get(), &QMenu::aboutToShow, this, [this] { updateTray(); });
   tray_->setContextMenu(trayMenu_.get());
   connect(tray_.get(), &QSystemTrayIcon::activated, this,
           [this](QSystemTrayIcon::ActivationReason reason) {
@@ -3130,6 +3169,7 @@ void MainWindow::onTrackEnded() {
   if (!pathQueue_.empty()) {
     const std::string next = pathQueue_.front().path;
     pathQueue_.erase(pathQueue_.begin());
+    maybeReplenishStation();
     if (openPath(QString::fromStdString(next))) return;
   }
   if (playlist_->empty()) return;
@@ -3884,6 +3924,11 @@ void MainWindow::loadSettings() {
     }
   }
   settingsLoaded_ = true;
+  // O menu da bandeja é montado antes de as preferências chegarem: sem esta passada ele
+  // abre com "Aleatório"/"Repetir" desmarcados até alguém mexer na janela.
+  updateTray();
+  // A limpeza do cache de capas não precisa acontecer na abertura: espera a janela assentar.
+  QTimer::singleShot(5000, this, [this] { pruneArtCache(); });
 }
 
 void MainWindow::saveSettings() {
@@ -4489,7 +4534,9 @@ void MainWindow::openLibrary() {
             &MainWindow::forgetLibraryTracks);
     connect(library_.get(), &wamp::ui::LibraryWindow::clearRequested, this,
             &MainWindow::clearLibrary);
-    connect(library_.get(), &wamp::ui::LibraryWindow::enqueueSelectionRequested, this,
+    connect(library_.get(), &wamp::ui::LibraryWindow::addToPlaylistRequested, this,
+          &MainWindow::appendToPlaylist);
+  connect(library_.get(), &wamp::ui::LibraryWindow::enqueueSelectionRequested, this,
             [this](const QStringList& paths) {
               if (paths.isEmpty()) return;
               // Origem 1 = biblioteca: o bloco "Na fila" mostra de onde veio.
@@ -4623,6 +4670,11 @@ void MainWindow::refreshLibrary() {
   // Nó "Rádio local": a tabela é a prévia da estação, não uma consulta à biblioteca.
   if (library_->stationActive()) {
     library_->setSeedBlend(seedBlend_);
+    {
+      std::string progressError;
+      const wamp::TagCache::AnalysisStats progress = cache_->analysisStats(&progressError);
+      library_->setAnalysisProgress(progress.tracks, progress.totalTracks);
+    }
     const std::vector<wamp::LibraryEntry> rows = stationRows();
     library_->setRows(rows);
     if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_RADIO")) {
@@ -4641,6 +4693,11 @@ void MainWindow::refreshLibrary() {
 
   // Nó de um humor: a tabela é a prévia do clima, com os sliders do jeito que estão agora.
   if (library_->humorActive()) {
+    {
+      std::string progressError;
+      const wamp::TagCache::AnalysisStats progress = cache_->analysisStats(&progressError);
+      library_->setAnalysisProgress(progress.tracks, progress.totalTracks);
+    }
     const std::vector<wamp::LibraryEntry> rows = humorRows();
     library_->setRows(rows);
     if (qEnvironmentVariableIsSet("AMPLIA_LIBRARY_HUMOR")) {
@@ -4753,6 +4810,8 @@ void MainWindow::saveTrackAnalysis() {
   if (info.path.empty()) return;
   if (info.path == analysedPath_) return;  // já gravado nesta passagem
   const wamp::TrackAnalysis analysis = engine_->trackAnalysis();
+  // Amostra inteira (12 s) antes de gravar: meia faixa dá BPM errado. O que mudou é a
+  // frequência da pergunta, não o tamanho da prova.
   if (!analysis.valid || analysis.seconds < 12.0) return;
   cache_->saveAnalysis(info.path, analysis.bpm, analysis.keyPitchClass, analysis.keyMajor,
                        static_cast<int>(analysis.confidence));
@@ -4866,6 +4925,10 @@ void MainWindow::recordSkipIfEarly(std::size_t nextIndex) {
     context.keyCamelot = wamp::radioCamelot(info.keyPcTag, info.keyMajorTag);
   }
   cache_->recordRadioEvent(path, 0, context);
+  if (library_) {
+    const int skips = cache_->skipsFor(path);
+    if (skips > 0) library_->noteSkip(QString::fromStdString(path), skips);
+  }
 }
 
 wamp::RadioMix MainWindow::stationMix(const QString& seedPath,
@@ -4915,13 +4978,24 @@ wamp::RadioMix MainWindow::stationMix(const QString& seedPath,
   return mix;
 }
 
+std::size_t MainWindow::artistCap() const {
+  if (cache_ == nullptr) return 2;
+  std::string error;
+  const wamp::TagCache::AnalysisStats stats = cache_->analysisStats(&error);
+  // Com pouca coisa medida, repetir artista é o que garante a estação soar coerente; com
+  // base grande, dá para abrir espaço sem perder o fio.
+  return stats.tracks >= 500 ? 3 : 2;
+}
+
 std::vector<wamp::LibraryEntry> MainWindow::stationRows() {
   std::vector<wamp::LibraryEntry> rows;
   if (cache_ == nullptr) return rows;
   std::vector<wamp::RadioCandidate> pool;
   const wamp::RadioMix mix = stationMix(QString(), &pool);
   if (mix.track.path.empty()) return rows;
-  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20);
+  // A prévia é longa de propósito: dá para ler como a biblioteca se conecta. A fila da
+  // estação continua nascendo em blocos, no Tocar.
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, kPreviewRows, 7, artistCap());
   rows.reserve(picked.size());
   for (const std::string& path : picked) {
     wamp::LibraryEntry entry;
@@ -4932,6 +5006,8 @@ std::vector<wamp::LibraryEntry> MainWindow::stationRows() {
       if (candidate.path != path) continue;
       entry.rating = candidate.rating;
       entry.playcount = candidate.plays;
+      entry.skips = candidate.skips;
+      entry.reason = wamp::radioReason(mix, candidate);
       break;
     }
     rows.push_back(std::move(entry));
@@ -4959,7 +5035,7 @@ std::vector<wamp::LibraryEntry> MainWindow::humorRows() {
   std::vector<wamp::RadioCandidate> pool = cache_->radioPool(&error);
   if (pool.empty()) return rows;
   const wamp::RadioMix mix = humorMix();
-  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20);
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, kPreviewRows, 7, artistCap());
   rows.reserve(picked.size());
   for (const std::string& path : picked) {
     wamp::LibraryEntry entry;
@@ -4969,6 +5045,8 @@ std::vector<wamp::LibraryEntry> MainWindow::humorRows() {
       if (candidate.path != path) continue;
       entry.rating = candidate.rating;
       entry.playcount = candidate.plays;
+      entry.skips = candidate.skips;
+      entry.reason = wamp::radioReason(mix, candidate);
       break;
     }
     rows.push_back(std::move(entry));
@@ -5021,7 +5099,7 @@ void MainWindow::startHumorStation(bool autoplay) {
     statusBar()->showMessage(tr("Biblioteca vazia: nada para sugerir ainda"), 4000);
     return;
   }
-  const std::vector<std::string> picked = wamp::radioPick(humorMix(), pool, 20);
+  const std::vector<std::string> picked = wamp::radioPick(humorMix(), pool, 20, 7, artistCap());
   if (picked.empty()) {
     statusBar()->showMessage(tr("Nenhuma faixa parecida o bastante para a estação"), 4000);
     return;
@@ -5029,6 +5107,9 @@ void MainWindow::startHumorStation(bool autoplay) {
   // Fila própria, origem 2 (estação). Tocando, a primeira escolha abre em pausa? Não: abrir
   // com o player agora, que é o que "Tocar" promete. Enfileirando, nada toca.
   const std::size_t first = autoplay ? 1 : 0;
+  stationRunning_ = true;
+  stationHumor_ = true;
+  stationSeedPath_.clear();
   pathQueue_.clear();
   for (std::size_t i = first; i < picked.size(); ++i) {
     pathQueue_.push_back({picked[i], 2, std::string()});
@@ -5137,7 +5218,7 @@ void MainWindow::humorTestDump(const QString& presetName) {
   for (const wamp::RadioCandidate& candidate : pool) {
     if (candidate.bpm > 0.0) ++measured;
   }
-  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 10);
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 10, 7, artistCap());
   qInfo("amplia: humor '%s' agitação=%.0f tom=%.0f estabilidade=%.0f mistura=%.2f",
         qPrintable(QString::fromStdString(chosen->name)), chosen->point.agitation,
         chosen->point.tone, chosen->point.stability, mix.blend);
@@ -5184,6 +5265,49 @@ void MainWindow::humorTestDump(const QString& presetName) {
         static_cast<int>(cache_->humorPresets(&error).size()));
 }
 
+void MainWindow::maybeReplenishStation() {
+  if (!stationRunning_ || cache_ == nullptr) return;
+  // Só repõe quando está acabando: encher de novo a cada faixa faria a fila crescer sem fim.
+  constexpr std::size_t kLowWater = 5;
+  if (pathQueue_.size() >= kLowWater) return;
+
+  std::vector<wamp::RadioCandidate> pool;
+  wamp::RadioMix mix;
+  if (stationHumor_) {
+    std::string error;
+    pool = cache_->radioPool(&error);
+    mix = humorMix();
+  } else {
+    mix = stationMix(stationSeedPath_, &pool);
+  }
+  if (mix.track.path.empty() || pool.empty()) return;
+
+  // O que já está na fila (ou tocando) não volta: a reposição é continuação, não repetição.
+  std::vector<std::string> known;
+  known.reserve(pathQueue_.size() + 1);
+  for (const QueueEntry& entry : pathQueue_) known.push_back(entry.path);
+  const wamp::TrackInfo playing = engine_->track();
+  if (!playing.path.empty()) known.push_back(playing.path);
+
+  std::vector<wamp::RadioCandidate> fresh;
+  fresh.reserve(pool.size());
+  for (const wamp::RadioCandidate& candidate : pool) {
+    if (std::find(known.begin(), known.end(), candidate.path) == known.end()) {
+      fresh.push_back(candidate);
+    }
+  }
+  if (fresh.empty()) return;
+
+  const std::vector<std::string> picked =
+      wamp::radioPick(mix, fresh, 20, 7, artistCap());
+  if (picked.empty()) return;
+  for (const std::string& path : picked) {
+    pathQueue_.push_back({path, 2, mix.track.path});
+  }
+  refreshQueuePanel();
+  statusBar()->showMessage(tr("Estação reposta: %1 faixa(s) a caminho").arg(picked.size()), 3000);
+}
+
 void MainWindow::startRadioStation(const QString& seedPath) {
   if (cache_ == nullptr) return;
   std::vector<wamp::RadioCandidate> pool;
@@ -5197,12 +5321,15 @@ void MainWindow::startRadioStation(const QString& seedPath) {
     return;
   }
 
-  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20);
+  const std::vector<std::string> picked = wamp::radioPick(mix, pool, 20, 7, artistCap());
   if (picked.empty()) {
     statusBar()->showMessage(tr("Nenhuma faixa parecida o bastante para a estação"), 4000);
     return;
   }
   // Fila própria: as sugestões não entram na playlist do usuário.
+  stationRunning_ = true;
+  stationHumor_ = false;
+  stationSeedPath_ = seedPath;
   pathQueue_.clear();
   for (std::size_t i = 1; i < picked.size(); ++i) {
     pathQueue_.push_back({picked[i], 2, mix.track.path});
@@ -5232,8 +5359,14 @@ void MainWindow::armPlaycount(const std::string& path) {
       // Mesma janela do ML original (350 ms): pulou a faixa antes disso, não conta.
       if (playcountPath_.empty()) return;
       if (engine_->state() != wamp::PlaybackState::Playing) return;
-      cache_->bumpPlaycount(playcountPath_);
+      // A contagem vai para o banco e, se a Biblioteca estiver aberta, para a tela: sem
+      // isso a coluna "Tocadas" só mudava na próxima reconsulta.
+      const std::string played = playcountPath_;
       playcountPath_.clear();
+      const int count = cache_->bumpPlaycount(played);
+      if (count > 0 && library_) {
+        library_->notePlay(QString::fromStdString(played), count);
+      }
     });
   }
   playcountPath_ = path;
@@ -5286,6 +5419,18 @@ void MainWindow::onMetadata(const std::string& path, const wamp::TrackInfo& info
   if (scanner_->pending() == 0) {
     statusBar()->showMessage(tr("Metadados da playlist carregados"), 2500);
   }
+}
+
+void MainWindow::appendToPlaylist(const QStringList& paths) {
+  if (playlist_ == nullptr || paths.isEmpty()) return;
+  std::vector<std::string> items = playlist_->items();
+  for (const QString& path : paths) items.push_back(path.toStdString());
+  playlist_->setItems(items, playlist_->currentIndex());
+  rebuildPlaylist();
+  updateNextUp();
+  refresh();
+  statusBar()->showMessage(
+      tr("%1 faixa(s) adicionada(s) ao fim da playlist").arg(paths.size()), 4000);
 }
 
 void MainWindow::refreshTags(const QStringList& paths) {
@@ -5469,6 +5614,28 @@ void MainWindow::showError(const QString& message) {
   statusBar()->showMessage(message, 6000);
 }
 
+void MainWindow::pruneArtCache() {
+  const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+                      QStringLiteral("/art");
+  // O nome do arquivo da faixa atual sai do caminho; comparar pelo nome basta porque o
+  // nome é o hash do caminho + mtime + origem.
+  const QString keep =
+      artPath_.empty() ? QString() : QFileInfo(QString::fromStdString(artPath_)).fileName();
+  const QDateTime cutoff = QDateTime::currentDateTime().addDays(-30);
+  // Fora da thread da interface: são dezenas de arquivos e o áudio não pode esperar.
+  std::thread([dir, keep, cutoff] {
+    QDir cache(dir);
+    if (!cache.exists()) return;
+    const QFileInfoList files =
+        cache.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Time);
+    for (const QFileInfo& info : files) {
+      if (!keep.isEmpty() && info.fileName() == keep) continue;
+      if (info.lastModified() > cutoff) continue;
+      QFile::remove(info.absoluteFilePath());
+    }
+  }).detach();
+}
+
 void MainWindow::updateArtwork(const wamp::TrackInfo& track) {
   artPath_.clear();
   if (track.path.empty()) return;
@@ -5543,6 +5710,11 @@ void MainWindow::refresh() {
   // Play e pause são botões separados, como na skin clássica; o aceso mostra o estado.
   playButton_->setChecked(state == wamp::PlaybackState::Playing);
   pauseButton_->setChecked(state == wamp::PlaybackState::Paused);
+  if (eqButton_ != nullptr && eqButton_->isChecked() != engine_->equalizerEnabled()) {
+    // O EQ também liga pelo Alt+G e pela caixa "Habilitar": o botão segue o motor.
+    const QSignalBlocker block(eqButton_);
+    eqButton_->setChecked(engine_->equalizerEnabled());
+  }
 
   const wamp::TrackInfo track = engine_->track();
   const std::int64_t duration = engine_->durationMs();
@@ -5580,6 +5752,14 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
   if (event->mimeData()->hasUrls()) {
     event->acceptProposedAction();
   }
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
+  if (!event->mimeData()->hasUrls()) return;
+  const bool own = event->mimeData()->hasFormat(kMimePlaylistRows) ||
+                   event->mimeData()->hasFormat(kMimeQueueRows);
+  event->setDropAction(own ? Qt::MoveAction : Qt::CopyAction);
+  event->accept();
 }
 
 void MainWindow::handleDroppedPaths(const QStringList& paths) {

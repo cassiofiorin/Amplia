@@ -3,6 +3,7 @@
 #include "theme.h"
 
 #include <QPainter>
+#include <QRadialGradient>
 #include <QPaintEvent>
 
 #include <cmath>
@@ -42,8 +43,14 @@ void RoundButton::paintEvent(QPaintEvent* /*event*/) {
     fill = th.controlHover;
   }
 
-  painter.setPen(QPen(isChecked() ? th.controlCheckedBorder : th.border, 1.0));
-  painter.setBrush(fill);
+  // Sem anel: o relevo vem de um gradiente radial sutil na própria cor de preenchimento —
+  // o anel de 1 px encostava no fundo e o botão deixava de parecer pressionável.
+  QRadialGradient shade(circle.center() - QPointF(0.0, diameter * 0.30), diameter * 1.20);
+  shade.setColorAt(0.0, fill.lighter(122));
+  shade.setColorAt(0.62, fill);
+  shade.setColorAt(1.0, fill.darker(124));
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(shade);
   painter.drawEllipse(circle);
 
   // O glifo é pintado direto no quadrado centrado no círculo: passar por QIcon custava

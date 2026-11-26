@@ -91,6 +91,8 @@ class MainWindow final : public QMainWindow {
 
  protected:
   void dragEnterEvent(QDragEnterEvent* event) override;
+  // Sem aceitar o movimento, o Qt mantém o sinal de "proibido" mesmo com o enter aceito.
+  void dragMoveEvent(QDragMoveEvent* event) override;
   void dropEvent(QDropEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void resizeEvent(QResizeEvent* event) override;
@@ -130,6 +132,8 @@ class MainWindow final : public QMainWindow {
   void openFileInfoAt(std::vector<std::string> items, std::size_t index);
   /// "Atualizar tag": relê as tags do arquivo e atualiza biblioteca, playlist e o painel.
   void refreshTags(const QStringList& paths);
+  /// Acrescenta à playlist sem tocar (o "Adicionar à playlist" da Biblioteca).
+  void appendToPlaylist(const QStringList& paths);
   /// Ajuda (F1): janela com o texto do idioma ativo.
   void openHelp();
   /// "Sobre o Amplia…": versão, data do build e créditos de tradução.
@@ -215,6 +219,9 @@ class MainWindow final : public QMainWindow {
   void updateWindowTitle();
   /// Capa embutida → arquivo em ~/.cache para o `mpris:artUrl` do applet.
   void updateArtwork(const wamp::TrackInfo& track);
+  /// Apaga do cache de capas o que ninguém abriu em 30 dias (uma passada por execução,
+  /// fora da thread da interface). A capa da faixa atual nunca é apagada.
+  void pruneArtCache();
   void saveSettings();
   void queueSelected();
   void removeSelected();
@@ -257,6 +264,11 @@ class MainWindow final : public QMainWindow {
 
   /// Prévia do nó "Rádio local": as mesmas 20 faixas que a estação escolheria agora.
   std::vector<wamp::LibraryEntry> stationRows();
+  /// Cota por artista na estação: 3 quando já há base medida (>= 500 faixas), senão 2.
+  std::size_t artistCap() const;
+  /// Repõe a estação quando a fila está acabando, sempre a partir da semente original
+  /// (senão a estação deriva para longe do ponto de partida).
+  void maybeReplenishStation();
 
   /// Humor: a estação de um ponto do plano (agitação × tom), com a mistura do histórico.
   void refreshHumorPresets();
@@ -377,6 +389,7 @@ class MainWindow final : public QMainWindow {
   wamp::ui::RoundButton* nextButton_ = nullptr;
   wamp::ui::RoundButton* mlButton_ = nullptr;
   wamp::ui::RoundButton* playlistButton_ = nullptr;
+  wamp::ui::RoundButton* eqButton_ = nullptr;
   wamp::ui::RoundButton* shuffleButton_ = nullptr;
   wamp::ui::RoundButton* repeatButton_ = nullptr;
   wamp::ui::RoundButton* muteButton_ = nullptr;
@@ -422,6 +435,10 @@ class MainWindow final : public QMainWindow {
   /// Humor aplicado (não o rascunho dos sliders): ponto, léxico do preset e mistura.
   wamp::HumorPoint humorPoint_;
   std::string humorGenres_;
+  // Estação em andamento: guarda a semente para repor sem derivar.
+  bool stationRunning_ = false;
+  bool stationHumor_ = false;
+  QString stationSeedPath_;
   double humorBlend_ = 0.5;
   bool stopAfterCurrent_ = false;
   bool easyMove_ = false;

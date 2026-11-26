@@ -35,8 +35,11 @@ struct TrackStamp {
 /// Faixa da Biblioteca com os campos que só o banco guarda (nota, contagem, datas).
 struct LibraryEntry {
   TrackInfo info;
+  /// Por que a faixa está na prévia (chave de eixo da rádio); vazio fora das estações.
+  std::string reason;
   int rating = 0;
   int playcount = 0;
+  int skips = 0;
   std::int64_t dateadded = 0;
   std::int64_t lastplay = 0;
 };
@@ -122,7 +125,11 @@ class TagCache final {
   void dropFromScanQueue(const std::string& path);
 
   /// Conta uma reprodução: `playcount + 1` e `lastplay` agora.
-  void bumpPlaycount(const std::string& path);
+  /// Soma uma execução e devolve o contador novo (0 quando a faixa não está no banco).
+  int bumpPlaycount(const std::string& path);
+
+  /// Quantas vezes a faixa foi recusada numa estação (interrompida cedo ou tirada da fila).
+  int skipsFor(const std::string& path);
 
   /// Nota de 0 a 5 (0 = sem classificação).
   void setRating(const std::string& path, int rating);

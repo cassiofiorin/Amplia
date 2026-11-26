@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <set>
 #include <utility>
 
 namespace wamp {
@@ -98,11 +99,78 @@ double radioScore(const RadioSeed& seed, const RadioCandidate& candidate) {
 
 namespace {
 
+/// Decompõe a nota em eixos, para dizer *por que* a faixa entrou na estação.
+struct Parts {
+  double artist = 0.0;
+  double album = 0.0;
+  double genre = 0.0;
+  double year = 0.0;
+  double tempo = 0.0;
+  double key = 0.0;
+};
+
+Parts scoreParts(const RadioSeed& seed, const RadioCandidate& candidate) {
+  Parts parts;
+  if (candidate.path == seed.path) return parts;
+  if (!seed.artist.empty() && candidate.artist == seed.artist) parts.artist = 0.30;
+  if (!seed.album.empty() && candidate.album == seed.album) parts.album = 0.25;
+  if (!seed.genre.empty() && candidate.genre == seed.genre) parts.genre = 0.10;
+  if (seed.year > 0 && candidate.year > 0) {
+    const int gap = std::abs(seed.year - candidate.year);
+    parts.year = 0.10 * std::max(0.0, 1.0 - static_cast<double>(gap) / 12.0);
+  }
+  parts.tempo = 0.15 * tempoWeight(seed.bpm, candidate.bpm);
+  parts.key = 0.15 * keyWeight(seed.keyPc, seed.keyMajor, candidate.keyPc, candidate.keyMajor);
+  return parts;
+}
+
+void addParts(Parts& into, const Parts& from, double weight) {
+  into.artist += from.artist * weight;
+  into.album += from.album * weight;
+  into.genre += from.genre * weight;
+  into.year += from.year * weight;
+  into.tempo += from.tempo * weight;
+  into.key += from.key * weight;
+}
+
+}  // namespace
+
+std::string radioReason(const RadioMix& mix, const RadioCandidate& candidate) {
+  Parts total = scoreParts(mix.track, candidate);
+  const double w = std::clamp(mix.blend, 0.0, 1.0);
+  if (mix.hasHistory() && w > 0.0) addParts(total, scoreParts(mix.history, candidate), w);
+
+  // Chaves estáveis (a interface traduz): o porquê não deve depender do idioma do banco.
+  double best = 0.0;
+  const char* label = nullptr;
+  const struct {
+    double value;
+    const char* key;
+  } candidates[] = {
+      {total.album, "album"},
+      {total.artist, "artist"},
+      {total.genre, "genre"},
+      {total.tempo, "tempo"},
+      {total.key, "key"},
+      {total.year, "year"},
+  };
+  for (const auto& item : candidates) {
+    if (item.value > best) {
+      best = item.value;
+      label = item.key;
+    }
+  }
+  return label == nullptr ? std::string() : std::string(label);
+}
+
+namespace {
+
 /// Ordena pela pontuação que vier e aplica as duas regras que não dependem da semente:
 /// diversidade de artista no começo e uma "descoberta" de vez em quando.
 template <typename ScoreFn>
 std::vector<std::string> pickWith(ScoreFn score, const std::vector<RadioCandidate>& candidates,
-                                  std::size_t wanted, std::size_t discoveryEvery) {
+                                  std::size_t wanted, std::size_t discoveryEvery,
+                                  std::size_t maxPerArtist) {
   struct Scored {
     double score;
     const RadioCandidate* candidate;
@@ -116,26 +184,72 @@ std::vector<std::string> pickWith(ScoreFn score, const std::vector<RadioCandidat
   std::sort(scored.begin(), scored.end(),
             [](const Scored& a, const Scored& b) { return a.score > b.score; });
 
+  auto lower = [](std::string value) {
+    for (char& c : value) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return value;
+  };
+
   std::vector<std::string> picked;
-  std::vector<std::string> recentArtists;
-  std::size_t index = 0;
-  while (picked.size() < wanted && index < scored.size()) {
+  std::map<std::string, std::size_t> perArtist;
+  std::string lastArtist;
+  std::string lastAlbum;
+  std::vector<const RadioCandidate*> leftOut;
+
+  // Primeira passada: respeita a cota por artista, nunca repete o artista anterior nem o
+  // álbum em sequência, e injeta uma "descoberta" a cada N escolhas.
+  for (std::size_t index = 0; index < scored.size() && picked.size() < wanted; ++index) {
     const RadioCandidate* candidate = scored[index].candidate;
-    ++index;
-    // Diversidade: no máximo um do mesmo artista a cada 5 escolhas, para não virar
-    // "álbum inteiro" quando a semente é de um artista só.
-    const bool artistBusy =
-        picked.size() < 5 &&
-        std::find(recentArtists.begin(), recentArtists.end(), candidate->artist) !=
-            recentArtists.end();
-    // Descoberta: uma faixa pouco tocada a cada N, para a estação não repetir sempre as
-    // mesmas músicas.
+    const std::string artist = lower(candidate->artist);
+    const std::string album = lower(candidate->album);
     const bool discovery = discoveryEvery > 0 && (picked.size() + 1) % discoveryEvery == 0;
-    if (discovery && candidate->plays > 3 && index + 1 < scored.size()) continue;
-    if (artistBusy) continue;
+    if (discovery && candidate->plays > 3) {
+      leftOut.push_back(candidate);
+      continue;
+    }
+    if (!artist.empty() && artist == lastArtist) {
+      leftOut.push_back(candidate);
+      continue;
+    }
+    if (!album.empty() && album == lastAlbum) {
+      leftOut.push_back(candidate);
+      continue;
+    }
+    if (perArtist[artist] >= maxPerArtist) {
+      leftOut.push_back(candidate);
+      continue;
+    }
     picked.push_back(candidate->path);
-    recentArtists.push_back(candidate->artist);
-    if (recentArtists.size() > 5) recentArtists.erase(recentArtists.begin());
+    ++perArtist[artist];
+    lastArtist = artist;
+    lastAlbum = album;
+  }
+
+  // Segunda passada: se a cota deixou a lista curta (artista com muita coisa boa e pouca
+  // variedade na biblioteca), completa com o que sobrou, mantendo o "nunca dois seguidos".
+  // É em rodadas de propósito: uma passada só perderia os candidatos pulados no começo
+  // (todos do mesmo artista ficam juntos, e o ponteiro nunca voltaria neles).
+  std::set<std::string> used(picked.begin(), picked.end());
+  bool progress = true;
+  while (picked.size() < wanted && progress) {
+    progress = false;
+    for (const RadioCandidate* candidate : leftOut) {
+      if (picked.size() >= wanted) break;
+      if (used.count(candidate->path) != 0) continue;
+      const std::string artist = lower(candidate->artist);
+      if (!artist.empty() && artist == lastArtist) continue;
+      picked.push_back(candidate->path);
+      used.insert(candidate->path);
+      lastArtist = artist;
+      progress = true;
+    }
+  }
+  // Último recurso: se nem alternando dá para chegar no tamanho, aceita o que sobrou.
+  if (picked.size() < wanted) {
+    for (const RadioCandidate* candidate : leftOut) {
+      if (picked.size() >= wanted) break;
+      if (!used.insert(candidate->path).second) continue;
+      picked.push_back(candidate->path);
+    }
   }
   return picked;
 }
@@ -144,9 +258,10 @@ std::vector<std::string> pickWith(ScoreFn score, const std::vector<RadioCandidat
 
 std::vector<std::string> radioPick(const RadioSeed& seed,
                                    const std::vector<RadioCandidate>& candidates,
-                                   std::size_t wanted, std::size_t discoveryEvery) {
+                                   std::size_t wanted, std::size_t discoveryEvery,
+                                   std::size_t maxPerArtist) {
   return pickWith([&seed](const RadioCandidate& candidate) { return radioScore(seed, candidate); },
-                  candidates, wanted, discoveryEvery);
+                  candidates, wanted, discoveryEvery, maxPerArtist);
 }
 
 bool RadioMix::hasHistory() const {
@@ -339,9 +454,10 @@ double radioScore(const RadioMix& mix, const RadioCandidate& candidate) {
 
 std::vector<std::string> radioPick(const RadioMix& mix,
                                    const std::vector<RadioCandidate>& candidates,
-                                   std::size_t wanted, std::size_t discoveryEvery) {
+                                   std::size_t wanted, std::size_t discoveryEvery,
+                                   std::size_t maxPerArtist) {
   return pickWith([&mix](const RadioCandidate& candidate) { return radioScore(mix, candidate); },
-                  candidates, wanted, discoveryEvery);
+                  candidates, wanted, discoveryEvery, maxPerArtist);
 }
 
 }  // namespace wamp

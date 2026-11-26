@@ -174,14 +174,6 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   scrobblingLayout->setContentsMargins(10, 10, 10, 10);
   scrobblingLayout->setSpacing(8);
 
-  nowPlayingBox_ = new QCheckBox(
-      tr("Anunciar \"ouvindo agora\" quando a faixa começa"), scrobbling);
-  nowPlayingBox_->setChecked(scrobble.announceNowPlaying);
-  nowPlayingBox_->setToolTip(
-      QStringLiteral("O Last.fm não tem como encerrar o anúncio: ele fica no perfil até outro "
-                     "scrobble chegar."));
-  scrobblingLayout->addWidget(nowPlayingBox_);
-
   auto* lastfmGroup = new QGroupBox(QStringLiteral("Last.fm"), scrobbling);
   auto* lastfmLayout = new QVBoxLayout(lastfmGroup);
   lastfmBox_ = new QCheckBox(tr("Enviar scrobbles para o Last.fm"), lastfmGroup);
@@ -233,6 +225,16 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   listenbrainzStatus_->setEnabled(false);
   listenbrainzLayout->addWidget(listenbrainzStatus_);
   scrobblingLayout->addWidget(listenbrainzGroup);
+
+  // Anunciar depende de existir para onde anunciar, então vem depois dos dois grupos: com
+  // nenhum ligado ele fica apagado (o valor escolhido continua guardado).
+  nowPlayingBox_ = new QCheckBox(
+      tr("Anunciar \"ouvindo agora\" quando a faixa começa"), scrobbling);
+  nowPlayingBox_->setChecked(scrobble.announceNowPlaying);
+  nowPlayingBox_->setToolTip(
+      QStringLiteral("O Last.fm não tem como encerrar o anúncio: ele fica no perfil até outro "
+                     "scrobble chegar."));
+  scrobblingLayout->addWidget(nowPlayingBox_);
   scrobblingLayout->addStretch(1);
   tabs->addTab(scrobbling, QStringLiteral("Scrobbling"));
 

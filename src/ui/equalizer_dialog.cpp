@@ -5,6 +5,8 @@
 #include <cmath>
 
 #include <QCheckBox>
+#include <QToolTip>
+#include <QKeyEvent>
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
@@ -181,9 +183,17 @@ EqualizerDialog::EqualizerDialog(bool enabled, const std::array<double, 10>& ban
 
   connect(close, &QPushButton::clicked, this, &QDialog::close);
   connect(enabledBox_, &QCheckBox::toggled, this, [this] { emitChanged(); });
-  connect(preampSlider_, &QSlider::valueChanged, this, [this] { refreshCurve(); emitChanged(); });
+  connect(preampSlider_, &QSlider::valueChanged, this, [this] {
+    if (!updating_) curveDirty_ = true;
+    refreshCurve();
+    emitChanged();
+  });
   for (QSlider* slider : bandSliders_) {
-    connect(slider, &QSlider::valueChanged, this, [this] { refreshCurve(); emitChanged(); });
+    connect(slider, &QSlider::valueChanged, this, [this] {
+      if (!updating_) curveDirty_ = true;
+      refreshCurve();
+      emitChanged();
+    });
   }
   connect(flat, &QPushButton::clicked, this, [this] {
     // Zerar apaga a curva inteira: confirma antes, como o "Limpar playlist" faz.
@@ -382,8 +392,32 @@ void EqualizerDialog::applyCombo(int index) {
   }
 }
 
+void EqualizerDialog::keyPressEvent(QKeyEvent* event) {
+  const int key = event->key();
+  const bool plain = event->modifiers() == Qt::NoModifier;
+  if (plain && (key == Qt::Key_Up || key == Qt::Key_Down) && presetBox_ != nullptr &&
+      presetBox_->count() > 1) {
+    if (curveDirty_) {
+      // Trocar de predefinição aqui jogaria fora o ajuste manual sem o usuário pedir.
+      QToolTip::showText(presetBox_->mapToGlobal(QPoint(0, presetBox_->height())),
+                         tr("Curva alterada: escolha no combo para trocar de predefinição."),
+                         presetBox_);
+      event->accept();
+      return;
+    }
+    const int step = key == Qt::Key_Up ? -1 : 1;
+    const int next = std::clamp(presetBox_->currentIndex() + step, 1, presetBox_->count() - 1);
+    presetBox_->setCurrentIndex(next);
+    applyCombo(next);
+    event->accept();
+    return;
+  }
+  QDialog::keyPressEvent(event);
+}
+
 void EqualizerDialog::applyPreset(int index) {
   if (index < 0 || index >= static_cast<int>(std::size(kPresets))) return;
+  curveDirty_ = false;
   const Preset& preset = kPresets[index];
   presetName_ = QString::fromUtf8(preset.name);
   updating_ = true;
@@ -411,6 +445,7 @@ void EqualizerDialog::applyUserPreset(int index) {
 
 void EqualizerDialog::applySettings(const std::array<double, 10>& bands, double preamp,
                                     const QString& name) {
+  curveDirty_ = false;
   updating_ = true;
   for (int band = 0; band < 10; ++band) {
     bandSliders_[static_cast<std::size_t>(band)]->setValue(

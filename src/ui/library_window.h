@@ -12,12 +12,14 @@
 class QLabel;
 class QLineEdit;
 class QSlider;
+class QToolButton;
 class QTableWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QAction;
 class QComboBox;
 class QPushButton;
+class QTimer;
 
 namespace wamp::ui {
 
@@ -32,6 +34,12 @@ class LibraryWindow final : public QWidget {
 
   /// Recoloca as faixas na tabela, preservando a seleção pelo caminho.
   void setRows(const std::vector<wamp::LibraryEntry>& rows);
+
+  /// O banco acabou de contar uma execução: a célula "Tocadas" daquela linha muda na hora.
+  /// Nas visões que ordenam por tocada, a tabela é reconsultada com um respiro curto.
+  void notePlay(const QString& path, int playcount);
+  /// Mesma ideia para "Pulos" (recusa de estação).
+  void noteSkip(const QString& path, int skips);
   void setStatus(const QString& text);
   void setSummary(const QString& text);
 
@@ -42,6 +50,9 @@ class LibraryWindow final : public QWidget {
   QString albumFilter() const;
   QString genreFilter() const;
   /// Enche as caixas de artista/álbum/gênero preservando a escolha atual.
+  /// Quantas faixas já foram medidas (BPM/tom) para a rádio acertar o alvo.
+  void setAnalysisProgress(int measured, int total);
+
   void setFilterOptions(const std::vector<std::string>& artists,
                         const std::vector<std::string>& albums,
                         const std::vector<std::string>& genres);
@@ -90,6 +101,8 @@ class LibraryWindow final : public QWidget {
   void playRequested(const QString& path);
   void playSelectionRequested(const QStringList& paths);
   void enqueueSelectionRequested(const QStringList& paths);
+  /// Acrescentar à playlist (ao fim, sem tocar).
+  void addToPlaylistRequested(const QStringList& paths);
   /// "Tocar estação local": a rádio usa a faixa tocando (ou a selecionada) como semente.
   void stationRequested(const QString& seedPath);
   /// "Ver tag (Alt+3)": abre a janela de tags da faixa escolhida.
@@ -131,14 +144,25 @@ class LibraryWindow final : public QWidget {
   QTreeWidgetItem* dynamicsItem_ = nullptr;
   /// Última visão escolhida de fato (o título não conta).
   QTreeWidgetItem* lastViewItem_ = nullptr;
+  /// Avisa a MainWindow que a visão por tocada precisa ser reconsultada (debounce curto,
+  /// para não refazer a consulta de milhares de linhas a cada execução contada).
+  QTimer* playViewTimer_ = nullptr;
+  void schedulePlayViewRefresh();
+  void touchLiveRow(int column, const QString& path, int value);
   QTreeWidgetItem* stationItem_ = nullptr;
   QWidget* stationPanel_ = nullptr;
   QLabel* stationHint_ = nullptr;
+  QLabel* stationProgress_ = nullptr;
+  QToolButton* stationRulesToggle_ = nullptr;
+  QLabel* stationRulesText_ = nullptr;
   QSlider* blendSlider_ = nullptr;
   QWidget* humorPanel_ = nullptr;
   QLabel* humorTitle_ = nullptr;
   QComboBox* humorBox_ = nullptr;
   QLabel* humorPending_ = nullptr;
+  QLabel* humorProgress_ = nullptr;
+  QToolButton* humorRulesToggle_ = nullptr;
+  QLabel* humorRulesText_ = nullptr;
   QSlider* agitationSlider_ = nullptr;
   QSlider* toneSlider_ = nullptr;
   QSlider* stabilitySlider_ = nullptr;
@@ -163,6 +187,7 @@ class LibraryWindow final : public QWidget {
   QLabel* status_ = nullptr;
   QPushButton* playButton_ = nullptr;
   QPushButton* queueButton_ = nullptr;
+  QPushButton* addButton_ = nullptr;
   QPushButton* stationButton_ = nullptr;
   QAction* removeAction_ = nullptr;
 };

@@ -54,6 +54,7 @@ class EqualizerDialog final : public QDialog {
   void changed();
 
  private:
+  void keyPressEvent(QKeyEvent* event) override;
   void emitChanged();
   void refreshCurve();
   void resetToFlat();
@@ -73,6 +74,9 @@ class EqualizerDialog final : public QDialog {
   std::array<QSlider*, 10> bandSliders_{};
   std::array<QLabel*, 10> bandValues_{};
   bool updating_ = false;
+  /// Curva mexida à mão desde a última predefinição aplicada: trocar de preset com isso
+  /// pendente descartaria o ajuste em silêncio, então as setas avisam em vez de trocar.
+  bool curveDirty_ = false;
 };
 
 }  // namespace wamp::ui

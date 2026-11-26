@@ -1,5 +1,7 @@
 #include "library_window.h"
 
+#include "translator.h"
+
 #include <QClipboard>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -22,8 +24,14 @@
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QSplitter>
+#include <QApplication>
+#include <QPainter>
+#include <QStyle>
+#include <QStyledItemDelegate>
 #include <QTableWidget>
 #include <QTimer>
+#include <QSettings>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
@@ -122,10 +130,69 @@ class NumericItem final : public QTableWidgetItem {
   }
 };
 
+/// Chave da ordem padrão: ano (desconhecido por último), álbum sem caixa, faixa, título.
+/// O separador \x01 não aparece em título/álbum e mantém os campos na ordem certa.
+QString orderKey(const wamp::LibraryEntry& entry) {
+  const int year = entry.info.year > 0 ? entry.info.year : 9999;
+  return QString::number(year).rightJustified(4, QLatin1Char('0')) + QLatin1Char('\x01') +
+         QString::fromStdString(entry.info.album).toCaseFolded() + QLatin1Char('\x01') +
+         QString::number(entry.info.trackNo).rightJustified(3, QLatin1Char('0')) +
+         QLatin1Char('\x01') + QString::fromStdString(entry.info.title).toCaseFolded();
+}
+
 QString starsText(int rating) {
   if (rating <= 0) return QStringLiteral("—");
   return QString(rating, QChar(0x2605));  // ★ repetida; o banco guarda só o número
 }
+
+/// Cinco fatias de estrela por célula, com o mesmo passo usado no clique.
+constexpr int kStarPad = 4;
+int starSliceWidth(int cellWidth) { return std::max(1, (cellWidth - 2 * kStarPad) / 5); }
+
+/// Desenha sempre as cinco estrelas: acesas até a nota, esmaecidas depois (nota 0 = cinco
+/// esmaecidas, que é o "sem preferência"). O texto do item fica vazio; o número mora no
+/// `Qt::UserRole`, que é o que a ordenação usa.
+
+namespace {
+/// Texto único: rádio e humor aprendem pela mesma conta (radioAcceptance).
+const char* const kRadioRules =
+    QT_TRANSLATE_NOOP("wamp::ui::LibraryWindow",
+                      "Tocar conta a favor. Interromper antes de 30 s conta como recusa, e "
+                      "tirar da fila conta na hora. A nota em estrela também pesa: de 1 a 5 é "
+                      "preferência; sem nota, a faixa não é penalizada. Cada escolha pesa cada "
+                      "vez menos conforme você ouve — nada é definitivo.");
+}  // namespace
+
+class StarsDelegate final : public QStyledItemDelegate {
+ public:
+  explicit StarsDelegate(QObject* parent) : QStyledItemDelegate(parent) {}
+
+  void paint(QPainter* painter, const QStyleOptionViewItem& option,
+             const QModelIndex& index) const override {
+    QStyleOptionViewItem opt = option;
+    initStyleOption(&opt, index);
+    opt.text.clear();
+    const QWidget* widget = opt.widget;
+    QStyle* style = widget != nullptr ? widget->style() : QApplication::style();
+    style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, widget);
+
+    const int rating = index.data(Qt::UserRole).toInt();
+    QColor lit = opt.palette.color(QPalette::Text);
+    QColor dim = lit;
+    dim.setAlphaF(0.25f);
+    const int slice = starSliceWidth(opt.rect.width());
+    const QString star(1, QChar(0x2605));
+    painter->save();
+    painter->setFont(opt.font);
+    for (int i = 0; i < 5; ++i) {
+      const QRect slot(opt.rect.left() + kStarPad + i * slice, opt.rect.top(), slice,
+                       opt.rect.height());
+      painter->setPen(i < rating ? lit : dim);
+      painter->drawText(slot, Qt::AlignCenter, star);
+    }
+    painter->restore();
+  }
+};
 
 }  // namespace
 
@@ -252,9 +319,13 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   });
 
   table_ = new LibraryTable(right);
-  table_->setColumnCount(8);
+  // 0..9 são as colunas visíveis; a 10 é a chave da ordem padrão (Ano, Álbum, Faixa) e fica
+  // escondida — uma coluna só ordena por um critério, e a ordem pedida tem três.
+  table_->setColumnCount(11);
   table_->setHorizontalHeaderLabels({tr("Artista"), tr("Álbum"), tr("Faixa"), tr("Título"),
-                                     tr("Duração"), tr("Gênero"), tr("Nota"), tr("Tocadas")});
+                                     tr("Duração"), tr("Gênero"), tr("Nota"), tr("Tocadas"),
+                                     tr("Pulos"), tr("Ano"), QString()});
+  table_->setItemDelegateForColumn(6, new StarsDelegate(table_));
   table_->verticalHeader()->setVisible(false);
   table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   table_->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -268,6 +339,8 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   connect(table_, &QTableWidget::customContextMenuRequested, this,
           &LibraryWindow::showContextMenu);
   table_->setSortingEnabled(true);
+  table_->sortByColumn(10, Qt::AscendingOrder);
+  table_->setColumnHidden(10, true);
   table_->setAlternatingRowColors(true);
   table_->horizontalHeader()->setStretchLastSection(false);
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
@@ -301,9 +374,25 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   blendRow->addWidget(blendTrackLabel);
   blendRow->addWidget(blendSlider_, 1);
   blendRow->addWidget(blendHistoryLabel);
+  stationProgress_ = new QLabel(stationPanel_);
+  stationProgress_->setObjectName(QStringLiteral("hint"));
+  stationRulesToggle_ = new QToolButton(stationPanel_);
+  stationRulesToggle_->setText(tr("Como a rádio aprende"));
+  stationRulesToggle_->setCheckable(true);
+  stationRulesToggle_->setArrowType(Qt::RightArrow);
+  stationRulesToggle_->setAutoRaise(true);
+  stationRulesToggle_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+  stationRulesText_ = new QLabel(
+      QCoreApplication::translate("wamp::ui::LibraryWindow", kRadioRules), stationPanel_);
+  stationRulesText_->setObjectName(QStringLiteral("hint"));
+  stationRulesText_->setWordWrap(true);
+  stationRulesText_->hide();
   stationLayout->addWidget(stationTitle);
   stationLayout->addWidget(stationHint_);
+  stationLayout->addWidget(stationProgress_);
   stationLayout->addLayout(blendRow);
+  stationLayout->addWidget(stationRulesToggle_);
+  stationLayout->addWidget(stationRulesText_);
   stationPanel_->hide();
   connect(blendSlider_, &QSlider::valueChanged, this,
           [this](int value) { emit seedBlendChanged(value); });
@@ -381,6 +470,19 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
                  tr("0 = só o humor; 100 = só o histórico das últimas 5 faixas."),
                  50, &humorBlendSlider_, &humorBlendValue_);
 
+  humorProgress_ = new QLabel(humorPanel_);
+  humorProgress_->setObjectName(QStringLiteral("hint"));
+  humorRulesToggle_ = new QToolButton(humorPanel_);
+  humorRulesToggle_->setText(tr("Como a rádio aprende"));
+  humorRulesToggle_->setCheckable(true);
+  humorRulesToggle_->setArrowType(Qt::RightArrow);
+  humorRulesToggle_->setAutoRaise(true);
+  humorRulesToggle_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+  humorRulesText_ = new QLabel(
+      QCoreApplication::translate("wamp::ui::LibraryWindow", kRadioRules), humorPanel_);
+  humorRulesText_->setObjectName(QStringLiteral("hint"));
+  humorRulesText_->setWordWrap(true);
+  humorRulesText_->hide();
   humorPending_ = new QLabel(tr("modificações não aplicadas, clique em tocar para aplicar"),
                              humorPanel_);
   humorPending_->setStyleSheet(QStringLiteral("color: #e69138;"));
@@ -410,8 +512,11 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
 
   humorLayout->addLayout(humorHead);
   humorLayout->addWidget(humorHint);
+  humorLayout->addWidget(humorProgress_);
   humorLayout->addLayout(humorGrid);
   humorLayout->addLayout(humorFoot);
+  humorLayout->addWidget(humorRulesToggle_);
+  humorLayout->addWidget(humorRulesText_);
   humorPanel_->hide();
 
   rightLayout->addWidget(stationPanel_);
@@ -427,6 +532,9 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   footer->addWidget(summary_, 1);
   playButton_ = new QPushButton(tr("Tocar"), right);
   queueButton_ = new QPushButton(tr("Enfileirar"), right);
+  // Sem isto, pôr faixas na playlist só existia por arrasto (item de acessibilidade).
+  addButton_ = new QPushButton(tr("Adicionar à playlist"), right);
+  addButton_->setToolTip(tr("Acrescenta as faixas escolhidas ao fim da playlist, sem tocar."));
   // A estação é uma coisa viva: o botão gera as próximas a partir da faixa tocando (ou da
   // selecionada), em vez de tocar só a lista visível.
   stationButton_ = new QPushButton(tr("Tocar estação dessa música"), right);
@@ -443,6 +551,7 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   });
   footer->addWidget(playButton_);
   footer->addWidget(queueButton_);
+  footer->addWidget(addButton_);
   footer->addWidget(stationButton_);
   rightLayout->addLayout(footer);
 
@@ -512,6 +621,12 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     if (!path.isEmpty()) emit playRequested(path);
   });
   connect(table_, &QTableWidget::itemSelectionChanged, this, &LibraryWindow::updateButtons);
+  // Reconsulta da visão por tocada: só depois de um respiro, porque cada reconsulta
+  // percorre a biblioteca inteira.
+  playViewTimer_ = new QTimer(this);
+  playViewTimer_->setSingleShot(true);
+  playViewTimer_->setInterval(500);
+  connect(playViewTimer_, &QTimer::timeout, this, [this] { emit queryChanged(); });
   // Nota: clicar na estrela N grava N; clicar de novo na mesma nota limpa (0). A coluna
   // guarda o número em UserRole, então dá para saber a nota atual sem olhar o texto.
   connect(table_, &QTableWidget::cellClicked, this, [this](int row, int column) {
@@ -519,11 +634,11 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     QTableWidgetItem* pathItem = table_->item(row, 0);
     QTableWidgetItem* ratingItem = table_->item(row, 6);
     if (pathItem == nullptr || ratingItem == nullptr) return;
-    const int width = table_->columnWidth(6);
     const QPoint pos = table_->viewport()->mapFromGlobal(QCursor::pos());
     const QRect cell = table_->visualRect(table_->model()->index(row, 6));
-    const int slice = std::max(1, width / 5);
-    int rating = (pos.x() - cell.left()) / slice + 1;
+    // A fatia é a mesma que o StarsDelegate desenha, senão o clique cai na estrela errada.
+    const int slice = starSliceWidth(cell.width());
+    int rating = (pos.x() - cell.left() - kStarPad) / slice + 1;
     rating = std::clamp(rating, 1, 5);
     const int current = ratingItem->data(Qt::UserRole).toInt();
     if (current == rating) rating = 0;
@@ -544,7 +659,38 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
     }
     emit enqueueSelectionRequested(selectedPaths());
   });
+  connect(addButton_, &QPushButton::clicked, this, [this] {
+    const QStringList paths = selectedPaths();
+    if (!paths.isEmpty()) emit addToPlaylistRequested(paths);
+  });
 
+
+
+  // O bloco de regras é o mesmo nos dois painéis (rádio e humor aprendem pela mesma conta)
+  // e o estado é um só, guardado na INI.
+  auto toggleRules = [this](bool open) {
+    if (stationRulesText_ != nullptr) stationRulesText_->setVisible(open);
+    if (humorRulesText_ != nullptr) humorRulesText_->setVisible(open);
+    const auto sync = [open](QToolButton* button) {
+      if (button == nullptr) return;
+      const QSignalBlocker blocker(button);
+      button->setChecked(open);
+      button->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
+    };
+    sync(stationRulesToggle_);
+    sync(humorRulesToggle_);
+    QSettings settings(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
+    settings.setValue(QStringLiteral("ui/radioRules"), open);
+  };
+  for (QToolButton* toggle : {stationRulesToggle_, humorRulesToggle_}) {
+    if (toggle == nullptr) continue;
+    connect(toggle, &QToolButton::toggled, this, [toggleRules](bool open) { toggleRules(open); });
+  }
+  {
+    QSettings settings(wamp::ui::settingsFileForTests(), QSettings::IniFormat);
+    const bool open = settings.value(QStringLiteral("ui/radioRules"), false).toBool();
+    if (open) toggleRules(true);
+  }
   updateButtons();
 }
 
@@ -618,6 +764,14 @@ QString LibraryWindow::artistFilter() const { return currentFilterText(artistBox
 QString LibraryWindow::albumFilter() const { return currentFilterText(albumBox_); }
 QString LibraryWindow::genreFilter() const { return currentFilterText(genreBox_); }
 
+void LibraryWindow::setAnalysisProgress(int measured, int total) {
+  const QString text =
+      total <= 0 ? QString()
+                 : tr("%1 de %2 faixas medidas — a análise acontece ao tocar").arg(measured).arg(total);
+  if (stationProgress_ != nullptr) stationProgress_->setText(text);
+  if (humorProgress_ != nullptr) humorProgress_->setText(text);
+}
+
 void LibraryWindow::setFilterOptions(const std::vector<std::string>& artists,
                                      const std::vector<std::string>& albums,
                                      const std::vector<std::string>& genres) {
@@ -651,16 +805,40 @@ void LibraryWindow::setRows(const std::vector<wamp::LibraryEntry>& rows) {
                                                                 QString::fromStdString(entry.info.path));
     make(1, QString::fromStdString(entry.info.album));
     make(2, entry.info.trackNo > 0 ? QString::number(entry.info.trackNo) : QString());
-    make(3, QString::fromStdString(entry.info.title));
+    QTableWidgetItem* titleItem = make(3, QString::fromStdString(entry.info.title));
     const QString duration = durationText(entry.info.durationMs);
     durationWidth = std::max(durationWidth, metrics.horizontalAdvance(duration));
     make(4, duration);
     make(5, QString::fromStdString(entry.info.genre));
-    make(6, starsText(entry.rating))->setData(Qt::UserRole, static_cast<qlonglong>(entry.rating));
+    // O texto das estrelas fica vazio: quem desenha é o StarsDelegate, lendo o número.
+    make(6, QString())->setData(Qt::UserRole, static_cast<qlonglong>(entry.rating));
     auto* plays = make(7, entry.playcount > 0 ? QString::number(entry.playcount) : QString());
     plays->setData(Qt::UserRole, static_cast<qlonglong>(entry.playcount));
+    auto* skips = make(8, entry.skips > 0 ? QString::number(entry.skips) : QString());
+    skips->setData(Qt::UserRole, static_cast<qlonglong>(entry.skips));
+    auto* year = make(9, entry.info.year > 0 ? QString::number(entry.info.year) : QString());
+    year->setData(Qt::UserRole, static_cast<qlonglong>(entry.info.year));
     if (!duration.isEmpty()) {
       table_->item(row, 4)->setData(Qt::UserRole, static_cast<qlonglong>(entry.info.durationMs));
+    }
+    table_->setItem(row, 10, new QTableWidgetItem(orderKey(entry)));
+    // O motivo vem como chave de eixo; a tradução é daqui (o banco não sabe idioma).
+    if (!entry.reason.empty()) {
+      QString why;
+      if (entry.reason == "album") {
+        why = tr("mesmo álbum da semente");
+      } else if (entry.reason == "artist") {
+        why = tr("mesmo artista da semente");
+      } else if (entry.reason == "genre") {
+        why = tr("mesmo gênero");
+      } else if (entry.reason == "tempo") {
+        why = tr("BPM parecido");
+      } else if (entry.reason == "key") {
+        why = tr("tom compatível");
+      } else if (entry.reason == "year") {
+        why = tr("época próxima");
+      }
+      if (!why.isEmpty() && titleItem != nullptr) titleItem->setToolTip(why);
     }
   }
 
@@ -673,6 +851,8 @@ void LibraryWindow::setRows(const std::vector<wamp::LibraryEntry>& rows) {
   table_->setColumnWidth(5, 90);    // gênero
   table_->setColumnWidth(6, 86);    // nota (5 estrelas não podem ser elididas)
   table_->setColumnWidth(7, 70);    // tocadas
+  table_->setColumnWidth(8, 60);    // pulos
+  table_->setColumnWidth(9, 55);    // ano
 
   if (!selected.isEmpty()) {
     for (int row = 0; row < table_->rowCount(); ++row) {
@@ -693,6 +873,41 @@ void LibraryWindow::setStatus(const QString& text) {
 
 void LibraryWindow::setSummary(const QString& text) { summary_->setText(text); }
 
+void LibraryWindow::touchLiveRow(int column, const QString& path, int value) {
+  if (path.isEmpty() || column < 0) return;
+  for (int row = 0; row < table_->rowCount(); ++row) {
+    QTableWidgetItem* first = table_->item(row, 0);
+    if (first == nullptr || first->data(Qt::UserRole).toString() != path) continue;
+    QTableWidgetItem* cell = table_->item(row, column);
+    if (cell == nullptr) return;
+    cell->setText(value > 0 ? QString::number(value) : QString());
+    cell->setData(Qt::UserRole, static_cast<qlonglong>(value));
+    return;
+  }
+}
+
+void LibraryWindow::notePlay(const QString& path, int playcount) {
+  if (playcount <= 0) return;
+  touchLiveRow(7, path, playcount);  // "Tocadas" muda na hora, sem reconsulta
+  schedulePlayViewRefresh();
+}
+
+void LibraryWindow::noteSkip(const QString& path, int skips) {
+  if (skips <= 0) return;
+  touchLiveRow(8, path, skips);  // "Pulos"
+}
+
+void LibraryWindow::schedulePlayViewRefresh() {
+  const wamp::LibraryView current = view();
+  // Nas visões por data/contagem a linha pode precisar entrar, sair ou mudar de lugar;
+  // nas demais, atualizar a célula basta.
+  if (current != wamp::LibraryView::RecentlyPlayed &&
+      current != wamp::LibraryView::MostPlayed) {
+    return;
+  }
+  if (playViewTimer_ != nullptr) playViewTimer_->start();
+}
+
 QStringList LibraryWindow::selectedPaths() const {
   QStringList paths;
   const auto rows = table_->selectionModel() != nullptr
@@ -710,6 +925,7 @@ void LibraryWindow::updateButtons() {
   // No humor não há seleção para tocar: os botões valem para o rascunho dos sliders.
   playButton_->setEnabled(humorActive_ || selected);
   queueButton_->setEnabled(humorActive_ || selected);
+  if (addButton_ != nullptr) addButton_->setEnabled(selected);
   // "Tocar estação dessa música" parte da faixa tocando; no humor trocaria o clima pelo
   // histórico, então fica desligado.
   if (stationButton_ != nullptr) stationButton_->setEnabled(!humorActive_);

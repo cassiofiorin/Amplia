@@ -1,6 +1,9 @@
 #include "wamp/tag_cache.h"
 
 #include <algorithm>
+#include <cctype>
+#include <map>
+#include <set>
 
 #include <sqlite3.h>
 
@@ -18,6 +21,20 @@ constexpr int kFlushEvery = 32;
 void bindText(sqlite3_stmt* statement, int index, const std::string& value) {
   sqlite3_bind_text(statement, index, value.c_str(), static_cast<int>(value.size()),
                     SQLITE_TRANSIENT);
+}
+
+/// Lê uma coluna contadora de `tracks` para um caminho. -1 quando a faixa não está no banco:
+/// o chamador usa isso para saber se a escrita pegou.
+int counterFor(sqlite3* db, const char* column, const std::string& path) {
+  if (db == nullptr || path.empty()) return -1;
+  const std::string sql = std::string("SELECT coalesce(") + column + ", 0) FROM tracks WHERE path = ?;";
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) return -1;
+  bindText(statement, 1, path);
+  int value = -1;
+  if (sqlite3_step(statement) == SQLITE_ROW) value = sqlite3_column_int(statement, 0);
+  sqlite3_finalize(statement);
+  return value;
 }
 
 std::string columnText(sqlite3_stmt* statement, int index) {
@@ -230,19 +247,26 @@ void TagCache::dropFromScanQueue(const std::string& path) {
   sqlite3_finalize(statement);
 }
 
-void TagCache::bumpPlaycount(const std::string& path) {
-  if (db_ == nullptr || path.empty()) return;
+int TagCache::bumpPlaycount(const std::string& path) {
+  if (db_ == nullptr || path.empty()) return 0;
   sqlite3_stmt* statement = nullptr;
   if (sqlite3_prepare_v2(db_,
                          "UPDATE tracks SET playcount = playcount + 1,"
                          " lastplay = CAST(strftime('%s','now') AS INTEGER)"
                          " WHERE path = ?;",
                          -1, &statement, nullptr) != SQLITE_OK) {
-    return;
+    return 0;
   }
   bindText(statement, 1, path);
-  sqlite3_step(statement);
+  const bool updated = sqlite3_step(statement) == SQLITE_DONE;
   sqlite3_finalize(statement);
+  if (!updated) return 0;
+  const int count = counterFor(db_, "playcount", path);
+  return count > 0 ? count : 0;
+}
+
+int TagCache::skipsFor(const std::string& path) {
+  return counterFor(db_, "skips", path);
 }
 
 void TagCache::setRating(const std::string& path, int rating) {
@@ -517,9 +541,25 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
   };
   addExact("artist", artist);
   addExact("album", album);
-  addExact("genre", genre);
+  // Gênero é multivalorado ("Rock / Pop; MPB"): casa por termo inteiro, nunca por
+  // substring (um LIKE '%Rock%' traria Post-Rock e Pop-Rock) e sem ligar para caixa,
+  // espaço ou qual separador foi usado.
+  if (!genre.empty()) {
+    std::string needle;
+    for (char c : genre) {
+      if (c == '%' || c == '_') needle.push_back('\\');
+      if (c != ' ') needle.push_back(c);
+    }
+    const std::string n = "?" + std::to_string(binds.size() + 1);
+    binds.push_back({static_cast<int>(binds.size()) + 1, "%;" + needle + ";%"});
+    addClause("(';' || replace(replace(replace(replace(genre, ',', ';'), '/', ';'), ' ', '')"
+              ", ';;', ';') || ';') LIKE " + n + " ESCAPE '\\'");
+  }
 
-  std::string order = "artist COLLATE NOCASE, album COLLATE NOCASE, track_no, title";
+  // Ordem padrão da Biblioteca: Ano, Álbum, Faixa (ano desconhecido vai para o fim). As
+  // visões por data ou por contagem têm ordem própria, que é o sentido delas.
+  std::string order =
+      "(year = 0), year, album COLLATE NOCASE, track_no, title COLLATE NOCASE";
   if (view == LibraryView::MostPlayed) order = "playcount DESC, artist COLLATE NOCASE, title";
   if (view == LibraryView::TopRated) order = "rating DESC, artist COLLATE NOCASE, title";
   if (view == LibraryView::RecentlyAdded) order = "dateadded DESC, artist COLLATE NOCASE";
@@ -529,7 +569,7 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
   std::string sql =
       "SELECT path, title, artist, album, album_artist, genre, track_no, year,"
       " duration_ms, sample_rate, channels, bitrate, size, mtime, dateadded, playcount,"
-      " rating, lastplay FROM tracks";
+      " rating, lastplay, coalesce(skips, 0) FROM tracks";
   if (!where.empty()) sql += " WHERE " + where;
   sql += " ORDER BY " + order + ";";
 
@@ -565,6 +605,7 @@ std::vector<LibraryEntry> TagCache::queryLibrary(LibraryView view, const std::st
     entry.playcount = sqlite3_column_int(statement, 15);
     entry.rating = sqlite3_column_int(statement, 16);
     entry.lastplay = sqlite3_column_int64(statement, 17);
+    entry.skips = sqlite3_column_int(statement, 18);
     out.push_back(std::move(entry));
   }
   sqlite3_finalize(statement);
@@ -582,19 +623,75 @@ std::vector<std::string> TagCache::distinctValues(const std::string& column,
     if (error != nullptr) *error = "coluna desconhecida";
     return out;
   }
-  const std::string sql = "SELECT DISTINCT " + column + " FROM tracks" +
-                          " WHERE " + column + " IS NOT NULL AND " + column + " <> ''" +
-                          " ORDER BY " + column + " COLLATE NOCASE;";
+  // Nome que só muda de caixa é o mesmo nome para quem lê a lista: agrupa por
+  // COLLATE NOCASE e fica com a grafia mais usada (empate: a primeira alfabética).
+  const std::string sql =
+      "SELECT " + column + ", COUNT(*) FROM tracks" +
+      " WHERE " + column + " IS NOT NULL AND " + column + " <> ''" +
+      " GROUP BY " + column + " COLLATE NOCASE" +
+      " ORDER BY COUNT(*) DESC, " + column + " COLLATE NOCASE;";
   sqlite3_stmt* statement = nullptr;
   if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) {
     if (error != nullptr) *error = sqlite3_errmsg(db_);
     return out;
   }
+  auto lower = [](const std::string& value) {
+    std::string key = value;
+    for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return key;
+  };
+  // Gênero vem multivalorado ("Alternative Rock / Post-Grunge"): cada termo é um valor
+  // de filtro próprio. Conta por grafia para escolher a mais usada de cada termo.
+  const bool splitGenres = column == "genre";
+  std::map<std::string, std::map<std::string, int>> counts;
   while (sqlite3_step(statement) == SQLITE_ROW) {
     const unsigned char* value = sqlite3_column_text(statement, 0);
-    if (value != nullptr) out.emplace_back(reinterpret_cast<const char*>(value));
+    if (value == nullptr) continue;
+    const int rows = sqlite3_column_int(statement, 1);
+    const std::string spelling(reinterpret_cast<const char*>(value));
+    if (!splitGenres) {
+      counts[lower(spelling)][spelling] += rows;
+      continue;
+    }
+    std::string current;
+    auto flush = [&] {
+      std::size_t start = current.find_first_not_of(" \t");
+      std::size_t end = current.find_last_not_of(" \t");
+      if (start != std::string::npos && end != std::string::npos) {
+        const std::string term = current.substr(start, end - start + 1);
+        counts[lower(term)][term] += rows;
+      }
+      current.clear();
+    };
+    for (char c : spelling) {
+      if (c == '/' || c == ',' || c == ';') {
+        flush();
+      } else {
+        current.push_back(c);
+      }
+    }
+    flush();
+  }
+  for (const auto& entry : counts) {
+    const std::string* best = nullptr;
+    int bestCount = -1;
+    for (const auto& spelling : entry.second) {
+      if (spelling.second > bestCount ||
+          (spelling.second == bestCount && best != nullptr && spelling.first < *best)) {
+        best = &spelling.first;
+        bestCount = spelling.second;
+      }
+    }
+    if (best != nullptr) out.push_back(*best);
   }
   sqlite3_finalize(statement);
+  std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+                                        [](char x, char y) {
+                                          return std::tolower(static_cast<unsigned char>(x)) <
+                                                 std::tolower(static_cast<unsigned char>(y));
+                                        });
+  });
   return out;
 }
 

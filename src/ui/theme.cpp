@@ -379,6 +379,9 @@ QString styleSheet(const Theme& t) {
   s += "QPushButton:checked { background: " % hex(t.controlCheckedBg) % "; border-color: " %
        hex(t.controlCheckedBorder) % "; }\n";
   s += "QPushButton:disabled { color: " % hex(t.textMuted) % "; border-color: " % hex(t.controlBg) % "; }\n";
+  // Caixa desligada tem de parecer desligada: o indicador vem do CheckStyle, então o que dá
+  // para marcar aqui é o texto (era o que fazia uma opção indisponível parecer ativa).
+  s += "QCheckBox:disabled { color: " % hex(t.textMuted) % "; }\n";
   s += "QLineEdit, QComboBox, QSpinBox { background: " % hex(t.controlBg) % "; color: " %
        hex(t.windowText) % "; border: 1px solid " % hex(t.border) % "; border-radius: 3px; padding: 3px 6px; }\n";
   s += "QComboBox QAbstractItemView { background: " % hex(t.controlBg) % "; color: " %
@@ -390,8 +393,10 @@ QString styleSheet(const Theme& t) {
        "; width: 10px; margin: -5px 0; border-radius: 5px; }\n";
   s += "QSlider::groove:vertical { width: 4px; background: " % hex(t.groove) %
        "; border-radius: 2px; }\n";
-  s += "QSlider::add-page:vertical { background: " % hex(t.groove) % "; }\n";
-  s += "QSlider::sub-page:vertical { background: " % hex(t.accent) % "; }\n";
+  // No vertical o `sub-page` é a parte **acima** do handle. O fader enche de baixo para
+  // cima — senão a cor sobe quando o valor desce, ao contrário da curva do equalizador.
+  s += "QSlider::add-page:vertical { background: " % hex(t.accent) % "; }\n";
+  s += "QSlider::sub-page:vertical { background: " % hex(t.groove) % "; }\n";
   s += "QSlider::handle:vertical { background: " % hex(t.handle) %
        "; height: 10px; margin: 0 -5px; border-radius: 5px; }\n";
   // Sem regra para ::indicator: com uma regra aqui o QStyleSheetStyle assume o desenho e o
@@ -415,8 +420,27 @@ QString styleSheet(const Theme& t) {
        "; padding: 5px 10px; }\n";
   s += "QTabBar::tab:selected { background: " % hex(t.controlCheckedBg) % "; color: " %
        hex(t.accent) % "; }\n";
-  s += "QScrollBar:vertical { background: " % hex(t.listBg) % "; width: 12px; }\n";
-  s += "QScrollBar::handle:vertical { background: " % hex(t.controlBg) % "; border-radius: 6px; }\n";
+  // A barra tem botões: o trilho é o que sobra **entre** eles. Sem definir os sub-controles,
+  // o estilo da plataforma desenha setas no tamanho nativo e elas invadem o trilho.
+  const QString bar = "12px";
+  s += "QScrollBar:vertical { background: " % hex(t.listBg) % "; width: " % bar %
+       "; margin: 0; border: none; }\n";
+  s += "QScrollBar::handle:vertical { background: " % hex(t.controlBg) %
+       "; border-radius: 6px; min-height: 24px; margin: 2px; }\n";
+  s += "QScrollBar::handle:vertical:hover { background: " % hex(t.controlHover) % "; }\n";
+  s += "QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical { height: " % bar %
+       "; background: " % hex(t.listBg) % "; border: none; }\n";
+  s += "QScrollBar::sub-page:vertical, QScrollBar::add-page:vertical { background: " %
+       hex(t.listBg) % "; }\n";
+  s += "QScrollBar:horizontal { background: " % hex(t.listBg) % "; height: " % bar %
+       "; margin: 0; border: none; }\n";
+  s += "QScrollBar::handle:horizontal { background: " % hex(t.controlBg) %
+       "; border-radius: 6px; min-width: 24px; margin: 2px; }\n";
+  s += "QScrollBar::handle:horizontal:hover { background: " % hex(t.controlHover) % "; }\n";
+  s += "QScrollBar::sub-line:horizontal, QScrollBar::add-line:horizontal { width: " % bar %
+       "; background: " % hex(t.listBg) % "; border: none; }\n";
+  s += "QScrollBar::sub-page:horizontal, QScrollBar::add-page:horizontal { background: " %
+       hex(t.listBg) % "; }\n";
   return s;
 }
 

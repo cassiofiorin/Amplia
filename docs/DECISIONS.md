@@ -2907,3 +2907,54 @@ Quem instala o metainfo é o manifesto de empacotamento (`install -Dm644 …` pa
 
 O XML foi validado com `appstreamcli validate` (SDK 6.10): sem erros; resta um pedido de
 pedanteria, o "A" maiúsculo do app-id, que é aceito pela loja e não vale renomear.
+
+## D-136 — A Biblioteca ganha colunas que ordenam de verdade, e a estação respeita a variedade
+
+Os 22 itens do `docs/BACKLOG.md` mexeram em quase toda a interface. As escolhas que valem
+registro são as que decidem comportamento, não as que só acertam pixel.
+
+**Coluna "Ano" e a chave escondida.** A tabela passou a ter dez colunas visíveis, com "Ano" por
+último e "Pulos" logo antes. Para a ordem padrão ser Ano → Álbum → Faixa sem inventar um
+comparador para cada coluna, a tabela carrega uma **coluna 10 escondida** com uma chave de texto
+(`ano de quatro dígitos \x01 álbum em caixa baixa \x01 faixa com zero à esquerda \x01 título`)
+e ordena por ela. Ano zero vira `9999`: disco sem ano vai para o fim, não para 1900. As visões
+por data e por contagem mantêm a ordem própria — "Tocadas" ordenada por ano não diria nada.
+
+**Estrelas sempre visíveis, nota 1 como mínimo.** A célula da nota desenha cinco estrelas com o
+mesmo cálculo de fatias que o clique usa (`starSliceWidth(cellWidth)`), então onde clicar é o
+que se vê: acesas até a nota, esmaecidas a 25% depois dela. **Zero é "sem preferência", não nota
+baixa** — a estação não pune quem não foi avaliado, "Melhor avaliadas" só lista nota maior que
+zero, e clicar de novo na mesma estrela (inclusive a primeira) desfaz.
+
+**Gênero é lista, e o filtro casa termo inteiro.** O campo `genre` guarda valores como
+`Alternative Rock / Post-Grunge`. As caixas passaram a quebrar por `/`, `,` e `;`, aparar as
+pontas e agrupar sem caixa; o filtro virou comparação de termo inteiro
+(`';' || genre normalizado || ';' LIKE '%;termo;%'`), não `LIKE '%Rock%'` — que traria Post-Rock
+e Pop-Rock junto. Sobre a biblioteca do autor: 60 termos, nenhum par diferindo só por caixa,
+`Rock` 2752, `Pop Rock` 80, `Post-Rock` 0, `pop punk` 269 (sem caixa).
+
+**Cota por artista na lista toda, e reposição ancorada.** O item 16 nasceu de uma estação com 13
+de 20 faixas do Pearl Jam. A cota agora vale para a lista inteira (2 por artista, 3 quando a base
+medida passa de 500 faixas), com duas regras que sobrevivem ao fim da cota: nunca dois do mesmo
+artista em sequência e nunca o mesmo álbum em sequência. A segunda passada — para preencher a
+lista quando a cota trava — roda **em rodadas**: a primeira versão varria a lista de rejeitados
+uma vez só e devolvia 6 de 20 num acervo concentrado. A estação também passou a **se repor**
+quando a fila baixa de cinco, sempre a partir da **semente original** — repor pela última tocada
+faria a estação derivar.
+
+**O cursor de arrasto é da janela, não da lista.** O 🚫 aparecia porque só as viewports das
+listas respondiam ao arrasto: `dragMoveEvent` não existia na `MainWindow` e o Qt desenhava o
+sinal de proibido em tudo o que era cabeçalho, margem ou barra. Agora a janela aceita o arrasto
+inteiro e decide a ação pela origem: de dentro da playlist/fila move, de fora copia.
+
+**Análise mais cedo, com a mesma amostra.** A checagem passou de 20 s para 5 s, mas a amostra
+continua exigindo 12 s de áudio: o resultado sai entre 12 e 17 s em vez de 12 e 32 — sem
+encurtar a janela que dá a confiança do BPM.
+
+**Cache de capas com prazo.** Uma passada por execução, fora da thread da interface, apaga capas
+com mais de 30 dias, poupando a da faixa atual. Sem isso o diretório só cresce.
+
+**O que não foi possível verificar aqui.** O botão do equalizador na coluna vertical alterna o
+estado (o indicador do display acompanha), mas a janela do EQ não abriu neste ambiente nem pelo
+botão nem pelo `Alt+G` — o mesmo acontecia antes deste lote, então é ambiente (XWayland/KWin) e
+não regressão. Fica para conferência na tela do autor.
