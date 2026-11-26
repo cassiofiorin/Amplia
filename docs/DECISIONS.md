@@ -3008,3 +3008,30 @@ que tocou imediatamente antes, mesmo que na lista ela esteja longe. Repetir a me
 duplica a entrada, e desfazer uma volta não prende o botão na mesma faixa. O histórico guarda
 **caminhos**, não índices: reordenar ou arrastar linhas não estraga a memória. Com o sorteio
 desligado, nada muda.
+
+## D-139 — A busca por texto vem antes do fingerprint, e o diálogo não grava nada
+
+**O caminho do autotag começa pela tag, não pelo áudio.** O MusicBrainz responde por artista e
+título com uma qualidade que dispensa processar a biblioteca inteira, e o fingerprint (chromaprint)
+fica para o fim da fila, como desempate de quem não casou por texto — além de ser o item que exige
+um módulo compilado no manifesto, porque a biblioteca não existe no runtime.
+
+**O diálogo "Buscar tags…" só devolve uma escolha; quem grava é o Alt+3.** Ele abre já consultando,
+mostra os candidatos com pontuação e motivo, e a escolha volta para o formulário. A gravação
+continua sendo a de sempre: cópia temporária, conferência e carimbo `tag_fixed_at`. Assim a busca
+não introduz um segundo caminho de escrita de tags no aplicativo.
+
+**Preencher só o que está vazio.** `planTagFill` nunca sobrescreve campo preenchido, e a escolha
+humana vence a pontuação: mesmo quando o casamento é automático, o que a pessoa escreveu fica.
+Gravar sozinho exige score ≥ 0,90 **e** margem ≥ 0,15 sobre o segundo candidato — sem as duas
+condições, o caso é de revisão.
+
+**A consulta é montada com `QUrlQuery`, não com string.** A primeira versão colava os termos na
+URL com `%1`; o Qt enviava espaço cru no caminho e o serviço respondia 503. Com `QUrlQuery` o
+espaço vira `%20` e aspas/dois-pontos saem codificados como o serviço espera. A fila do cliente é
+única, com 1,1 s entre requisições — o limite que o MusicBrainz pede — e user agent identificando o
+aplicativo com o endereço do projeto.
+
+**Analisar resposta é função pura.** `parseRecordingSearch` e `parseReleaseSearch` recebem JSON e
+devolvem candidatos, e têm teste com resposta gravada: "nada encontrado" é resposta válida, JSON
+quebrado é erro, e nenhum campo é inventado quando o serviço não manda.

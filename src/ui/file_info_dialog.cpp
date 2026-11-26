@@ -1,5 +1,8 @@
 #include "file_info_dialog.h"
 
+#include "tag_search_dialog.h"
+#include "wamp/autotag.h"
+
 #include <QCheckBox>
 #include <QFile>
 #include <QFileDialog>
@@ -218,6 +221,12 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   safeSaveBox_->setToolTip(
       tr("Grava numa cópia, confere o resultado e só então troca o arquivo."));
   footer->addWidget(safeSaveBox_);
+
+  searchButton_ = new QPushButton(tr("Buscar tags…"), this);
+  searchButton_->setToolTip(
+      tr("Procura esta faixa no MusicBrainz e preenche só os campos que estão vazios."));
+  connect(searchButton_, &QPushButton::clicked, this, &FileInfoDialog::searchTags);
+  footer->addWidget(searchButton_);
   footer->addStretch(1);
 
   auto* cancel = new QPushButton(tr("Cancelar"), this);
@@ -422,6 +431,45 @@ void FileInfoDialog::updatePictures() {
             .arg(toQ(chosen->mime.empty() ? std::string("image") : chosen->mime))
             .arg(chosen->data.size() / 1024));
   }
+}
+
+void FileInfoDialog::searchTags() {
+  if (paths_.empty()) return;
+
+  wamp::TagQuery query;
+  query.artist = artistEdit_->text().toStdString();
+  query.album = albumEdit_->text().toStdString();
+  query.title = titleEdit_->text().toStdString();
+  query.trackNo = trackEdit_->text().toInt();
+  query.discNo = discEdit_->text().toInt();
+  query.year = yearEdit_->text().toInt();
+  query.durationMs = format_.durationMs;
+
+  wamp::ui::TagSearchDialog dialog(query, this);
+  if (dialog.exec() != QDialog::Accepted || !dialog.hasChoice()) return;
+
+  // Só o que está vazio: o que a pessoa já escreveu é dela.
+  const wamp::TagCandidate& candidate = dialog.chosen();
+  const wamp::TagFill fill = wamp::planTagFill(query, candidate);
+  const auto put = [](QLineEdit* edit, bool wanted, const std::string& value) {
+    if (wanted && !value.empty() && edit->text().trimmed().isEmpty()) {
+      edit->setText(QString::fromStdString(value));
+    }
+  };
+  put(artistEdit_, fill.artist, candidate.artist);
+  put(albumEdit_, fill.album, candidate.album);
+  put(albumArtistEdit_, fill.albumArtist, candidate.albumArtist);
+  put(titleEdit_, fill.title, candidate.title);
+  if (fill.year && candidate.year > 0 && yearEdit_->text().trimmed().isEmpty()) {
+    yearEdit_->setText(QString::number(candidate.year));
+  }
+  if (fill.trackNo && candidate.trackNo > 0 && trackEdit_->text().trimmed().isEmpty()) {
+    trackEdit_->setText(QString::number(candidate.trackNo));
+  }
+  if (fill.discNo && candidate.discNo > 0 && discEdit_->text().trimmed().isEmpty()) {
+    discEdit_->setText(QString::number(candidate.discNo));
+  }
+  markDirty();
 }
 
 void FileInfoDialog::choosePicture() {

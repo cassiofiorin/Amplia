@@ -294,8 +294,16 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       rip, remaster e caminho diferente (regras em [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) §2)
       — em `src/library/.../work_key.h`, testada em `tests/work_key_test.cpp` e rodando no CI
 - [ ] **Fingerprint** (`libchromaprint` empacotado) e consulta ao AcoustID → MusicBrainz
-- [ ] **Diálogo "Buscar tags…"** no Alt+3: candidatos com pontuação, comparação campo a campo,
-      nada é sobrescrito sem confirmação; gravação pelo `TagEditor` (já com cópia temporária)
+- [x] **Busca por texto** no MusicBrainz como primeiro passo do autotag: `autotagScore` /
+      `rankCandidates` / `classifyTagMatch` em `src/library/.../autotag.cpp` (testados em
+      `tests/autotag_test.cpp`) e cliente com fila de 1,1 s e user agent próprio em
+      `src/ui/musicbrainz.cpp` (analisador de resposta testado com JSON gravado). A primeira
+      consulta real devolveu 15 candidatos para Foo Fighters — "All My Life", com margem 0,00,
+      ou seja: caso de revisão, não de gravação automática.
+- [ ] **Diálogo "Buscar tags…" (refino)**: hoje ele já abre no Alt+3, consulta, lista os
+      candidatos com pontuação e motivo, e devolve a escolha preenchendo só os campos vazios.
+      Falta a comparação campo a campo com caixa por campo e a busca pelo disco inteiro
+      (`searchReleases` existe, sem botão).
 - [x] **Capa de álbum**: embutida (`APIC`) e `folder.jpg`/`cover.jpg` da pasta, cache por álbum
       com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista — `CoverCache`
       por álbum (chave `norm/v1`, extração fora da thread da interface, nunca amplia arte

@@ -59,6 +59,8 @@ class FileInfoDialog final : public QDialog {
   void goTo(int delta);
   /// "Lá menor (8A)" a partir do tom; "—" quando a faixa não tem tom.
   QString formatKey(int keyPitchClass, int keyMajor) const;
+  /// Abre a busca por texto no MusicBrainz e preenche só os campos vazios com a escolha.
+  void searchTags();
   void choosePicture();
   void savePictureAs();
   void removePicture();
@@ -101,6 +103,7 @@ class FileInfoDialog final : public QDialog {
   QLabel* analysisKeyLabel_ = nullptr;
   QLabel* warningLabel_ = nullptr;
   QCheckBox* safeSaveBox_ = nullptr;
+  QPushButton* searchButton_ = nullptr;
 
   QListWidget* pictureList_ = nullptr;
   QLabel* picturePreview_ = nullptr;
