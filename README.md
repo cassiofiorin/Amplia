@@ -30,7 +30,8 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ## Estado
 
-**Versão 1.0.0 (`v1.0.0`)** — a primeira versão **estável**. A biblioteca **sobrevive a
+**Versão 1.0.1 (`v1.0.1`)** — correção da 1.0.0: inglês completo (20 textos que faltavam),
+slogan novo no Sobre e o CI consertado. A biblioteca **sobrevive a
 mudança de esquema** (o banco tem número de versão e migra sozinho, sem perder linha), as
 correções da auditoria externa estão dentro (a rádio distingue tom relativo de paralelo, o I/O
 do motor saiu de baixo do mutex de estado e as esperas de rede do scrobbling têm teto de
@@ -80,7 +81,8 @@ Flatpak é o caminho normal; AppImage, `.deb`, `.rpm` e o port para **Windows** 
 | 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | superada pela rc6 |
 | 0.9.6-rc6 | Inglês completo: 178 textos que faltavam, inclusive a janela da Biblioteca (`v0.9.6-rc6`) | superada pela rc7 |
 | 0.9.7-rc7 | Última antes do 1.0: esquema da biblioteca versionado, correções da auditoria, volume alinhado ao contador (`v0.9.7-rc7`) | superada pela 1.0.0 |
-| 1.0.0 | Primeira versão estável: biblioteca com esquema versionado, 22 ajustes de uso, estação com cota e reposição (`v1.0.0`) | **estável** |
+| 1.0.0 | Primeira versão estável: biblioteca com esquema versionado, 22 ajustes de uso, estação com cota e reposição (`v1.0.0`) | superada pela 1.0.1 |
+| 1.0.1 | Correção: inglês completo, slogan no Sobre, CI consertado (`v1.0.1`) | **estável** |
 
 Cada fase concluída sai numa versão com **todos os formatos de empacotamento** disponíveis
 (hoje só Flatpak; a F7 cria AppImage, `.deb`, `.rpm`, o portátil e o Windows).
@@ -98,10 +100,10 @@ prefere compilar tem o [Como compilar](#como-compilar); os outros formatos vêm 
 
 ```bash
 # 1. baixe o bundle da release (ou use a página de Releases)
-curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v1.0.0/Amplia-1.0.0-x86_64.flatpak
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v1.0.1/Amplia-1.0.1-x86_64.flatpak
 
 # 2. instale só para o seu usuário
-flatpak install --user ./Amplia-1.0.0-x86_64.flatpak
+flatpak install --user ./Amplia-1.0.1-x86_64.flatpak
 
 # 3. rode
 flatpak run io.github.cassiofiorin.Amplia
@@ -494,7 +496,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`1.0.0 (a1b2c3d)`, com o commit curto do build no lugar do exemplo) — número do projeto e commit curto, útil para reportar erro.
+(`1.0.1 (a1b2c3d)`, com o commit curto do build no lugar do exemplo) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -704,7 +706,8 @@ and this README are mine. The record of how the project was built is in
 
 ## Status
 
-**Version 1.0.0 (`v1.0.0`)** — the first **stable** release. The library **survives a schema
+**Version 1.0.1 (`v1.0.1`)** — a fix for 1.0.0: complete English (20 missing strings),
+the new slogan in About, and a working CI. The library **survives a schema
 change** (the database carries a version number and migrates itself without losing a row), the
 external audit fixes are in (the radio tells relative from parallel keys, the engine I/O left
 the state mutex, and scrobbling network waits have a time cap), and the 22 usability fixes
@@ -752,7 +755,8 @@ where Flatpak is the normal path; AppImage, `.deb`, `.rpm` and the **Windows** p
 | 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | superseded by rc6 |
 | 0.9.6-rc6 | Complete English: 178 missing strings, including the Library window (`v0.9.6-rc6`) | superseded by rc7 |
 | 0.9.7-rc7 | Last before 1.0: versioned library schema, audit fixes, volume aligned with the clock (`v0.9.7-rc7`) | superseded by 1.0.0 |
-| 1.0.0 | First stable release: versioned library schema, 22 usability fixes, station quota and refill (`v1.0.0`) | **stable** |
+| 1.0.0 | First stable release: versioned library schema, 22 usability fixes, station quota and refill (`v1.0.0`) | superseded by 1.0.1 |
+| 1.0.1 | Fix: complete English, slogan in About, working CI (`v1.0.1`) | **stable** |
 
 Every finished phase ships a version with **every packaging format** available at the time
 (Flatpak only today; F7 adds AppImage, `.deb`, `.rpm`, the portable tarball and Windows).
@@ -771,10 +775,10 @@ come with F7.
 
 ```bash
 # 1. download the bundle from the release (or use the Releases page)
-curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v1.0.0/Amplia-1.0.0-x86_64.flatpak
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v1.0.1/Amplia-1.0.1-x86_64.flatpak
 
 # 2. install it for your user only
-flatpak install --user ./Amplia-1.0.0-x86_64.flatpak
+flatpak install --user ./Amplia-1.0.1-x86_64.flatpak
 
 # 3. run it
 flatpak run io.github.cassiofiorin.Amplia
@@ -1082,7 +1086,7 @@ can build the whole queue in there.
 
 The bottom bar shows, on the left, the tag-reading progress when a large list is added
 (`Reading metadata… 12/400 — do not close`) and, on the right, the build version
-(`1.0.0 (a1b2c3d)`, with the build's short commit in place of the example) — project number and short commit, handy for bug reports.
+(`1.0.1 (a1b2c3d)`, with the build's short commit in place of the example) — project number and short commit, handy for bug reports.
 
 ### Player display
 
