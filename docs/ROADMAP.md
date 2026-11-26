@@ -252,7 +252,88 @@ reabrir) e os filtros de artista/álbum/gênero combinam com a busca e entre si 
 
 ---
 
-## F3.1 — Capa de álbum (depois do README)
+## Reordenação de 26/11 — o caminho depois do 1.0
+
+Reordenado a pedido do autor, depois da 1.0.0: o app deixou de ser "um Winamp para Linux" e
+passou a ser música local com sensação de comunidade. O que ordena as fases agora é o que
+**aumenta o valor do que já existe** — identidade da faixa, dados compartilhados e alcance —
+e o que sobra para o fim é o que custa muito e serve a pouca gente.
+
+| Nova | Era | Entrega |
+|---|---|---|
+| **F4** | F4 (plugins) + F3.1 (capa) | Tags, capa e identidade: autotag por AcoustID/MusicBrainz, gravação de tags, capa embutida e `folder.jpg`, fingerprint como desempate |
+| **F5** | — | Análises compartilhadas (BPM, tom e confiança por obra) — [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) |
+| **F6** | — | Perfis compartilhados (humor, mistura e léxico com nome e autor) |
+| **F7** | F8 | Empacotamento e alcance: AppImage, `.deb`, `.rpm`, portátil, Flathub **e Windows** |
+| **F8** | F7 | Skins clássicas `.wsz` — vai ao fim da fila; projeto aberto pode ser assumido por outra pessoa |
+| **F9** | F4 | Plugins `.so` — adiado |
+| depois | F6 | Busca de tags — reavaliar depois do autotag, que deve encolher o caso de uso |
+
+Por que esta ordem, em uma linha cada:
+
+- **F4 primeiro** porque a identidade (tag normalizada + fingerprint) é a **dependência** das
+  duas fases seguintes: sem ela não existe chave de obra para compartilhar.
+- **F5 antes de F6** porque dado de análise é alicerce; perfil é empréstimo de gosto e só faz
+  sentido quando houver com o que comparar.
+- **F7 com Windows dentro** porque a comunidade é o produto agora, e comunidade se mede em
+  gente que consegue instalar. É a fase cara; ela vem depois de o dado existir, para que
+  quando os pacotes saírem todos já encontrem o dataset pronto.
+- **Skins no F8** por custo alto e uso estreito, e porque aceitamos que alguém da comunidade
+  pode assumir.
+- **A F3.1 foi absorvida pela F4**: capa é leitura de tag e arquivo ao lado; autotag é escrita
+  de tag. Mexer no mesmo código duas vezes não se paga.
+
+---
+
+## F4 — Tags, capa e identidade
+
+A base das duas fases seguintes e o que fecha a Biblioteca de verdade: metadado confiável e
+uma identidade de faixa que sobrevive a mudar de máquina.
+
+- [ ] **Identidade** `norm/v1` como função pura, com testes: mesma obra vira a mesma chave em
+      rip, remaster e caminho diferente (regras em [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) §2)
+- [ ] **Fingerprint** (`libchromaprint` empacotado) e consulta ao AcoustID → MusicBrainz
+- [ ] **Diálogo "Buscar tags…"** no Alt+3: candidatos com pontuação, comparação campo a campo,
+      nada é sobrescrito sem confirmação; gravação pelo `TagEditor` (já com cópia temporária)
+- [ ] **Capa de álbum**: embutida (`APIC`) e `folder.jpg`/`cover.jpg` da pasta, cache por álbum
+      com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista
+- [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
+
+**Pronto quando:** um arquivo com tag errada é corrigido pelo diálogo e a capa aparece no
+Alt+3 sem abrir o arquivo duas vezes.
+
+---
+
+## F5 — Análises compartilhadas
+
+O BPM e o tom medidos aqui servem a quem ainda não tocou a faixa. A chave é a **obra**, nunca o
+caminho; o formato e as regras de confiança estão em
+[`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) §3 e §4.
+
+- [ ] **Exportar** por biblioteca ou por artista, em TSV `norm/v1` (só `analyzed = 1`)
+- [ ] **Importar** com prior herdado (`analyzed = 2`, confiança × 0,7), transação única e resumo
+- [ ] **Leitura do banco** separando medida e herdada (o rodapé já conta medidas; ganha as herdadas)
+- [ ] **Mesmo validador** no app e no CI do repositório de dados
+
+**Pronto quando:** exportar no desktop e importar no notebook deixa as faixas com BPM e tom sem
+tocar nenhuma delas — e a primeira que tocar substitui o herdado pela medição local.
+
+---
+
+## F6 — Perfis compartilhados
+
+O gosto cabe num arquivo: agitação, tom, estabilidade, mistura e léxico, com nome e autor. É o
+`HumorPreset` que já existe, exportável ([`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) §6).
+
+- [ ] **Exportar perfil** a partir de um preset salvo (`amplia-perfil/v1`, JSON)
+- [ ] **Importar perfil** como preset salvo, com o autor no nome; presets de fábrica não mudam
+- [ ] Nada de histórico sai do banco: nem skip, nem playcount, nem data
+
+**Pronto quando:** um perfil salvo numa máquina abre na outra e toca a mesma estação.
+
+---
+
+## F3.1 — Capa de álbum (absorvida pela F4 em 26/11)
 
 Saiu da F3 a pedido do autor: é semi-cosmético e não muda achar música.
 
@@ -264,7 +345,7 @@ Saiu da F3 a pedido do autor: é semi-cosmético e não muda achar música.
 
 ---
 
-## F4 — Plugins `.so`
+## F9 — Plugins `.so` (era F4; adiado em 26/11)
 
 - [ ] ABI C versionada (`wamp_plugin_v1`)
 - [ ] Pontos de extensão: DSP e visualização
@@ -275,7 +356,7 @@ Saiu da F3 a pedido do autor: é semi-cosmético e não muda achar música.
 
 ---
 
-## F5 — Atalhos do Winamp (concluída)
+## Atalhos do Winamp (a F5 antiga — concluída)
 
 Renumeração de 20/11: a F5 é a paridade de **teclado** com o Winamp 2.x, que é barata e
 aparece a cada uso — e fica na frente de funcionalidades grandes.
@@ -315,7 +396,7 @@ visual plug-in, ML) e macros/plugins de teclado.
 **Pronto quando:** o mapa clássico acima funciona sem conflito, e a janela de atalhos
 (`Ctrl+?` ou Ajuda ▸ Atalhos) lista o que existe.
 
-## F6 — Busca de tags (em pausa)
+## F6B — Busca de tags (reavaliar depois do autotag)
 
 Avaliada em 20/11 e **parada a pedido do usuário** ("chegando lá avaliamos o custo").
 Rotas possíveis: busca por texto (MusicBrainz, 1 req/s, User-Agent próprio) ou texto +
@@ -324,7 +405,7 @@ runtime `org.kde.Platform`. UI pensada: File Info → "Buscar tags…", lista de
 confiança, comparação campo a campo, nunca sobrescrever sem confirmar, gravação pelo
 `TagEditor`, capa do Cover Art Archive como opção separada.
 
-## F7 — Skins clássicas (`.wsz`)
+## F8 — Skins clássicas (`.wsz`) (era F7; fim da fila desde 26/11)
 
 Renumerada para **F7** em 20/11 (a F5 ficou reservada para os atalhos e a F6 para a busca
 de tags, que está em pausa).
@@ -407,7 +488,7 @@ O que o porte exige (nada disso está no escopo atual):
 O que o porte **não** exige: reescrever interface, temas, playlist, biblioteca, equalizador,
 scrobble ou analisador — todos são C++20 + Qt/FFmpeg/TagLib/SQLite.
 
-## F6 — Idioma (dividida em três etapas)
+## Idioma (a F6 antiga — dividida em três etapas)
 
 ### F6a — Infraestrutura invisível (concluída)
 
@@ -466,7 +547,7 @@ biblioteca. Não é urgente, mas cada entrega nova fica mais cara.
 **Pronto quando:** nenhum controlador passar de ~1.200 linhas e o `main_window.cpp` ficar abaixo
 de 2.000.
 
-## F8 — Empacotamento e release (a primeira depois da F6c)
+## F7 — Empacotamento e alcance (era F8; inclui Windows desde 26/11)
 
 Publicar deixa de ser só Flatpak: **cada fase concluída sai em todos os formatos disponíveis**
 (D-130), e esta fase cria os formatos. A ordem abaixo é por retorno, não por facilidade.
@@ -476,30 +557,40 @@ das máquinas em uso. O binário do Flatpak **não serve de referência** para o
 nasce contra o SDK 6.10. AppImage, `.deb` e `.rpm` são compilados dentro de um contêiner com
 essa base, não no SDK.
 
-- [ ] **F8a — AppImage**: `Dockerfile` fixo (Ubuntu 22.04) com as dependências de build;
+- [ ] **F7a — AppImage**: `Dockerfile` fixo (Ubuntu 22.04) com as dependências de build;
       `cmake --install` num `AppDir/usr`; `linuxdeploy` + `linuxdeploy-plugin-qt` fechando o
       arquivo. Empacotados: Qt 6 (xcb **e** wayland, imageformats, estilos), FFmpeg, TagLib,
       SQLite, `libsystemd` e **`libpipewire`/`libspa`** (o cliente tem de casar com o daemon
       do usuário). `.desktop` e `.svg` saem de `packaging/`; falta o AppStream metainfo.
       `scripts/build-appimage.sh` roda tudo isso num comando.
-- [ ] **F8b — `.deb`**: a partir do mesmo `AppDir` (`CPack` ou `nfpm`), mas **sem** embarcar
+- [ ] **F7b — `.deb`**: a partir do mesmo `AppDir` (`CPack` ou `nfpm`), mas **sem** embarcar
       Qt/FFmpeg: declara as dependências e usa as do sistema, que é o que um `.deb` espera.
-- [ ] **F8c — `.rpm`**: idem, para Fedora/openSUSE (o `nfpm` cobre os dois formatos).
-- [ ] **F8d — portátil `.tar.gz`**: o `AppDir` sem o envelope do AppImage, para quem não tem
+- [ ] **F7c — `.rpm`**: idem, para Fedora/openSUSE (o `nfpm` cobre os dois formatos).
+- [ ] **F7d — portátil `.tar.gz`**: o `AppDir` sem o envelope do AppImage, para quem não tem
       FUSE ou prefere rodar de uma pasta.
-- [ ] **F8e — AUR (`PKGBUILD`)**: arquivo no repositório, compilando do fonte; a comunidade
+- [ ] **F7e — AUR (`PKGBUILD`)**: arquivo no repositório, compilando do fonte; a comunidade
       mantém. Sem binário nosso.
-- [ ] **F8f — Flathub**: publicar a entrada da loja (metainfo, capturas, revisão do `NOTICE`),
+- [ ] **F7f — Flathub**: publicar a entrada da loja (metainfo, capturas, revisão do `NOTICE`),
       não só o Flatpak instalado localmente.
-- [ ] **F8g — importar dados do Flatpak**: Preferências ▸ "Importar dados do Flatpak" copia
+- [ ] **F7g — importar dados do Flatpak**: Preferências ▸ "Importar dados do Flatpak" copia
       INI, `library.db` e presets de `~/.var/app/io.github.cassiofiorin.Amplia/` para
       `~/.config/cassiofiorin/` e `~/.local/share/cassiofiorin/Amplia/`. Sem isso a biblioteca
       indexada "some" na primeira abertura fora do Flatpak.
-- [ ] **F8h — uma release só**: a tag `vX.Y.Z` gera Flatpak + AppImage + `.deb` + `.rpm` +
+- [ ] **F7h — uma release só**: a tag `vX.Y.Z` gera Flatpak + AppImage + `.deb` + `.rpm` +
       `.tar.gz` no mesmo workflow, com checksums e notas de versão.
 
-**Fora por enquanto:** Snap (loja própria e sandbox a manter) e Nix — entram se houver pedido.
+- [ ] **F7i — Windows**: o port completo. Saída de áudio **WASAPI** por trás do
+      `IAudioOutput` (`src/core/include/wamp/audio_output.h`; hoje só existe
+      `makePipeWireOutput()`), build MSVC + CMake + vcpkg (Qt 6, FFmpeg, TagLib, SQLite), sem
+      sd-bus (o MPRIS vira **SMTC**, o controle de mídia do sistema), bandeja pelo
+      `QSystemTrayIcon`, instalador **Inno Setup** e assinatura de código (decisão de custo a
+      parte: o certificado EV é o que evita o aviso do SmartScreen), DPI e fontes conferidos.
+      Estimativa honesta: **4 a 6 semanas** em tempo parcial; o caminho sem SMTC e sem
+      assinatura sai em ~2 semanas, mas entrega um aviso do Windows na primeira execução.
+
+**Fora por enquanto:** Snap (loja própria e sandbox a manter) e Nix — entram se houver pedido. macOS
+fica fora do roadmap: exigiria CoreAudio e outro ciclo de vida de janela, sem público estimado.
 
 **Pronto quando:** uma tag publica todos os formatos de uma vez; o AppImage abre numa máquina
-com glibc 2.35 sem instalar nada; e o `.deb`/`.rpm` abrem com a biblioteca que veio do Flatpak
-já importada.
+com glibc 2.35 sem instalar nada; o `.deb`/`.rpm` abrem com a biblioteca que veio do Flatpak já
+importada; e o `.exe` toca a mesma biblioteca no Windows, com o mesmo banco e os mesmos presets.

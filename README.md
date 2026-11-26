@@ -41,11 +41,12 @@ instalável sem compilar (veja [Instalar o pacote pronto](#instalar-o-pacote-pro
 A Biblioteca está fechada: varredura incremental (só o arquivo novo ou alterado é
 reaberto), filtros de artista/álbum/gênero que combinam com a busca, árvore de visões,
 estrelas e playcount. A capa de álbum saiu para a **F3.1**, depois deste README — é
-cosmética e não muda achar música.
+cosmética e não muda achar música — em 26/11 ela foi absorvida pela **F4**, porque ler a capa é
+leitura de tag e o autotag é escrita de tag.
 
 **Instalar fora do Flatpak não é requisito do 1.0.** O alvo é o Fedora Atomic/Bazzite, onde
-Flatpak é o caminho normal; AppImage, `.deb` e `.rpm` continuam na **F8**, como evolução da
-solução, não como porta de entrada.
+Flatpak é o caminho normal; AppImage, `.deb`, `.rpm` e o port para **Windows** continuam na
+**F7**, como evolução da solução, não como porta de entrada.
 
 | Fase | Entrega | Situação |
 |---|---|---|
@@ -61,11 +62,13 @@ solução, não como porta de entrada.
 | F5 | Atalhos (paridade de teclado com o original) | **concluída** |
 | F6a/b | Idioma (infraestrutura e inglês completo) | **concluída** |
 | F3 | Biblioteca SQLite: árvore, busca, filtros, varredura incremental, estrelas, playcount | **concluída** |
-| F3.1 | Capa de álbum (tags + cache) | planejada, depois do README |
-| F4 | Plugins `.so` (DSP/visualização) | não iniciada |
+| F4 | Tags, capa e identidade: autotag por AcoustID/MusicBrainz, gravação de tags, capa, fingerprint | próxima |
+| F5 | Análises compartilhadas: BPM e tom por obra, exportar e importar | planejada |
+| F6 | Perfis compartilhados: humor, mistura e léxico com nome e autor | planejada |
 | F6c | Documentação pública (este README bilíngue, `NOTICE`) | **concluída** |
-| F7 | Skins clássicas `.wsz` | não iniciada |
-| F8 | Empacotamento e release: AppImage, `.deb`, `.rpm`, portátil e Flathub | próxima, depois do README |
+| F7 | Empacotamento e alcance: AppImage, `.deb`, `.rpm`, portátil, Flathub e Windows | planejada |
+| F8 | Skins clássicas `.wsz` (a comunidade pode assumir) | fim da fila |
+| F9 | Plugins `.so` (DSP/visualização) | adiada |
 | F2D.1 | Acoplamento de janelas (só X11) | avaliado, não planejado |
 | RC1 | Primeiro pacote público (`v0.1.0-rc1`) | **publicada** |
 | 0.9.1 | Fila, Humor, Rádio local, Ajuda bilíngue; menu e arrasto na Biblioteca (`v0.9.1`) | publicado |
@@ -77,7 +80,7 @@ solução, não como porta de entrada.
 | 1.0.0 | Primeira versão estável: biblioteca com esquema versionado, 22 ajustes de uso, estação com cota e reposição (`v1.0.0`) | **estável** |
 
 Cada fase concluída sai numa versão com **todos os formatos de empacotamento** disponíveis
-(hoje só Flatpak; a F8 cria AppImage, `.deb`, `.rpm` e o portátil).
+(hoje só Flatpak; a F7 cria AppImage, `.deb`, `.rpm`, o portátil e o Windows).
 
 O que já funciona está descrito em [**O que funciona hoje**](#o-que-funciona-hoje), mais
 abaixo. O detalhe de cada decisão está em [`docs/DECISIONS.md`](docs/DECISIONS.md) e o
@@ -88,7 +91,7 @@ plano em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 A release traz um bundle Flatpak (`Amplia-<versão>-x86_64.flatpak`). Ele roda no runtime do
 KDE, que o próprio `flatpak` baixa do Flathub na primeira instalação. É o formato de suporte
 do projeto: Bazzite e Fedora Atomic (o alvo original), e qualquer distro com Flatpak. Quem
-prefere compilar tem o [Como compilar](#como-compilar); os outros formatos vêm na F8.
+prefere compilar tem o [Como compilar](#como-compilar); os outros formatos vêm na F7.
 
 ```bash
 # 1. baixe o bundle da release (ou use a página de Releases)
@@ -262,7 +265,7 @@ mexe, e o resultado vira o item **Personalizado** do menu.
 CSV…** grava um arquivo de exemplo com uma linha comentada.
 
 Não é skin: o Amplia continua com o mesmo layout e a mesma forma de janela. Renderizar
-`.wsz` é a F7.
+`.wsz` é a F8.
 
 ### Bandeja (agente)
 
@@ -579,7 +582,7 @@ Algumas escolhas explicam o resto do código — e estão registradas com o moti
 o resultado, em [`docs/DECISIONS.md`](docs/DECISIONS.md):
 
 - **Qt 6 Widgets, não QML.** A janela é compacta, sempre à mão, e o desenho é `QPainter`. QML
-  fica reservado para skins (F7), onde o layout dinâmico é o ponto.
+  fica reservado para skins (F8), onde o layout dinâmico é o ponto.
 - **Áudio nativo em PipeWire**, sem PulseAudio como intermediário, com a thread de tempo real
   sem alocação. O buffer é um anel de 2 s e o decode corre à frente.
 - **FFmpeg como único decodificador.** Um caminho de código para todos os formatos, e a
@@ -601,7 +604,7 @@ Coisas que hoje **não** funcionam, para não gerar expectativa errada:
   habilita `--socket=x11`), e o empacotamento traz os dois sockets.
 - **Vídeo:** fora de escopo. O player é de áudio; abrir um vídeo mostra a explicação e oferece
   abrir no player do sistema.
-- **Skins `.wsz`:** ainda não (F7). Os esquemas de cor atuais são paletas, não skins.
+- **Skins `.wsz`:** ainda não (F8). Os esquemas de cor atuais são paletas, não skins.
 - **Plugins de terceiros:** o modelo de plugins do Winamp é DLL do Windows; a F4 planeja uma
   API própria em `.so`.
 - **Rede:** arrastar de um compartilhamento aberto pelo Dolphin entrega `smb://…`, que o app
@@ -707,12 +710,12 @@ compiling (see [Installing the ready-made package](#installing-the-ready-made-pa
 
 The Library is closed: incremental scan (only a new or changed file is reopened),
 artist/album/genre filters that combine with the search, the view tree, stars and play
-count. Album art moved to **F3.1**, after this README, because it is cosmetic and does not
-change finding music.
+count. Album art moved into **F4** (tags, artwork and identity), because reading the cover is
+tag work and autotag is writing tags — the same code, done once.
 
 **Installing outside Flatpak is not a 1.0 requirement.** The target is Fedora Atomic/Bazzite,
-where Flatpak is the normal path; AppImage, `.deb` and `.rpm` stay in **F8**, as an evolution
-of the solution, not as a front door.
+where Flatpak is the normal path; AppImage, `.deb`, `.rpm` and the **Windows** port stay in
+**F7**, as an evolution of the solution, not as a front door.
 
 | Phase | Delivery | Status |
 |---|---|---|
@@ -728,11 +731,13 @@ of the solution, not as a front door.
 | F5 | Shortcuts (keyboard parity with the original) | **done** |
 | F6a/b | Language (infrastructure and full English) | **done** |
 | F3 | SQLite library: view tree, search, filters, incremental scan, stars, play count | **done** |
-| F3.1 | Album art (tags + cache) | planned, after the README |
-| F4 | `.so` plugins (DSP/visualization) | not started |
+| F4 | Tags, artwork and identity: AcoustID/MusicBrainz autotag, tag writing, artwork, fingerprint | next |
+| F5 | Shared analysis: BPM and key per work, export and import | planned |
+| F6 | Shared profiles: mood, blend and lexicon with a name and an author | planned |
 | F6c | Public documentation (this bilingual README, `NOTICE`) | **done** |
-| F7 | Classic `.wsz` skins | not started |
-| F8 | Packaging and release: AppImage, `.deb`, `.rpm`, portable tarball, Flathub | next, after the README |
+| F7 | Packaging and reach: AppImage, `.deb`, `.rpm`, portable tarball, Flathub and Windows | planned |
+| F8 | Classic `.wsz` skins (the community may take it) | end of the line |
+| F9 | `.so` plugins (DSP/visualization) | deferred |
 | F2D.1 | Window snapping (X11 only) | evaluated, not planned |
 | RC1 | First public bundle (`v0.1.0-rc1`) | **released** |
 | 0.9.1 | Queue, Humor, Local Radio, bilingual help; library menu and drag (`v0.9.1`) | released |
@@ -744,7 +749,7 @@ of the solution, not as a front door.
 | 1.0.0 | First stable release: versioned library schema, 22 usability fixes, station quota and refill (`v1.0.0`) | **stable** |
 
 Every finished phase ships a version with **every packaging format** available at the time
-(Flatpak only today; F8 adds AppImage, `.deb`, `.rpm` and a portable tarball).
+(Flatpak only today; F7 adds AppImage, `.deb`, `.rpm`, the portable tarball and Windows).
 
 What already works is described in [**What works today**](#what-works-today). Each decision
 is detailed in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the plan in
@@ -756,7 +761,7 @@ Each release carries a Flatpak bundle (`Amplia-<version>-x86_64.flatpak`). It ru
 KDE runtime, which `flatpak` itself downloads from Flathub on the first install. Flatpak is
 the supported format: Bazzite and Fedora Atomic (the original target), plus any distro that
 has Flatpak. If you prefer to compile, see [How to build](#how-to-build); the other formats
-come with F8.
+come with F7.
 
 ```bash
 # 1. download the bundle from the release (or use the Releases page)
@@ -924,7 +929,7 @@ presets. **Import/Export themes (CSV)** moves several at once — the format is
 template…** writes an example file with a commented line.
 
 It is not a skin: Amplia keeps the same layout and the same window shape. Rendering `.wsz`
-is F7.
+is F8.
 
 ### Tray (agent)
 
@@ -1161,7 +1166,7 @@ Some choices explain the rest of the code — and they are recorded with the rea
 the result, in [`docs/DECISIONS.md`](docs/DECISIONS.md):
 
 - **Qt 6 Widgets, not QML.** The window is compact and always at hand, and drawing is
-  `QPainter`. QML is reserved for skins (F7), where dynamic layout is the point.
+  `QPainter`. QML is reserved for skins (F8), where dynamic layout is the point.
 - **Native audio on PipeWire**, without PulseAudio in between, with a real-time thread that
   does not allocate. The buffer is a 2 s ring and decoding runs ahead.
 - **FFmpeg as the only decoder.** One code path for every format, and content detection
@@ -1184,7 +1189,7 @@ Things that today do **not** work, to avoid wrong expectations:
   sockets.
 - **Video:** out of scope. The player is audio; opening a video shows the explanation and
   offers to open it in the system player.
-- **`.wsz` skins:** not yet (F7). The current color schemes are palettes, not skins.
+- **`.wsz` skins:** not yet (F8). The current color schemes are palettes, not skins.
 - **Third-party plugins:** the Winamp plugin model is a Windows DLL; F4 plans a plugin API
   of our own in `.so`.
 - **Network:** dragging from a share opened in Dolphin delivers `smb://…`, which the app does
