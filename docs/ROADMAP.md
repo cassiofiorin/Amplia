@@ -352,6 +352,16 @@ circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e 
   gravação de tag.
 - **Resumo ao fim de cada lote**: quantas preenchidas, quantas para revisar, quantas sem
   correspondência (não achar é resposta válida).
+- **Tag recém-escrita sai da busca.** Toda gravação feita pelo app (Alt+3, autotag, desfazer)
+  carimba `tracks.tag_fixed_at` com o `mtime` do arquivo naquele instante. A fila do autotag
+  **ignora** a faixa enquanto o `mtime` do disco for igual ao carimbo — ou seja, enquanto o
+  arquivo estiver exatamente no estado em que o app o deixou. Se algo mudar a tag por fora, o
+  `mtime` muda, a varredura incremental relê e a faixa volta a ser elegível.
+- **O aviso é parte do retorno**: ao gravar, a barra de status diz "Tag atualizada — fora da
+  busca até o arquivo mudar"; no relatório do lote entra a linha "12 ignoradas (tag corrigida
+  pelo app)". O diálogo de busca mostra a pilha *ignoradas* com o motivo e um "incluir mesmo
+  assim" para quem quiser forçar.
+
 
 **Pronto quando:** um arquivo com tag errada é corrigido pelo diálogo e a capa aparece no
 Alt+3 sem abrir o arquivo duas vezes.
