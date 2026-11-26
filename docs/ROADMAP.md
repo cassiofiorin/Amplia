@@ -326,6 +326,30 @@ circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e 
   MusicBrainz — então o dataset compartilhado funciona justamente para o que nunca entrou em
   catálogo.
 
+**Desenho do autotag (decidido em 26/11).**
+
+- **Porta de entrada é o texto**; o fingerprint entra como penúltimo item, só para desempatar
+  gravação (e é o que a F5 consome).
+- **Gravação silenciosa** só quando: score do melhor candidato ≥ 0,90 **e** margem ≥ 0,15 sobre
+  o segundo; duração dentro de ±3 s; e **apenas campos em branco** no arquivo (título, artista,
+  artista do álbum, álbum, faixa, disco, ano). Nada preenchido é tocado.
+- **Capa** entra sozinha quando o arquivo não tem nenhuma embutida e a pasta não tem
+  `folder.jpg`/`cover.jpg`, e o candidato tem arte no Cover Art Archive.
+- **Unidade de revisão é o álbum**, agrupado pelo `norm/v1` de artista+álbum; faixa solta (álbum
+  em branco) cai no grupo do **diretório** e, se nem isso, vira busca por faixa — que é a mais
+  cara e por isso fica atrás de uma opção explícita.
+- **Janela por execução: 250 faixas** (padrão, ajustável), com progresso e "continuar de onde
+  parou" — o MusicBrainz aceita 1 requisição por segundo, então a fila é persistida em vez de
+  ser um laço bloqueante. Setecentos álbuns ≈ 12 min de varredura.
+- **Desfazer o último lote é obrigatório**: diário em JSON por lote com os valores anteriores
+  dos campos tocados (e o marcador de capa adicionada), guardado em
+  `<CacheLocation>/autotag/<lote>/journal.json`. Desfazer reescreve os valores anteriores e
+  remove a capa que o lote pôs. Guarda os últimos 5 lotes. Não é cópia do arquivo: restaura
+  valores, não bytes — o `mtime` muda e a varredura incremental relê a faixa, como qualquer
+  gravação de tag.
+- **Resumo ao fim de cada lote**: quantas preenchidas, quantas para revisar, quantas sem
+  correspondência (não achar é resposta válida).
+
 **Pronto quando:** um arquivo com tag errada é corrigido pelo diálogo e a capa aparece no
 Alt+3 sem abrir o arquivo duas vezes.
 
