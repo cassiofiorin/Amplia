@@ -1,6 +1,8 @@
 add_library(wamp-library STATIC
   src/radio.cpp
   src/tag_cache.cpp
+  src/work_key.cpp
+  include/wamp/work_key.h
   include/wamp/tag_cache.h
 )
 

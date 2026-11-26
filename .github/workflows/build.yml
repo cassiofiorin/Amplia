@@ -28,6 +28,10 @@ jobs:
       - name: Compilar
         run: cmake --build build --parallel 2
 
+      # Só os testes puros: nada aqui abre áudio, janela ou rede.
+      - name: Testes puros
+        run: ctest --test-dir build --output-on-failure
+
       # O teste de fumaça abre um dispositivo de áudio de verdade; num runner sem
       # PipeWire ele falharia por ambiente, não por código. Roda na máquina de quem
       # desenvolve: `./build/tools/wamp-smoke <arquivo>`. Aqui fica só o build.

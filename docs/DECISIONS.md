@@ -2961,3 +2961,27 @@ janela deixam o Qt em *ambiguous shortcut overload*, e ele não dispara nenhuma 
 uma só: a tecla pertence à ação do menu, que chama `focusEqualizer()` e abre ou traz a janela
 para frente. Varri os outros atalhos: `Alt+W`, `Alt+E`, `Ctrl+Tab`, `Ctrl+Shift+Q` e os demais
 não têm duplicata.
+
+## D-137 — A identidade da obra é uma função pura, com teste no CI
+
+`norm/v1` (F4) é `sha1(norm(artista) 0x1f norm(álbum) 0x1f norm(título))`, com a duração **fora**
+da chave. Ficou em `src/library/include/wamp/work_key.h` como função pura — sem Qt, sem rede, sem
+banco —, porque o mesmo código vai servir ao player, ao importador do dataset (F5) e a quem
+escrever a ferramenta que valida o repositório.
+
+**Por que sem Qt:** a normalização precisa rodar num teste que não abre janela nem áudio. Um
+`QString::normalized(NFD)` traria Qt para dentro da regra e o teste deixaria de ser barato. A
+decomposição cobre Latin-1 e Latin Extended-A à mão — o suficiente para tag de música ocidental —
+e outros alfabetos passam como estão. Quando isso importar, a regra sobe para `norm/v2`; a versão
+está na chave do arquivo compartilhado justamente para não misturar.
+
+**O que se remove e o que não se remove.** A lista de sufixos removíveis é fechada (remaster,
+deluxe, bonus, mono/stereo, explicit, clean), aceita o ano colado ("(Remastered 2011)") e ignora
+marcador de disco no álbum ("(CD1)", "disc 2"). Já `live`, `ao vivo`, `acústico`, `instrumental`,
+`demo`, `remix`, `edit`, `radio edit`, `extended`, `reprise` e `session` **ficam** — são outra
+gravação, e colapsá-las faria a estação sugerir o ao vivo no lugar do estúdio.
+
+**Teste onde dá para rodar.** `tests/work_key_test.cpp` cobre os vetores conhecidos do SHA-1, o
+casamento de tiragens e a separação de gravações, e roda por `ctest` no CI — é o único teste do
+projeto que pode rodar num runner, porque o `wamp-smoke` abre dispositivo de áudio. O teste é o
+que impede alguém de "só ajustar" a regra e mudar a chave de uma biblioteca inteira sem perceber.

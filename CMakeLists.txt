@@ -49,3 +49,7 @@ add_subdirectory(src/tags)
 add_subdirectory(src/ui)
 
 add_subdirectory(tools)
+
+# Testes puros (sem Qt, sem áudio): rodam em qualquer runner, inclusive no CI.
+enable_testing()
+add_subdirectory(tests)

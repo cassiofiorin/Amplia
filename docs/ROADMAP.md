@@ -290,8 +290,9 @@ Por que esta ordem, em uma linha cada:
 A base das duas fases seguintes e o que fecha a Biblioteca de verdade: metadado confiável e
 uma identidade de faixa que sobrevive a mudar de máquina.
 
-- [ ] **Identidade** `norm/v1` como função pura, com testes: mesma obra vira a mesma chave em
+- [x] **Identidade** `norm/v1` como função pura, com testes: mesma obra vira a mesma chave em
       rip, remaster e caminho diferente (regras em [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) §2)
+      — em `src/library/.../work_key.h`, testada em `tests/work_key_test.cpp` e rodando no CI
 - [ ] **Fingerprint** (`libchromaprint` empacotado) e consulta ao AcoustID → MusicBrainz
 - [ ] **Diálogo "Buscar tags…"** no Alt+3: candidatos com pontuação, comparação campo a campo,
       nada é sobrescrito sem confirmação; gravação pelo `TagEditor` (já com cópia temporária)
