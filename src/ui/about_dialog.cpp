@@ -33,6 +33,9 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
   auto* subtitle = new QLabel(tr("Um novo player de música! Inspirado na alma do Winamp, que busca ir mais longe, ser "
                  "comunitário e colaborativo"), this);
   subtitle->setObjectName(QStringLiteral("hint"));
+  // O slogan é uma frase inteira: quebra em duas linhas em vez de alargar a janela.
+  subtitle->setWordWrap(true);
+  subtitle->setMaximumWidth(380);
 
   auto* details = new QFormLayout();
   const QString version = QStringLiteral(AMPLIA_RELEASE).isEmpty()
