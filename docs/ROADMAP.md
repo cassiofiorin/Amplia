@@ -299,6 +299,27 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista
 - [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
+**Regras do autotag (o arquivo do autor é o caso de teste).** O acervo oficial não cobre
+gravação não oficial: um rip de transmissão de TV (o Lollapalooza do Foo Fighters do autor, que
+circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e isso é normal, não
+é erro. Por isso:
+
+- **Nada é apagado.** Não achar resultado é resposta válida: o diálogo diz "nada encontrado para
+  esta gravação" e o arquivo fica exatamente como estava.
+- **Nenhum campo é esvaziado**, nem por candidato com campo vazio: campo vazio na fonte nunca
+  escreve nada no arquivo.
+- **Só o que foi escolhido é gravado**: comparação campo a campo, com caixa de seleção por
+  campo, e o padrão é **não** sobrescrever o que já existe.
+- **Nunca se grava o bloco inteiro**: o `TagEditor` atualiza só os campos confirmados, mantendo
+  comentário, replay gain e o resto.
+- **A cópia temporária continua obrigatória** (a "gravação segura" que já existe), e a falha no
+  meio volta o original.
+- **Gravação não invalida análise**: mudar a tag muda o `mtime`, então a varredura incremental
+  relê a faixa — BPM e tom ficam, a capa em cache é regerada.
+- **Bootleg sem registro oficial continua sendo obra**: a chave de `norm/v1` vem da tag, não do
+  MusicBrainz — então o dataset compartilhado funciona justamente para o que nunca entrou em
+  catálogo.
+
 **Pronto quando:** um arquivo com tag errada é corrigido pelo diálogo e a capa aparece no
 Alt+3 sem abrir o arquivo duas vezes.
 
