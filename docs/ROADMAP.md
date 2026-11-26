@@ -340,7 +340,10 @@ circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e 
   cara e por isso fica atrás de uma opção explícita.
 - **Janela por execução: 250 faixas** (padrão, ajustável), com progresso e "continuar de onde
   parou" — o MusicBrainz aceita 1 requisição por segundo, então a fila é persistida em vez de
-  ser um laço bloqueante. Setecentos álbuns ≈ 12 min de varredura.
+  ser um laço bloqueante. O número não é só sobre a API: um lote pequeno cabe na memória de
+  uma máquina modesta (leitura de tag, hash e decodificação de capa por faixa), e cada execução
+  termina com um resultado visível — o resumo do que mudou —, o que faz o trabalho acumulado
+  aparecer em vez de virar um processo longo e opaco.
 - **Desfazer o último lote é obrigatório**: diário em JSON por lote com os valores anteriores
   dos campos tocados (e o marcador de capa adicionada), guardado em
   `<CacheLocation>/autotag/<lote>/journal.json`. Desfazer reescreve os valores anteriores e
