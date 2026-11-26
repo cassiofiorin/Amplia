@@ -25,3 +25,12 @@ target_include_directories(amplia-musicbrainz-parse-test PRIVATE
 target_link_libraries(amplia-musicbrainz-parse-test PRIVATE Qt6::Core Qt6::Network wamp-library)
 target_compile_options(amplia-musicbrainz-parse-test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME musicbrainz_parse COMMAND amplia-musicbrainz-parse-test)
+
+# O diário do autotag é JSON e disco, sem janela: precisa do QtCore e de um diretório temporário.
+add_executable(amplia-tag-journal-test
+  tag_journal_test.cpp
+  ${CMAKE_SOURCE_DIR}/src/ui/tag_journal.cpp)
+target_include_directories(amplia-tag-journal-test PRIVATE ${CMAKE_SOURCE_DIR}/src/ui)
+target_link_libraries(amplia-tag-journal-test PRIVATE Qt6::Core)
+target_compile_options(amplia-tag-journal-test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME tag_journal COMMAND amplia-tag-journal-test)

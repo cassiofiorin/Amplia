@@ -3035,3 +3035,23 @@ aplicativo com o endereço do projeto.
 **Analisar resposta é função pura.** `parseRecordingSearch` e `parseReleaseSearch` recebem JSON e
 devolvem candidatos, e têm teste com resposta gravada: "nada encontrado" é resposta válida, JSON
 quebrado é erro, e nenhum campo é inventado quando o serviço não manda.
+
+## D-140 — O diário do autotag guarda valores, não bytes
+
+**Desfazer não é desfazer o arquivo: é reescrever os campos.** Cada lote grava
+`<CacheLocation>/autotag/<carimbo>/journal.json` com, por faixa, os campos que mudaram e o valor
+que cada um tinha antes. Desfazer passa esses valores de volta pelo `TagEditor`, que já faz cópia
+temporária e conferência — o mesmo caminho de escrita de sempre, sem um segundo mecanismo.
+
+**A capa é a exceção.** Um JPEG removido da tag não pode ser reconstruído a partir dela, então o
+lote copia o arquivo de imagem para junto do diário (`<n>-cover.<ext>`) e guarda o mime do que
+havia. Só os lotes que mexeram em capa pagam esse custo.
+
+**O carimbo ordena como tempo.** O nome do diretório é `AAAAMMDD-HHMMSS`, então "o lote mais
+recente" é uma listagem em ordem alfabética invertida — sem ler todos os arquivos para comparar
+datas. Cinco lotes ficam disponíveis; a poda roda depois de cada gravação e nunca remove o que
+acabou de ser gravado.
+
+**JSON com `QSaveFile`.** O diário é lido e escrito com o Qt: `QSaveFile` troca o arquivo de uma
+vez, então um desligamento no meio da escrita não deixa um diário pela metade — ele deixa o
+anterior intacto. O teste cobre ida e volta, lote mais recente, poda e JSON quebrado.

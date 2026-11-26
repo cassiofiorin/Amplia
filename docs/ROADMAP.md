@@ -311,6 +311,12 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       revelação progressiva (entra quando sobra a largura do quadrado; a altura acompanha a
       faixa de barras). O Alt+3 já tinha a aba *Artwork* desde antes. Revisado com a biblioteca
       real (Bowie, Foo Fighters).
+- [x] **Diário do lote e desfazer**: `<CacheLocation>/autotag/<carimbo>/journal.json` guarda os
+      valores anteriores de cada campo, e a capa é copiada ao lado quando o lote mexeu nela.
+      Cinco lotes ficam disponíveis; `readLatestJournal` acha o mais recente pelo carimbo e
+      `pruneJournals` apaga o resto. Testado em `tests/tag_journal_test.cpp`.
+- [ ] **Tela do lote**: as pilhas "prontas / revisar / ignoradas", execução de 250, retomada de
+      onde parou e o botão de desfazer amarrado ao diário (o motor existe; falta a janela).
 - [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
 **Regras do autotag (o arquivo do autor é o caso de teste).** O acervo oficial não cobre

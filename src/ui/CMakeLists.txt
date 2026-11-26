@@ -20,6 +20,8 @@ add_executable(wamp
   tag_search_dialog.h
   musicbrainz.cpp
   musicbrainz.h
+  tag_journal.cpp
+  tag_journal.h
   equalizer_dialog.h
   file_info_dialog.h
   jump_dialog.cpp
