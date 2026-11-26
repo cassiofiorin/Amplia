@@ -27,11 +27,14 @@ O código foi escrito em parceria com um agente de IA (DeepSeek, através do Dee
 
 ## Estado
 
-**Versão 0.9.7-rc7 (`v0.9.7-rc7`)** — a primeira build em que a **biblioteca sobrevive a
-mudança de esquema** (o banco tem número de versão e migra sozinho, sem perder linha) e a
-última antes do 1.0. Vem com as correções da auditoria externa: a rádio passou a distinguir
-tom relativo de paralelo, o I/O do motor saiu de baixo do mutex de estado (seek em arquivo de
-rede não trava mais a janela) e as esperas de rede do scrobbling têm teto de tempo. As builds
+**Versão 1.0.0 (`v1.0.0`)** — a primeira versão **estável**. A biblioteca **sobrevive a
+mudança de esquema** (o banco tem número de versão e migra sozinho, sem perder linha), as
+correções da auditoria externa estão dentro (a rádio distingue tom relativo de paralelo, o I/O
+do motor saiu de baixo do mutex de estado e as esperas de rede do scrobbling têm teto de
+tempo), e entram os 22 ajustes de uso: colunas Pulos e Ano, ordem por ano/álbum/faixa,
+estrelas sempre visíveis, gêneros multivalorados quebrados por termo, estação com cota por
+artista e reposição, prévia longa com o motivo de cada faixa, progresso da análise e o bloco
+"Como a rádio aprende". As builds
 publicadas ficam em [Releases](https://github.com/cassiofiorin/Amplia/releases); o pacote é
 instalável sem compilar (veja [Instalar o pacote pronto](#instalar-o-pacote-pronto)).
 
@@ -70,7 +73,8 @@ solução, não como porta de entrada.
 | 0.9.4-rc4 | Arrasto sem duplicar, drop na posição, cursor de mover (`v0.9.4-rc4`) | superada pela rc5 |
 | 0.9.5-rc5 | Biblioteca completa: varredura incremental por mtime e filtros de artista/álbum/gênero (`v0.9.5-rc5`) | superada pela rc6 |
 | 0.9.6-rc6 | Inglês completo: 178 textos que faltavam, inclusive a janela da Biblioteca (`v0.9.6-rc6`) | superada pela rc7 |
-| 0.9.7-rc7 | Última antes do 1.0: esquema da biblioteca versionado, correções da auditoria, volume alinhado ao contador (`v0.9.7-rc7`) | **em teste** |
+| 0.9.7-rc7 | Última antes do 1.0: esquema da biblioteca versionado, correções da auditoria, volume alinhado ao contador (`v0.9.7-rc7`) | superada pela 1.0.0 |
+| 1.0.0 | Primeira versão estável: biblioteca com esquema versionado, 22 ajustes de uso, estação com cota e reposição (`v1.0.0`) | **estável** |
 
 Cada fase concluída sai numa versão com **todos os formatos de empacotamento** disponíveis
 (hoje só Flatpak; a F8 cria AppImage, `.deb`, `.rpm` e o portátil).
@@ -88,10 +92,10 @@ prefere compilar tem o [Como compilar](#como-compilar); os outros formatos vêm 
 
 ```bash
 # 1. baixe o bundle da release (ou use a página de Releases)
-curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.7-rc7/Amplia-0.9.7-rc7-x86_64.flatpak
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v1.0.0/Amplia-1.0.0-x86_64.flatpak
 
 # 2. instale só para o seu usuário
-flatpak install --user ./Amplia-0.9.7-rc7-x86_64.flatpak
+flatpak install --user ./Amplia-1.0.0-x86_64.flatpak
 
 # 3. rode
 flatpak run io.github.cassiofiorin.Amplia
@@ -484,7 +488,7 @@ principal — dá para montar a fila inteira ali dentro.
 
 A barra inferior mostra, à esquerda, o andamento da leitura de tags quando uma lista grande
 é adicionada (`Lendo metadados… 12/400 — não feche`) e, à direita, a versão da build
-(`0.9.7-rc7 (a1b2c3d)`, com o commit curto do build no lugar do exemplo) — número do projeto e commit curto, útil para reportar erro.
+(`1.0.0 (a1b2c3d)`, com o commit curto do build no lugar do exemplo) — número do projeto e commit curto, útil para reportar erro.
 
 ### Painel do player
 
@@ -691,11 +695,13 @@ and this README are mine. The record of how the project was built is in
 
 ## Status
 
-**Version 0.9.7-rc7 (`v0.9.7-rc7`)** — the first build where the **library survives a schema
-change** (the database carries a version number and migrates itself without losing a row), and
-the last one before 1.0. It brings the external audit fixes: the radio now tells relative from
-parallel keys, the engine I/O left the state mutex (seeking on a network file no longer freezes
-the window), and scrobbling network waits have a time cap. Published builds are on
+**Version 1.0.0 (`v1.0.0`)** — the first **stable** release. The library **survives a schema
+change** (the database carries a version number and migrates itself without losing a row), the
+external audit fixes are in (the radio tells relative from parallel keys, the engine I/O left
+the state mutex, and scrobbling network waits have a time cap), and the 22 usability fixes
+landed: Years and Skips columns, year/album/track order, always-visible stars, multi-value
+genres split by term, stations with a per-artist quota and refill, long preview with the reason
+for each track, analysis progress and the "How the radio learns" block. Published builds are on
 [Releases](https://github.com/cassiofiorin/Amplia/releases), and the package installs without
 compiling (see [Installing the ready-made package](#installing-the-ready-made-package)).
 
@@ -734,7 +740,8 @@ of the solution, not as a front door.
 | 0.9.4-rc4 | Drag without duplicating, drop at the position, move cursor (`v0.9.4-rc4`) | superseded by rc5 |
 | 0.9.5-rc5 | Full library: mtime-based incremental scan and artist/album/genre filters (`v0.9.5-rc5`) | superseded by rc6 |
 | 0.9.6-rc6 | Complete English: 178 missing strings, including the Library window (`v0.9.6-rc6`) | superseded by rc7 |
-| 0.9.7-rc7 | Last before 1.0: versioned library schema, audit fixes, volume aligned with the clock (`v0.9.7-rc7`) | **in testing** |
+| 0.9.7-rc7 | Last before 1.0: versioned library schema, audit fixes, volume aligned with the clock (`v0.9.7-rc7`) | superseded by 1.0.0 |
+| 1.0.0 | First stable release: versioned library schema, 22 usability fixes, station quota and refill (`v1.0.0`) | **stable** |
 
 Every finished phase ships a version with **every packaging format** available at the time
 (Flatpak only today; F8 adds AppImage, `.deb`, `.rpm` and a portable tarball).
@@ -753,10 +760,10 @@ come with F8.
 
 ```bash
 # 1. download the bundle from the release (or use the Releases page)
-curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v0.9.7-rc7/Amplia-0.9.7-rc7-x86_64.flatpak
+curl -LO https://github.com/cassiofiorin/Amplia/releases/download/v1.0.0/Amplia-1.0.0-x86_64.flatpak
 
 # 2. install it for your user only
-flatpak install --user ./Amplia-0.9.7-rc7-x86_64.flatpak
+flatpak install --user ./Amplia-1.0.0-x86_64.flatpak
 
 # 3. run it
 flatpak run io.github.cassiofiorin.Amplia
@@ -1064,7 +1071,7 @@ can build the whole queue in there.
 
 The bottom bar shows, on the left, the tag-reading progress when a large list is added
 (`Reading metadata… 12/400 — do not close`) and, on the right, the build version
-(`0.9.7-rc7 (a1b2c3d)`, with the build's short commit in place of the example) — project number and short commit, handy for bug reports.
+(`1.0.0 (a1b2c3d)`, with the build's short commit in place of the example) — project number and short commit, handy for bug reports.
 
 ### Player display
 

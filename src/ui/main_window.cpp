@@ -775,7 +775,6 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
     activateWindow();
   });
   shortcut(QKeySequence(QStringLiteral("Alt+E")), [this] { focusPlaylist(); });
-  shortcut(QKeySequence(QStringLiteral("Alt+G")), [this] { focusEqualizer(); });
   shortcut(QKeySequence(QStringLiteral("Ctrl+Tab")), [this] { cycleWindows(); });
 
   // Contador da fila de metadados e versão ficam fixos na barra: a mensagem passageira
@@ -1697,9 +1696,11 @@ void MainWindow::buildMenus() {
   });
   optionsMenu->addAction(repeatAction_);
 
+  // Uma tecla, um caminho: o Alt+G é desta ação. Registrar a mesma tecla também na
+  // camada de atalhos deixa o Qt ambíguo e a tecla simplesmente não dispara.
   auto* eqAction = new QAction(tr("Equalizador…"), this);
   eqAction->setShortcut(QStringLiteral("Alt+G"));
-  connect(eqAction, &QAction::triggered, this, &MainWindow::openEqualizer);
+  connect(eqAction, &QAction::triggered, this, &MainWindow::focusEqualizer);
   optionsMenu->addAction(eqAction);
 
   auto* appearanceAction = new QAction(tr("Aparência…"), this);

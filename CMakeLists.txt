@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(Amplia VERSION 0.9.7 LANGUAGES CXX)
+project(Amplia VERSION 1.0.0 LANGUAGES CXX)
 
 # Versão mostrada na barra de status: número do projeto + commit curto, quando houver git.
 execute_process(

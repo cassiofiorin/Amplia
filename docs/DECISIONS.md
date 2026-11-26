@@ -2954,7 +2954,10 @@ encurtar a janela que dá a confiança do BPM.
 **Cache de capas com prazo.** Uma passada por execução, fora da thread da interface, apaga capas
 com mais de 30 dias, poupando a da faixa atual. Sem isso o diretório só cresce.
 
-**O que não foi possível verificar aqui.** O botão do equalizador na coluna vertical alterna o
-estado (o indicador do display acompanha), mas a janela do EQ não abriu neste ambiente nem pelo
-botão nem pelo `Alt+G` — o mesmo acontecia antes deste lote, então é ambiente (XWayland/KWin) e
-não regressão. Fica para conferência na tela do autor.
+**Uma tecla, um caminho: o caso do `Alt+G`.** A janela do equalizador abria pelo botão, mas o
+atalho não fazia nada. A causa era a tecla registrada **duas vezes** — na camada de atalhos de
+janelas (`Alt+W/E/G`) e na ação do menu "Equalizador…". Duas ações com a mesma tecla na mesma
+janela deixam o Qt em *ambiguous shortcut overload*, e ele não dispara nenhuma das duas. Ficou
+uma só: a tecla pertence à ação do menu, que chama `focusEqualizer()` e abre ou traz a janela
+para frente. Varri os outros atalhos: `Alt+W`, `Alt+E`, `Ctrl+Tab`, `Ctrl+Shift+Q` e os demais
+não têm duplicata.
