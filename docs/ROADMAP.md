@@ -262,6 +262,7 @@ e o que sobra para o fim é o que custa muito e serve a pouca gente.
 | Nova | Era | Entrega |
 |---|---|---|
 | **F4** | F4 (plugins) + F3.1 (capa) | Tags, capa e identidade: autotag por AcoustID/MusicBrainz, gravação de tags, capa embutida e `folder.jpg`, fingerprint como desempate |
+| **F4B** | — | Conversão de formatos: MP3 (LAME), FLAC, Opus e Vorbis, com fila, tags levadas junto e "adicionar à biblioteca" — **depois da rodada de QoL (item 23 do backlog)** e antes das fases colaborativas |
 | **F5** | — | Análises compartilhadas (BPM, tom e confiança por obra) — [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) |
 | **F6** | — | Perfis compartilhados (humor, mistura e léxico com nome e autor) |
 | **F7** | F8 | Empacotamento e alcance: AppImage, `.deb`, `.rpm`, portátil, Flathub **e Windows** |
@@ -273,6 +274,10 @@ Por que esta ordem, em uma linha cada:
 
 - **F4 primeiro** porque a identidade (tag normalizada + fingerprint) é a **dependência** das
   duas fases seguintes: sem ela não existe chave de obra para compartilhar.
+- **F4B depois do QoL e antes das colaborativas** porque conversão é valor direto para quem já usa
+  o app — não depende de comunidade nem de servidor — e porque o caminho de áudio já existe:
+  é a fase de melhor relação entre esforço e entrega depois de F4. Ela não vem antes do QoL
+  porque os incômodos acumulados no uso valem mais que um recurso novo.
 - **F5 antes de F6** porque dado de análise é alicerce; perfil é empréstimo de gosto e só faz
   sentido quando houver com o que comparar.
 - **F7 com Windows dentro** porque a comunidade é o produto agora, e comunidade se mede em
@@ -458,6 +463,35 @@ circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e 
 
 **Pronto quando:** um arquivo com tag errada é corrigido pelo diálogo e a capa aparece no
 Alt+3 sem abrir o arquivo duas vezes.
+
+---
+
+## F4B — Conversão de formatos
+
+Abre depois da rodada de QoL (item 23 do `BACKLOG.md`) e antes das fases colaborativas. A ideia
+vem do plugin de conversão do Winamp: pegar o que já está na biblioteca e gerar outra versão, sem
+sair do player.
+
+O que o runtime já entrega: `libavformat`/`libavcodec` são dependências do decoder e o
+`libmp3lame` está no `org.kde.Platform` — codificar é código nosso, não empacotamento. Saídas
+possíveis no mesmo dia: **MP3** (CBR e VBR com presets do LAME), **FLAC** (sem perda), **Opus** e
+**Vorbis**.
+
+- [ ] Diálogo **Converter…** na playlist, na Biblioteca e no Alt+3: formato, qualidade, pasta de
+      destino e "manter o original"
+- [ ] Fila de conversão com progresso por faixa e **cancelar** — uma conversão por vez, sem travar
+      a interface
+- [ ] Tags e capa levadas junto: reusa `TagFields` e o escritor da **D-147**
+- [ ] Nome de arquivo previsível (`Artista - Título.mp3`), com sufixo quando já existe
+- [ ] Opção **"adicionar à biblioteca"** ao terminar, para fechar o ciclo com a indexação
+- [ ] Medir: uma faixa de 4 min para MP3 192 kbps deve ficar na mesma ordem de grandeza do tempo
+      de leitura do arquivo; se ficar muito acima, o gargalo é o transporte, não o encoder
+
+Fora do escopo do primeiro corte: recodificar vídeo, converter em lote com regras por pasta e
+presets nomeados pelo usuário. O desenho da fila deixa espaço para os três.
+
+**Estimativa como o `docs/ESTIMATIVAS.md` passou a pedir:** 8–16 horas de relógio para o corte
+completo, 3–4 horas para o caminho curto (só MP3, VBR, sem fila).
 
 ---
 

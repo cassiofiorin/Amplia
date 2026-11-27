@@ -3161,3 +3161,28 @@ novo, então **apagar funciona** — e o desfazer restaura um campo criado; (2) 
 reconstruído, não editado no lugar: as tags ficam exatamente as pedidas, sem sobra de quadro
 antigo; (3) áudio não é recodificado, então o resultado é bit a bit o mesmo fluxo, com outra
 caixa em volta. O custo é reescrever o arquivo inteiro — só acontece no caminho de falha.
+
+## D-148 — A conversão de formatos é fase própria (F4B), depois do QoL e antes do colaborativo
+
+Pedido do autor em 27/11. A conversão entra como **F4B**, e não como item da F8 (empacotamento):
+não é distribuição, é uso. E o lugar dela na fila tem duas bordas explícitas — **depois da
+rodada de quality of life** (item 23 do `BACKLOG.md`) e **antes das fases colaborativas** (F5 e
+F6).
+
+O motivo das duas bordas: os incômodos do dia a dia valem mais que recurso novo, e a conversão,
+ao contrário das colaborativas, não depende de ninguém além de quem está usando o app — o
+caminho de áudio já existe e o runtime já traz o `libmp3lame`. É a melhor relação entre esforço
+e entrega logo depois da F4.
+
+Sobre o nome: usei **F4B** em vez de renumerar F5..F9. Renumerar mexeria em README, ROADMAP e
+em decisões já escritas que citam "F5/F6" por número, e o histórico ficaria mentiroso para quem
+ler depois. A letra sigue a convenção que o projeto já usa (F1a/F1b, F2B..F2E, F6a.1, F6B).
+
+## D-149 — Estimativa passa a ser hora de relógio, com faixa
+
+O `docs/ESTIMATIVAS.md` nasceu de um pedido de conferência em 27/11: as únicas estimativas em
+tempo que eu tinha dado eram "4–6 semanas" (port para Windows) e "1,5–2 semanas" (conversor),
+ambas nunca executadas, enquanto o trabalho entregue aparece no histórico em janelas de 10 a 50
+minutos por item. A partir daqui, fase entra no ROADMAP com **faixa em horas de relógio** —
+inclusive porque o que consome a janela não é o código, e sim a decisão (três idas e voltas no
+espectro, desenho da revisão, diagnóstico do TagLib).
