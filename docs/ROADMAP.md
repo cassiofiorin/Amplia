@@ -307,8 +307,9 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       ou seja: caso de revisão, não de gravação automática.
 - [ ] **Diálogo "Buscar tags…" (refino)**: hoje ele já abre no Alt+3, consulta, lista os
       candidatos com pontuação e motivo, e devolve a escolha preenchendo só os campos vazios.
-      Falta a comparação campo a campo com caixa por campo e a busca pelo disco inteiro
-      (`searchReleases` existe, sem botão).
+      Falta a comparação **campo a campo** dentro do próprio diálogo (a revisão do lote já tem
+      isso; o Alt+3 ainda aplica em bloco o que está vazio) — com caixa por campo, para corrigir
+      um campo errado sem mexer nos outros.
 - [x] **Capa de álbum**: embutida (`APIC`) e `folder.jpg`/`cover.jpg` da pasta, cache por álbum
       com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista — `CoverCache`
       por álbum (chave `norm/v1`, extração fora da thread da interface, nunca amplia arte
@@ -325,8 +326,10 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       amarrado ao diário. O excedente vai para `autotag_queue` antes da primeira consulta e volta
       na rodada seguinte; o que foi processado sai da fila. Testado com 4 cópias e limite
       reduzido (`AMPLIA_BATCH_LIMIT=2`): 2 processadas, 2 na fila, nenhuma gravada sem régua.
-- [ ] **Revisão faixa a faixa dentro do lote** (mapeamento fechado, sem código ainda): hoje o
-      veredito "revisar" só aparece na lista. O desenho combinado:
+- [x] **Revisão faixa a faixa dentro do lote** — feito em 27/11 (`src/ui/batch_review_dialog.cpp`,
+      aberta pelo menu **Tags ▸ Continuar revisão (N)**; o "Revisar (N)" do rodapé do lote é o
+      atalho): página de 20, marcação por campo e por linha, nada salvo sem marca, consenso no
+      lote e `source: user` no diário para o desfazer alcançar. O desenho que fechou o formato:
 
       *Lista, não diálogo.* Uma janela "Revisar lote" com uma linha por faixa em revisão, cada
       linha aberta em duas colunas — **No arquivo** (esquerda) e **Encontrado no MusicBrainz**
