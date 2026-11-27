@@ -136,6 +136,70 @@ TagFill planTagFill(const TagQuery& current, const TagCandidate& candidate) {
   return fill;
 }
 
+
+TagFill consensusFill(const TagQuery& current, const std::vector<TagCandidate>& candidates,
+                      double bestScore) {
+  TagFill fill;
+  if (candidates.empty() || bestScore < kConsensusScore) return fill;
+
+  // Só os melhores, e só os que estão dentro da faixa de plausibilidade.
+  std::vector<const TagCandidate*> plausible;
+  for (const auto& candidate : candidates) {
+    if (plausible.size() >= kConsensusDepth) break;
+    plausible.push_back(&candidate);
+  }
+
+  auto allAgreeText = [&plausible](std::string TagCandidate::*field, bool fileEmpty) {
+    if (!fileEmpty) return false;
+    const std::string& first = plausible.front()->*field;
+    if (first.empty()) return false;
+    for (const auto* candidate : plausible) {
+      if (normalizeWorkField(WorkField::Title, candidate->*field) !=
+          normalizeWorkField(WorkField::Title, first)) {
+        return false;
+      }
+    }
+    return true;
+  };
+  auto allAgreeInt = [&plausible](int TagCandidate::*field, bool fileEmpty) {
+    if (!fileEmpty) return false;
+    const int first = plausible.front()->*field;
+    if (first <= 0) return false;
+    for (const auto* candidate : plausible) {
+      if (candidate->*field != first) return false;
+    }
+    return true;
+  };
+
+  fill.title = allAgreeText(&TagCandidate::title, current.title.empty());
+  fill.artist = allAgreeText(&TagCandidate::artist, current.artist.empty());
+  fill.album = allAgreeText(&TagCandidate::album, current.album.empty());
+  fill.albumArtist = allAgreeText(&TagCandidate::albumArtist, current.album.empty());
+  fill.trackNo = allAgreeInt(&TagCandidate::trackNo, current.trackNo == 0);
+  fill.discNo = allAgreeInt(&TagCandidate::discNo, current.discNo == 0);
+
+  // O ano: o mais antigo entre os plausíveis que tenham o mesmo álbum do consenso, desde que a
+  // defasagem entre o mais antigo e o mais novo seja de edição, não de outra obra.
+  if (current.year == 0) {
+    const std::string albumKey = plausible.front()->album.empty()
+                                     ? std::string()
+                                     : normalizeWorkField(WorkField::Album, plausible.front()->album);
+    int oldest = 0;
+    int newest = 0;
+    for (const auto* candidate : plausible) {
+      if (candidate->year <= 0) continue;
+      if (!albumKey.empty() &&
+          normalizeWorkField(WorkField::Album, candidate->album) != albumKey) {
+        continue;
+      }
+      if (oldest == 0 || candidate->year < oldest) oldest = candidate->year;
+      if (candidate->year > newest) newest = candidate->year;
+    }
+    if (oldest > 0 && newest - oldest <= kYearSpreadLimit) fill.year = true;
+  }
+  return fill;
+}
+
 bool tagWorthSearching(const TagQuery& query) { return !query.title.empty() || !query.artist.empty(); }
 
 }  // namespace wamp

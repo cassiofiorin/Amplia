@@ -97,6 +97,25 @@ struct TagFill {
 /// Calcula o que seria gravado: só campo vazio no arquivo e não vazio no candidato.
 TagFill planTagFill(const TagQuery& current, const TagCandidate& candidate);
 
+/// O que a revisão pode preencher sozinha, sem marca do usuário.
+///
+/// Regra do consenso: entre os até três candidatos plausíveis (nota ≥ `kConsensusScore`), um
+/// campo de texto só entra se **todos** concordam no mesmo valor — empate de nota não é dúvida
+/// quando as edições dizem a mesma coisa. O ano é exceção combinada com o autor: vale o mais
+/// antigo, desde que o candidato que o doa tenha o mesmo álbum do consenso — é o álbum igual que
+/// separa "edição defasada" de "outra obra", não a distância entre os anos (um deluxe de 2013 de
+/// um disco de 1973 tem 40 anos de diferença e é exatamente o caso certo). O limite de
+/// `kYearSpreadLimit` só existe para pegar absurdo. Faixa e disco só por consenso exato, nunca
+/// pela exceção do ano.
+inline constexpr double kConsensusScore = 0.55;
+inline constexpr int kYearSpreadLimit = 60;
+
+TagFill consensusFill(const TagQuery& current, const std::vector<TagCandidate>& candidates,
+                      double bestScore);
+
+/// Quantos candidatos o consenso olha (os melhores, com nota ≥ `kConsensusScore`).
+inline constexpr std::size_t kConsensusDepth = 3;
+
 /// Verdadeiro quando a tag atual está incompleta o bastante para valer uma busca.
 /// Sem título e sem artista não há consulta possível.
 bool tagWorthSearching(const TagQuery& query);

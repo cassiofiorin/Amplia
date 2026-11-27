@@ -8,6 +8,7 @@
 
 #include <QDialog>
 #include <QString>
+#include <QSet>
 #include <QStringList>
 #include <vector>
 
@@ -61,6 +62,8 @@ class BatchTagDialog final : public QDialog {
   int ready_ = 0;
   int review_ = 0;
   int ignored_ = 0;
+  int deferred_ = 0;
+  QSet<QString> deferredPaths_;
   bool running_ = false;
   wamp::ui::JournalBatch journal_;
 
@@ -71,6 +74,7 @@ class BatchTagDialog final : public QDialog {
   QPushButton* startButton_ = nullptr;
   QPushButton* stopButton_ = nullptr;
   QPushButton* undoButton_ = nullptr;
+  QPushButton* reviewButton_ = nullptr;
   QPushButton* closeButton_ = nullptr;
 };
 

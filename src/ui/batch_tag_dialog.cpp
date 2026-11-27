@@ -19,6 +19,8 @@
 
 #include <algorithm>
 
+#include "autotag_json.h"
+#include "batch_review_dialog.h"
 #include "musicbrainz.h"
 #include "wamp/tag_cache.h"
 #include "wamp/tag_editor.h"
@@ -171,11 +173,13 @@ void BatchTagDialog::buildUi(int total, int sliceSize, int restSize) {
   startButton_ = new QPushButton(tr("Começar"), this);
   stopButton_ = new QPushButton(tr("Parar"), this);
   undoButton_ = new QPushButton(tr("Desfazer último lote"), this);
+  reviewButton_ = new QPushButton(tr("Revisar"), this);
   closeButton_ = new QPushButton(tr("Fechar"), this);
   stopButton_->setEnabled(false);
   undoButton_->setEnabled(false);
   footer->addWidget(startButton_);
   footer->addWidget(stopButton_);
+  footer->addWidget(reviewButton_);
   footer->addWidget(undoButton_);
   footer->addStretch(1);
   footer->addWidget(closeButton_);
@@ -185,6 +189,17 @@ void BatchTagDialog::buildUi(int total, int sliceSize, int restSize) {
   connect(stopButton_, &QPushButton::clicked, this, &BatchTagDialog::stop);
   connect(undoButton_, &QPushButton::clicked, this, &BatchTagDialog::undoLast);
   connect(closeButton_, &QPushButton::clicked, this, &QDialog::accept);
+  connect(reviewButton_, &QPushButton::clicked, this, [this] {
+    BatchReviewDialog dialog(cache_, this);
+    dialog.exec();
+  });
+  if (cache_ != nullptr) {
+    const int pending = cache_->reviewCount();
+    reviewButton_->setText(tr("Revisar (%1)").arg(pending));
+    reviewButton_->setEnabled(pending > 0);
+  } else {
+    reviewButton_->setEnabled(false);
+  }
 
   resize(720, 560);
 }
@@ -273,8 +288,12 @@ void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates
   if (!running_) return;
   const QString path = currentPath_;
   if (!error.isEmpty()) {
-    addRow(path, error);
-    ++ignored_;
+    // Falha de serviço ou de rede não é resposta: a faixa volta para a fila e é tentada de
+    // novo na próxima abertura — jogá-la em "sem resultado" perderia o trabalho.
+    addRow(path, tr("%1 — fica para a próxima").arg(error));
+    if (cache_ != nullptr) cache_->enqueueAutotag({path.toStdString()});
+    deferredPaths_.insert(path);
+    ++deferred_;
   } else if (candidates.empty()) {
     addRow(path, tr("nada encontrado"));
     ++ignored_;
@@ -301,9 +320,50 @@ void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates
       if (decision == wamp::TagDecision::AutoApply) {
         applyCandidate(path, ranked.front().candidate);
       } else if (decision == wamp::TagDecision::Review) {
+        // Faixa em dúvida: o campo vazio que todas as edições concordam entra sozinho, o resto
+        // fica guardado para a revisão humana.
+        std::vector<wamp::TagCandidate> ordered;
+        ordered.reserve(ranked.size());
+        for (const auto& scored : ranked) ordered.push_back(scored.candidate);
+        const auto consensus = wamp::consensusFill(query, ordered, ranked.front().score);
+        QStringList filled;
+        if (consensus.any()) {
+          wamp::TagFields incoming;
+          incoming.artist = ranked.front().candidate.artist;
+          incoming.albumArtist = ranked.front().candidate.albumArtist;
+          incoming.album = ranked.front().candidate.album;
+          incoming.title = ranked.front().candidate.title;
+          incoming.track = ranked.front().candidate.trackNo;
+          incoming.disc = ranked.front().candidate.discNo;
+          incoming.year = ranked.front().candidate.year;
+          std::vector<wamp::ui::JournalField> changes;
+          const wamp::TagFields mergedFields = merged(fields, incoming, consensus, &changes);
+          std::string writeError;
+          if (!changes.empty() &&
+              wamp::TagEditor::write(path.toStdString(), mergedFields, true, &writeError)) {
+            JournalEntry entry;
+            entry.path = path;
+            entry.fields = std::move(changes);
+            journal_.entries.push_back(std::move(entry));
+            for (const auto& field : entry.fields) filled.append(field.field);
+          }
+        }
+        if (cache_ != nullptr) {
+          wamp::TagCache::ReviewItem item;
+          item.path = path.toStdString();
+          item.batch = journal_.stamp.toStdString();
+          item.candidate = wamp::ui::candidateToText(ranked.front().candidate).toStdString();
+          item.state = filled.isEmpty() ? "pendente" : "pendente";
+          cache_->saveReviewItems({item});
+        }
         addRow(path,
-               tr("revisar — melhor %1 (%2)").arg(fromStd(ranked.front().candidate.album),
-                                                  QString::number(ranked.front().score, 'f', 2)));
+               filled.isEmpty()
+                   ? tr("revisar — melhor %1 (%2)")
+                         .arg(fromStd(ranked.front().candidate.album),
+                              QString::number(ranked.front().score, 'f', 2))
+                   : tr("revisar — melhor %1 (%2) · preenchido por consenso: %3")
+                         .arg(fromStd(ranked.front().candidate.album),
+                              QString::number(ranked.front().score, 'f', 2), filled.join(", ")));
         ++review_;
       } else {
         addRow(path, tr("sem confiança — nada foi gravado"));
@@ -393,18 +453,23 @@ void BatchTagDialog::finish() {
     undoButton_->setEnabled(true);
   }
 
-  // O que foi processado sai da fila persistida; o que sobrou para a próxima rodada continua lá.
+  // Só sai da fila o que foi de fato resolvido: o que ficou para depois continua guardado.
   if (cache_ != nullptr) {
     std::vector<std::string> done;
     done.reserve(slice_.size());
-    for (const QString& path : slice_) done.push_back(path.toStdString());
+    for (const QString& path : slice_) {
+      if (deferredPaths_.contains(path)) continue;
+      done.push_back(path.toStdString());
+    }
     cache_->dropAutotagPaths(done);
   }
 
-  status_->setText(tr("Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado.")
+  status_->setText(tr("Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado, %4 para "
+                      "depois.")
                        .arg(ready_)
                        .arg(review_)
-                       .arg(ignored_));
+                       .arg(ignored_)
+                       .arg(deferred_));
 }
 
 void BatchTagDialog::undoLast() {

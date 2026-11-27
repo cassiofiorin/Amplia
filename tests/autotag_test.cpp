@@ -150,6 +150,75 @@ void testRemasterSuffixDoesNotBreakMatch() {
   check(near(score, 1.0, 1e-9) || score > 0.99, "sufixo de remaster não atrapalha o casamento");
 }
 
+
+wamp::TagCandidate edition(int year, const std::string& album, int track) {
+  wamp::TagCandidate candidate = exactCandidate();
+  candidate.year = year;
+  candidate.album = album;
+  candidate.trackNo = track;
+  return candidate;
+}
+
+void testConsensusFillsBlankFieldsWhenEditionsAgree() {
+  // Faixa que foi para revisão por empate, mas todas as edições dizem o mesmo álbum.
+  wamp::TagQuery query = exactQuery();
+  query.album.clear();
+  query.year = 0;
+  std::vector<wamp::TagCandidate> candidates{
+      edition(1973, "Ring Ring", 1), edition(2013, "Ring Ring", 1), edition(1990, "Ring Ring", 1)};
+  const auto fill = wamp::consensusFill(query, candidates, 0.99);
+  check(fill.album, "consenso preenche álbum em que todas as edições concordam");
+  check(fill.albumArtist, "consenso preenche artista do álbum junto");
+  check(fill.year, "consenso preenche o ano pela exceção do mais antigo");
+  check(!fill.title && !fill.artist, "campo já preenchido no arquivo não entra");
+}
+
+void testConsensusYearIsTheOldest() {
+  wamp::TagQuery query = exactQuery();
+  query.year = 0;
+  std::vector<wamp::TagCandidate> candidates{edition(2013, "Ring Ring", 1),
+                                             edition(1973, "Ring Ring", 1),
+                                             edition(1990, "Ring Ring", 1)};
+  const auto fill = wamp::consensusFill(query, candidates, 0.99);
+  check(fill.year, "ano entra quando a defasagem é de edição");
+}
+
+void testConsensusRefusesHugeYearSpread() {
+  wamp::TagQuery query = exactQuery();
+  query.year = 0;
+  std::vector<wamp::TagCandidate> candidates{edition(1950, "Ring Ring", 1),
+                                             edition(2020, "Ring Ring", 1)};
+  // 70 anos de diferença no mesmo álbum: dado absurdo, não edição defasada.
+  const auto fill = wamp::consensusFill(query, candidates, 0.99);
+  check(!fill.year, "defasagem acima do limite deixa o ano para a revisão");
+}
+
+void testConsensusIgnoresYearFromOtherAlbum() {
+  wamp::TagQuery query = exactQuery();
+  query.year = 0;
+  std::vector<wamp::TagCandidate> candidates{edition(0, "Ring Ring", 1),
+                                             edition(1970, "Outra Coisa", 1)};
+  const auto fill = wamp::consensusFill(query, candidates, 0.99);
+  check(!fill.year, "ano de álbum diferente não preenche");
+}
+
+void testConsensusTakesTrackOnlyWhenExact() {
+  wamp::TagQuery query = exactQuery();
+  query.trackNo = 0;
+  std::vector<wamp::TagCandidate> candidates{edition(1973, "Ring Ring", 1),
+                                             edition(2013, "Ring Ring", 2)};
+  const auto fill = wamp::consensusFill(query, candidates, 0.99);
+  check(!fill.trackNo, "número de faixa divergente não entra pela exceção do ano");
+}
+
+void testConsensusNeedsPlausibleScore() {
+  wamp::TagQuery query = exactQuery();
+  query.album.clear();
+  std::vector<wamp::TagCandidate> candidates{edition(1973, "Ring Ring", 1)};
+  const auto fill = wamp::consensusFill(query, candidates, 0.40);
+  check(!fill.any(), "abaixo da nota de plausibilidade o consenso não preenche nada");
+}
+
 }  // namespace
 
 int main() {
@@ -163,6 +232,12 @@ int main() {
   testNoCandidatesMeansNone();
   testWorthSearching();
   testRemasterSuffixDoesNotBreakMatch();
+  testConsensusFillsBlankFieldsWhenEditionsAgree();
+  testConsensusYearIsTheOldest();
+  testConsensusRefusesHugeYearSpread();
+  testConsensusIgnoresYearFromOtherAlbum();
+  testConsensusTakesTrackOnlyWhenExact();
+  testConsensusNeedsPlausibleScore();
 
   if (failures == 0) {
     std::printf("autotag: todos os casos passaram\n");

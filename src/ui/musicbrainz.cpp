@@ -233,7 +233,11 @@ void MusicBrainzClient::handleReply(QNetworkReply* reply) {
         queue_.prepend(url);
         pump();
       });
-      emit finished({}, tr("O MusicBrainz está ocupado agora; tentando de novo…"));
+      // Nada de `finished` aqui: para quem espera, a consulta ainda está em andamento.
+      // Avisar "tentando de novo" como se fosse resposta fazia o lote marcar a faixa como
+      // processada e seguir para a próxima.
+      qInfo("amplia: MusicBrainz ocupado (HTTP %d); nova tentativa em %d ms", status,
+            kRetryDelayMs);
       return;
     }
     retries_ = 0;

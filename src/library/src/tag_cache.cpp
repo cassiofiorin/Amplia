@@ -121,6 +121,11 @@ bool TagCache::ensureSchema(std::string* error) {
       ");"
       // Removido da biblioteca pelo usuário: a varredura respeita esta lista, senão a
       // faixa voltaria no próximo Atualizar e pareceria que a remoção não funcionou.
+      // Revisão do lote: candidato congelado e estado por faixa, para retomar depois.
+      "CREATE TABLE IF NOT EXISTS autotag_review ("
+      " path TEXT PRIMARY KEY, lote TEXT NOT NULL, candidato TEXT NOT NULL,"
+      " estado TEXT NOT NULL, atualizado_em INTEGER NOT NULL"
+      ");"
       // Fila do autotag: o que passou do limite da rodada fica aqui e volta na próxima.
       "CREATE TABLE IF NOT EXISTS autotag_queue ("
       " path TEXT PRIMARY KEY, added_at INTEGER NOT NULL"
@@ -207,6 +212,110 @@ void TagCache::queueScan(const std::vector<std::string>& paths) {
           "INSERT OR IGNORE INTO scan_queue (path, added_at)"
           " VALUES (?, CAST(strftime('%s','now') AS INTEGER));",
           -1, &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, nullptr);
+  for (const auto& path : paths) {
+    bindText(statement, 1, path);
+    sqlite3_step(statement);
+    sqlite3_reset(statement);
+  }
+  sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr);
+  sqlite3_finalize(statement);
+}
+
+void TagCache::saveReviewItems(const std::vector<ReviewItem>& items) {
+  if (db_ == nullptr || items.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(
+          db_,
+          "INSERT INTO autotag_review (path, lote, candidato, estado, atualizado_em)"
+          " VALUES (?, ?, ?, ?, CAST(strftime('%s','now') AS INTEGER))"
+          " ON CONFLICT(path) DO UPDATE SET lote = excluded.lote,"
+          " candidato = excluded.candidato, estado = excluded.estado,"
+          " atualizado_em = excluded.atualizado_em;",
+          -1, &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, nullptr);
+  for (const auto& item : items) {
+    bindText(statement, 1, item.path);
+    bindText(statement, 2, item.batch);
+    bindText(statement, 3, item.candidate);
+    bindText(statement, 4, item.state.empty() ? std::string("pendente") : item.state);
+    sqlite3_step(statement);
+    sqlite3_reset(statement);
+  }
+  sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr);
+  sqlite3_finalize(statement);
+}
+
+std::vector<TagCache::ReviewItem> TagCache::reviewItems(int limit, int offset,
+                                                        std::string* error) {
+  std::vector<ReviewItem> items;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "A biblioteca não está aberta.";
+    return items;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_,
+                         "SELECT path, lote, candidato, estado FROM autotag_review"
+                         " ORDER BY atualizado_em, rowid LIMIT ? OFFSET ?;",
+                         -1, &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "Não deu para ler a revisão do lote.";
+    return items;
+  }
+  sqlite3_bind_int(statement, 1, limit > 0 ? limit : -1);
+  sqlite3_bind_int(statement, 2, offset > 0 ? offset : 0);
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    ReviewItem item;
+    auto text = [&statement](int column) {
+      const auto* value = sqlite3_column_text(statement, column);
+      return value != nullptr ? std::string(reinterpret_cast<const char*>(value)) : std::string();
+    };
+    item.path = text(0);
+    item.batch = text(1);
+    item.candidate = text(2);
+    item.state = text(3);
+    items.push_back(std::move(item));
+  }
+  sqlite3_finalize(statement);
+  return items;
+}
+
+int TagCache::reviewCount() {
+  if (db_ == nullptr) return 0;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT count(*) FROM autotag_review;", -1, &statement, nullptr) !=
+      SQLITE_OK) {
+    return 0;
+  }
+  int count = 0;
+  if (sqlite3_step(statement) == SQLITE_ROW) count = sqlite3_column_int(statement, 0);
+  sqlite3_finalize(statement);
+  return count;
+}
+
+void TagCache::setReviewState(const std::string& path, const std::string& state) {
+  if (db_ == nullptr) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_,
+                         "UPDATE autotag_review SET estado = ?,"
+                         " atualizado_em = CAST(strftime('%s','now') AS INTEGER) WHERE path = ?;",
+                         -1, &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  bindText(statement, 1, state);
+  bindText(statement, 2, path);
+  sqlite3_step(statement);
+  sqlite3_finalize(statement);
+}
+
+void TagCache::dropReviewItems(const std::vector<std::string>& paths) {
+  if (db_ == nullptr || paths.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "DELETE FROM autotag_review WHERE path = ?;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
     return;
   }
   sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, nullptr);

@@ -331,6 +331,25 @@ bool TagEditor::write(const std::string& path, const TagFields& fields, bool saf
       if (err != nullptr) *err = "o arquivo não aceita tags";
       return false;
     }
+    // Tudo vai pelo PropertyMap: no MP4 os setters de `Tag` não gravam (album e faixa
+    // ficam no átomo `©alb`/`trkn`, e o TagLib não os reescreve por essa via). As chaves
+    // canônicas valem para todos os formatos e são as mesmas que o resto do arquivo usa.
+    TagLib::PropertyMap map = ref.file()->properties();
+    setKey(map, "TITLE", fields.title);
+    setKey(map, "ARTIST", fields.artist);
+    setKey(map, "ALBUM", fields.album);
+    setKey(map, "GENRE", fields.genre);
+    setKey(map, "COMMENT", fields.comment);
+    setKey(map, "DATE", fields.year > 0 ? std::to_string(fields.year) : std::string());
+    setKey(map, "TRACKNUMBER", fields.track > 0 ? std::to_string(fields.track) : std::string());
+    setKey(map, "ALBUMARTIST", fields.albumArtist);
+    setKey(map, "COMPOSER", fields.composer);
+    setKey(map, "PUBLISHER", fields.publisher);
+    setKey(map, "BPM", toString(fields.bpm));
+    setKey(map, "DISCNUMBER", toString(fields.disc));
+    ref.file()->setProperties(map);
+    // Os setters continuam: em ID3 quem apaga campo é o `Tag` (o mapa remove a chave, mas
+    // alguns formatos só reescrevem pelo objeto de tag). No MP4 vale o caminho do mapa.
     tag->setTitle(TagLib::String(fields.title, TagLib::String::UTF8));
     tag->setArtist(TagLib::String(fields.artist, TagLib::String::UTF8));
     tag->setAlbum(TagLib::String(fields.album, TagLib::String::UTF8));
@@ -338,14 +357,6 @@ bool TagEditor::write(const std::string& path, const TagFields& fields, bool saf
     tag->setComment(TagLib::String(fields.comment, TagLib::String::UTF8));
     tag->setYear(static_cast<unsigned int>(fields.year > 0 ? fields.year : 0));
     tag->setTrack(static_cast<unsigned int>(fields.track > 0 ? fields.track : 0));
-
-    TagLib::PropertyMap map = ref.file()->properties();
-    setKey(map, "ALBUMARTIST", fields.albumArtist);
-    setKey(map, "COMPOSER", fields.composer);
-    setKey(map, "PUBLISHER", fields.publisher);
-    setKey(map, "BPM", toString(fields.bpm));
-    setKey(map, "DISCNUMBER", toString(fields.disc));
-    ref.file()->setProperties(map);
 
     if (!ref.file()->save()) {
       if (err != nullptr) *err = "o TagLib não conseguiu gravar as tags";
@@ -355,8 +366,16 @@ bool TagEditor::write(const std::string& path, const TagFields& fields, bool saf
     // Confere relendo: gravar sem erro não garante que os campos voltaram.
     TagFields check;
     if (!TagEditor::read(target, &check, nullptr, nullptr, err)) return false;
-    if (check.title != fields.title || check.artist != fields.artist) {
-      if (err != nullptr) *err = "a conferência depois da gravação não bateu";
+    // A conferência cobre os campos que o autotag preenche: se um deles não voltou, a
+    // gravação não vale e o motivo diz qual.
+    std::string failed;
+    if (check.title != fields.title) failed = "título";
+    else if (check.artist != fields.artist) failed = "artista";
+    else if (check.album != fields.album) failed = "álbum";
+    else if (check.track != fields.track) failed = "faixa";
+    else if ((check.year > 0) != (fields.year > 0)) failed = "ano";
+    if (!failed.empty()) {
+      if (err != nullptr) *err = "a conferência depois da gravação não bateu (" + failed + ")";
       return false;
     }
     return true;

@@ -120,6 +120,20 @@ class TagCache final {
   /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e
   /// saem quando a tag é gravada. Se o app morrer no meio, a próxima execução retoma.
   void queueScan(const std::vector<std::string>& paths);
+  /// Uma faixa esperando revisão humana, com o candidato congelado da busca.
+  struct ReviewItem {
+    std::string path;
+    std::string batch;      ///< carimbo do lote que a trouxe
+    std::string candidate;  ///< JSON do melhor candidato na hora da busca
+    std::string state;      ///< pendente | marcada | pulada | gravada
+  };
+
+  void saveReviewItems(const std::vector<ReviewItem>& items);
+  std::vector<ReviewItem> reviewItems(int limit, int offset, std::string* error);
+  int reviewCount();
+  void setReviewState(const std::string& path, const std::string& state);
+  void dropReviewItems(const std::vector<std::string>& paths);
+
   /// Fila do autotag: o excedente da rodada fica guardado e volta na próxima abertura.
   void enqueueAutotag(const std::vector<std::string>& paths);
   std::vector<std::string> autotagQueue(int limit, std::string* error);

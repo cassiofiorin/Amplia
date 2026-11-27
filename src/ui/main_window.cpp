@@ -294,6 +294,7 @@ void warnAboutNetworkDrop(QWidget* parent, const QList<QUrl>& urls, int rejected
 #include "file_info_dialog.h"
 #include "jump_dialog.h"
 #include "confirm_dialog.h"
+#include "batch_review_dialog.h"
 #include "batch_tag_dialog.h"
 #include "library_window.h"
 #include "playlist_delegate.h"
@@ -682,6 +683,24 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
       if (qEnvironmentVariableIsSet("AMPLIA_BATCH_AUTOSTART")) {
         QTimer::singleShot(200, &dialog, &wamp::ui::BatchTagDialog::start);
       }
+      dialog.exec();
+    });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_UNDO")) {
+    QTimer::singleShot(2500, this, [this] {
+      if (cache_ == nullptr) return;
+      const int restored = wamp::ui::BatchReviewDialog::undoLastBatch(cache_.get(), this, false);
+      qInfo("amplia: desfeitas %d faixa(s)", restored);
+      QTimer::singleShot(500, this, [this] {
+        if (library_ != nullptr) refreshLibrary();
+      });
+    });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_OPEN_REVIEW")) {
+    QTimer::singleShot(2500, this, [this] {
+      if (cache_ == nullptr) return;
+      qInfo("amplia: revisão com %d item(s)", cache_->reviewCount());
+      wamp::ui::BatchReviewDialog dialog(cache_.get(), this);
       dialog.exec();
     });
   }
@@ -1762,6 +1781,65 @@ void MainWindow::buildMenus() {
   stopAction->setShortcut(Qt::Key_V);
   connect(stopAction, &QAction::triggered, this, [this] { engine_->stop(); refresh(); });
   playMenu->addAction(stopAction);
+
+  // Tags: a porta de entrada do autotag. Fica no topo, ao lado de Opções, porque é ramo de
+  // trabalho — e não um botão no rodapé, que convida o iniciante a clicar sem saber o que faz.
+  auto* tagsMenu = menuBar()->addMenu(tr("&Tags"));
+  auto* tagsHere = new QAction(tr("Buscar tags nesta faixa…"), this);
+  connect(tagsHere, &QAction::triggered, this, [this] {
+    const auto track = engine_->track();
+    if (track.path.empty()) {
+      statusBar()->showMessage(tr("Nenhuma faixa tocando para buscar tags."));
+      return;
+    }
+    openFileInfoFor(QString::fromStdString(track.path));
+  });
+  tagsMenu->addAction(tagsHere);
+
+  auto* tagsBatch = new QAction(tr("Buscar tags em lote…"), this);
+  connect(tagsBatch, &QAction::triggered, this, [this] {
+    if (cache_ == nullptr) return;
+    QStringList paths;
+    for (const auto& path : playlist_->items()) paths.append(QString::fromStdString(path));
+    if (paths.isEmpty()) {
+      statusBar()->showMessage(tr("A playlist está vazia — nada para buscar em lote."));
+      return;
+    }
+    wamp::ui::BatchTagDialog dialog(cache_.get(), paths, this);
+    dialog.exec();
+    refreshLibrary();
+  });
+  tagsMenu->addAction(tagsBatch);
+
+  auto* tagsResume = new QAction(tr("Continuar revisão…"), this);
+  connect(tagsResume, &QAction::triggered, this, [this] {
+    if (cache_ == nullptr) return;
+    wamp::ui::BatchReviewDialog dialog(cache_.get(), this);
+    dialog.exec();
+    refreshLibrary();
+  });
+  tagsMenu->addAction(tagsResume);
+  tagsMenu->addSeparator();
+
+  auto* tagsUndo = new QAction(tr("Desfazer último lote"), this);
+  connect(tagsUndo, &QAction::triggered, this, [this] {
+    if (cache_ == nullptr) return;
+    wamp::ui::BatchReviewDialog::undoLastBatch(cache_.get(), this);
+  });
+  tagsMenu->addAction(tagsUndo);
+
+  // O item de retomar só aparece quando há revisão pendente: botão que não faz nada confunde.
+  connect(tagsMenu, &QMenu::aboutToShow, this, [this, tagsResume, tagsUndo] {
+    if (cache_ == nullptr) {
+      tagsResume->setEnabled(false);
+      return;
+    }
+    const int pending = cache_->reviewCount();
+    tagsResume->setText(pending > 0 ? tr("Continuar revisão (%1)…").arg(pending)
+                                    : tr("Continuar revisão…"));
+    tagsResume->setEnabled(pending > 0);
+    tagsUndo->setEnabled(true);
+  });
 
   // Ajuda: o desenho do original (F1, opinião, Sobre), sem o "Register Pro" que não
   // existe aqui. Os textos moram em help/ajuda-<idioma>.md.

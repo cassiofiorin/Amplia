@@ -18,6 +18,9 @@ add_executable(wamp
   file_info_dialog.cpp
   batch_tag_dialog.cpp
   batch_tag_dialog.h
+  batch_review_dialog.cpp
+  batch_review_dialog.h
+  autotag_json.h
   tag_search_dialog.cpp
   tag_search_dialog.h
   musicbrainz.cpp

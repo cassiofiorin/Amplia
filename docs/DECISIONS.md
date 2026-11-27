@@ -3103,3 +3103,41 @@ rodadas sem gravação não deixam diário, e por isso o botão fica desligado.
 **Cada faixa aparece na lista com o veredito**: gravada, revisar (com o motivo e a nota) ou sem
 resultado. A revisão faixa a faixa é o próximo passo; esta rodada entrega o que grava sozinho e
 o que precisa de olho humano, que é a parte que não pode errar em silêncio.
+
+## D-143 — O campo vazio entra por consenso; o ano é o mais antigo do álbum
+
+Quando a busca devolve várias edições do mesmo disco, o campo de texto vazio só entra se **todas
+as até três melhores** (nota ≥ 0,55) concordarem — o consenso é a garantia de que o dado não é
+palpite de uma edição qualquer. O ano é a exceção: entre os candidatos que têm o **mesmo álbum**,
+vale o **mais antigo**, porque remaster não muda o ano da obra. O limite de 60 anos está ali só
+para não aceitar 1900 quando a gravação é de 2013; a guarda que importa é o álbum. Faixa e disco
+não entram na exceção: número divergente é informação divergente. Tudo o que o consenso grava
+entra no diário com `source: consensus`, então o desfazer também alcança.
+
+## D-144 — A gravação de tags passa pelo mapa de propriedades, e a conferência diz o campo
+
+O `TagLib::Tag::setAlbum` não grava no MP4 (o álbum vive no átomo `©alb`), e era por isso que a
+revisão dizia "gravou" e o arquivo continuava sem álbum. A escrita agora monta o
+`PropertyMap` com as chaves canônicas (`TITLE`, `ARTIST`, `ALBUM`, `DATE`, `TRACKNUMBER`…) e
+usa `setProperties`, com os setters de `Tag` como reforço para o ID3 — onde quem apaga campo é
+o objeto de tag. A conferência depois de gravar passou a comparar **título, artista, álbum,
+faixa e ano**, e o erro diz qual campo não voltou (`a conferência depois da gravação não bateu
+(álbum)`), em vez do genérico que escondia o problema.
+
+## D-145 — A revisão do lote é uma página por vez, e nada é salvo sem marca
+
+A revisão abre os candidatos congelados em JSON (não consulta o MusicBrainz de novo), 20 por
+página, com "No arquivo" e "Encontrado no MusicBrainz" lado a lado, marcação por campo e na
+linha (que marca todos). Nada vem marcado: o que era consenso já entrou no lote, e o resto é
+decisão humana. O estado fica em `autotag_review`, a página é lembrada em `autotag/reviewPage`, e
+"Salvar e avançar" grava o que está marcado, escreve o diário com `source: user` e tira da
+revisão o que foi escrito. O desfazer é o mesmo do lote: lê o diário mais recente e devolve os
+valores de antes.
+
+## D-146 — Falha de serviço não é resposta: a faixa fica para depois
+
+`503`/`429` do MusicBrainz é espera, não resultado. O cliente tenta de novo duas vezes (3 s de
+intervalo) **sem emitir** `finished` — antes ele avisava "tentando de novo…" como se fosse
+resposta, e o lote marcava a faixa como processada e ia para a próxima. Esgotadas as tentativas,
+o lote conta a faixa em "para depois", **devolve o caminho para a fila persistida** e só tira da
+fila o que foi resolvido. "Sem resultado" passou a significar só o que o catálogo não tem.
