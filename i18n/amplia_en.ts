@@ -1691,6 +1691,10 @@ The files stay on disk.</numerusform>
         <translation>Remove</translation>
     </message>
     <message>
+        <source>Atenção: interromper o Amplia ou desligar o computador durante a gravação pode corromper as tags do arquivo. Aguarde o fim da gravação.</source>
+        <translation>Warning: interrupting Amplia or shutting down the computer while saving can corrupt the file tags. Wait for the save to finish.</translation>
+    </message>
+    <message>
         <source>Gravação segura (cópia temporária)</source>
         <translation>Safe save (temporary copy)</translation>
     </message>
@@ -1741,6 +1745,10 @@ The files stay on disk.</numerusform>
     <message>
         <source>Tom da tag: %1</source>
         <translation>Tag key: %1</translation>
+    </message>
+    <message>
+        <source>Somente leitura — %1. As tags deste arquivo não podem ser salvas.</source>
+        <translation>Read-only — %1. The tags of this file cannot be saved.</translation>
     </message>
     <message>
         <source>Informações do arquivo *</source>

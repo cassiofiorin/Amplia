@@ -209,8 +209,8 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
 
   // --- Rodapé ---------------------------------------------------------------
   warningLabel_ = new QLabel(
-      QStringLiteral("Atenção: interromper o Amplia ou desligar o computador durante a gravação "
-                     "pode corromper as tags do arquivo. Aguarde o fim da gravação."),
+      tr("Atenção: interromper o Amplia ou desligar o computador durante a gravação "
+         "pode corromper as tags do arquivo. Aguarde o fim da gravação."),
       this);
   warningLabel_->setWordWrap(true);
   warningLabel_->setEnabled(false);
@@ -315,7 +315,7 @@ void FileInfoDialog::updateSaveability() {
   const bool allowed = wamp::TagEditor::canSave(paths_.at(index_), safeSaveBox_->isChecked(), &reason);
   okButton_->setEnabled(allowed);
   readonlyLabel_->setText(allowed ? QString()
-                                  : QStringLiteral("Somente leitura — %1. As tags deste arquivo "
+                                  : tr("Somente leitura — %1. As tags deste arquivo "
                                                    "não podem ser salvas.")
                                         .arg(QString::fromStdString(reason)));
   readonlyLabel_->setVisible(!allowed);
