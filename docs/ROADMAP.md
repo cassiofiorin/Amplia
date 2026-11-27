@@ -261,7 +261,7 @@ e o que sobra para o fim é o que custa muito e serve a pouca gente.
 
 | Nova | Era | Entrega |
 |---|---|---|
-| **F4** | F4 (plugins) + F3.1 (capa) | Tags, capa e identidade: autotag por AcoustID/MusicBrainz, gravação de tags, capa embutida e `folder.jpg`, fingerprint como desempate |
+| **F4** | F4 (plugins) + F3.1 (capa) | Tags, capa e identidade: autotag por texto no MusicBrainz, gravação de tags, capa embutida e `folder.jpg` |
 | **F4B** | — | Conversão de formatos: MP3 (LAME), FLAC, Opus e Vorbis, com fila, tags levadas junto e "adicionar à biblioteca" — **depois da rodada de QoL (item 23 do backlog)** e antes das fases colaborativas |
 | **F5** | — | Análises compartilhadas (BPM, tom e confiança por obra) — [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) |
 | **F6** | — | Perfis compartilhados (humor, mistura e léxico com nome e autor) |
@@ -272,8 +272,9 @@ e o que sobra para o fim é o que custa muito e serve a pouca gente.
 
 Por que esta ordem, em uma linha cada:
 
-- **F4 primeiro** porque a identidade (tag normalizada + fingerprint) é a **dependência** das
-  duas fases seguintes: sem ela não existe chave de obra para compartilhar.
+- **F4 primeiro** porque a identidade (tag normalizada, `norm/v1`) é a **dependência** das
+  duas fases seguintes: sem ela não existe chave de obra para compartilhar. O fingerprint saiu
+  do planejamento (ver "Funções desejadas" no fim do arquivo).
 - **F4B depois do QoL e antes das colaborativas** porque conversão é valor direto para quem já usa
   o app — não depende de comunidade nem de servidor — e porque o caminho de áudio já existe:
   é a fase de melhor relação entre esforço e entrega depois de F4. Ela não vem antes do QoL
@@ -298,7 +299,9 @@ uma identidade de faixa que sobrevive a mudar de máquina.
 - [x] **Identidade** `norm/v1` como função pura, com testes: mesma obra vira a mesma chave em
       rip, remaster e caminho diferente (regras em [`COMPARTILHAMENTO.md`](COMPARTILHAMENTO.md) §2)
       — em `src/library/.../work_key.h`, testada em `tests/work_key_test.cpp` e rodando no CI
-- [ ] **Fingerprint** (`libchromaprint` empacotado) e consulta ao AcoustID → MusicBrainz
+- ~~**Fingerprint** (`libchromaprint` empacotado) e consulta ao AcoustID~~ — **fora do planejamento**
+      desde 27/11, a pedido do autor: era desempate, e a tela de revisão resolve a decisão com a
+      pessoa na frente. Registrado em "Funções desejadas, mas ainda fora de planejamento"
 - [x] **Busca por texto** no MusicBrainz como primeiro passo do autotag: `autotagScore` /
       `rankCandidates` / `classifyTagMatch` em `src/library/.../autotag.cpp` (testados em
       `tests/autotag_test.cpp`) e cliente com fila de 1,1 s e user agent próprio em
@@ -391,7 +394,6 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       tags nesta faixa…", "Buscar tags em lote…", "Continuar revisão (N)" e "Desfazer último
       lote".
 - [ ] **Buscar o disco inteiro**: `searchReleases` existe no cliente, sem botão no lote.
-- [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
 **Regras do autotag (o arquivo do autor é o caso de teste).** O acervo oficial não cobre
 gravação não oficial: um rip de transmissão de TV (o Lollapalooza do Foo Fighters do autor, que
@@ -416,7 +418,8 @@ circulou por P2P e nunca entrou em catálogo) **não** existe no MusicBrainz, e 
 
 **Desenho do autotag (decidido em 26/11).**
 
-- **Porta de entrada é o texto**; o fingerprint entra como penúltimo item, só para desempatar
+- **Porta de entrada é o texto**; o desempate é humano, na tela de revisão (o fingerprint
+  ficou fora do planejamento)
   gravação (e é o que a F5 consome).
 - **Gravação silenciosa** só quando: score do melhor candidato ≥ 0,90 **e** margem ≥ 0,15 sobre
   o segundo; duração dentro de ±3 s; e **apenas campos em branco** no arquivo (título, artista,
@@ -590,14 +593,13 @@ visual plug-in, ML) e macros/plugins de teclado.
 **Pronto quando:** o mapa clássico acima funciona sem conflito, e a janela de atalhos
 (`Ctrl+?` ou Ajuda ▸ Atalhos) lista o que existe.
 
-## F6B — Busca de tags (reavaliar depois do autotag)
+## F6B — Busca de tags (absorvida pela F4 em 26/11)
 
-Avaliada em 20/11 e **parada a pedido do usuário** ("chegando lá avaliamos o custo").
-Rotas possíveis: busca por texto (MusicBrainz, 1 req/s, User-Agent próprio) ou texto +
-fingerprint (AcoustID) — a segunda exige empacotar `libchromaprint`, que não existe no
-runtime `org.kde.Platform`. UI pensada: File Info → "Buscar tags…", lista de candidatos com
-confiança, comparação campo a campo, nunca sobrescrever sem confirmar, gravação pelo
-`TagEditor`, capa do Cover Art Archive como opção separada.
+Avaliada em 20/11 e parada na época ("chegando lá avaliamos o custo"); a F4 entregou a busca por
+texto no Alt+3 e o lote com revisão. O que sobrou dela está na própria F4 como refino (comparação
+campo a campo no diálogo) e o resto — capa do Cover Art Archive como opção separada — continua
+aqui, sem data. A rota com fingerprint (AcoustID) está em **"Funções desejadas, mas ainda fora de
+planejamento"**, no fim deste arquivo.
 
 ## F8 — Skins clássicas (`.wsz`) (era F7; fim da fila desde 26/11)
 
@@ -788,3 +790,25 @@ fica fora do roadmap: exigiria CoreAudio e outro ciclo de vida de janela, sem p�
 **Pronto quando:** uma tag publica todos os formatos de uma vez; o AppImage abre numa máquina
 com glibc 2.35 sem instalar nada; o `.deb`/`.rpm` abrem com a biblioteca que veio do Flatpak já
 importada; e o `.exe` toca a mesma biblioteca no Windows, com o mesmo banco e os mesmos presets.
+
+## Funções desejadas, mas ainda fora de planejamento
+
+Coisas que foram pensadas, avaliadas e **deliberadamente deixadas de fora** — não são dívida, não
+têm data e não bloqueiam fase nenhuma. Ficam escritas para quem quiser retomá-las, inclusive
+alguém de fora do projeto.
+
+### Fingerprint de áudio (AcoustID / `libchromaprint`)
+
+Era o penúltimo item da F4, como **critério de desempate** do autotag: quando dois candidatos do
+MusicBrainz empatavam na pontuação, o fingerprint de áudio dizia qual é a mesma gravação. Saiu em
+27/11 por decisão do autor: o desempate **já tem solução melhor** — a tela de revisão, com a
+pessoa olhando os dois lados campo a campo. O custo não se justificava: `libchromaprint` não
+existe no `org.kde.Platform` (teria de virar módulo compilado no manifesto) e o AcoustID exige
+**chave de API registrada em nome do projeto**, a primeira dependência de credencial de terceiro
+do app.
+
+Se alguém quiser retomar: o módulo do Flatpak é o primeiro obstáculo, a chave do AcoustID o
+segundo, e o lugar de encaixe é `autotagScore`/`rankCandidates` (hoje em
+`src/library/src/autotag.cpp`), como um peso a mais quando os dois primeiros candidatos estão a
+menos de `kAutoMargin` entre si. Também serve à F5, para casar "mesma gravação" entre bibliotecas
+de pessoas diferentes.

@@ -19,9 +19,10 @@ Consequências, em ordem de importância:
 
 - O dataset tem como chave a **tag normalizada** mais a **duração arredondada**. É o que
   sobrevive a rip, remaster, bitrate e mudança de pasta.
-- O **fingerprint** (F4, `libchromaprint` + AcoustID) entra só como **desempate**: quando duas
-  gravações empatam em obra e duração, ou quando a tag do arquivo está errada e a importação
-  precisa saber em qual linha confiar. Sem fingerprint, tudo funciona pelo caminho da obra.
+- O **fingerprint** seria só **desempate**, e saiu do planejamento em 27/11 (ver "Funções
+  desejadas" no `ROADMAP.md`): quando duas gravações empatam em obra e duração, quem decide é a
+  tela de revisão, com a pessoa na frente. A importação não depende dele — a chave de obra mais a
+  duração resolvem o caso comum, e o empate fica como pergunta (`confiança` baixa na linha).
 - A normalização é a peça que decide tudo, então ela é **versionada e especificada** — `norm/v1`
   abaixo. Cada regra é uma promessa de que duas linhas são a mesma obra; por isso a lista é
   curta e conservadora.

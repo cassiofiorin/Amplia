@@ -66,7 +66,7 @@ Flatpak é o caminho normal; AppImage, `.deb`, `.rpm` e o port para **Windows** 
 | F5 | Atalhos (paridade de teclado com o original) | **concluída** |
 | F6a/b | Idioma (infraestrutura e inglês completo) | **concluída** |
 | F3 | Biblioteca SQLite: árvore, busca, filtros, varredura incremental, estrelas, playcount | **concluída** |
-| F4 | Tags, capa e identidade: autotag por AcoustID/MusicBrainz, gravação de tags, capa, fingerprint | próxima |
+| F4 | Tags, capa e identidade: autotag por texto no MusicBrainz, gravação de tags e capa | próxima |
 | F4B | Conversão de formatos: MP3, FLAC, Opus e Vorbis, com fila e tags junto (depois do QoL) | planejada |
 | F5 | Análises compartilhadas: BPM e tom por obra, exportar e importar | planejada |
 | F6 | Perfis compartilhados: humor, mistura e léxico com nome e autor | planejada |
@@ -741,7 +741,7 @@ where Flatpak is the normal path; AppImage, `.deb`, `.rpm` and the **Windows** p
 | F5 | Shortcuts (keyboard parity with the original) | **done** |
 | F6a/b | Language (infrastructure and full English) | **done** |
 | F3 | SQLite library: view tree, search, filters, incremental scan, stars, play count | **done** |
-| F4 | Tags, artwork and identity: AcoustID/MusicBrainz autotag, tag writing, artwork, fingerprint | next |
+| F4 | Tags, artwork and identity: text-based MusicBrainz autotag, tag writing and artwork | next |
 | F4B | Format conversion: MP3, FLAC, Opus and Vorbis, with a queue and tags carried over (after QoL) | planned |
 | F5 | Shared analysis: BPM and key per work, export and import | planned |
 | F6 | Shared profiles: mood, blend and lexicon with a name and an author | planned |

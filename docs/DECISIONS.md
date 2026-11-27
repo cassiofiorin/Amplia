@@ -3186,3 +3186,15 @@ ambas nunca executadas, enquanto o trabalho entregue aparece no histórico em ja
 minutos por item. A partir daqui, fase entra no ROADMAP com **faixa em horas de relógio** —
 inclusive porque o que consome a janela não é o código, e sim a decisão (três idas e voltas no
 espectro, desenho da revisão, diagnóstico do TagLib).
+
+## D-150 — O fingerprint sai do planejamento; o desempate é humano
+
+Decisão do autor em 27/11, ao revisar o que faltava na F4: **o fingerprint de áudio não é mais
+critério de desempate do autotag**. Ele existia para o caso de dois candidatos do MusicBrainz com
+pontuação parecida — e esse caso passou a ter solução melhor, a tela de revisão: as duas colunas,
+o campo a campo e a pessoa decidindo. Trocar uma dependência cara (módulo `libchromaprint` no
+manifesto, mais chave de API do AcoustID) por algo que já está na tela e funciona é a troca certa.
+
+A função fica registrada em **"Funções desejadas, mas ainda fora de planejamento"** no
+`ROADMAP.md`, com o ponto de encaixe (`autotagScore`/`rankCandidates`) e a nota de que também
+serviria à F5 — qualquer pessoa, inclusive de fora do projeto, pode retomá-la sem arqueologia.
