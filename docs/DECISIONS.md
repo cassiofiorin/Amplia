@@ -3080,3 +3080,26 @@ duplicar a regra em dois lugares.
 
 **O atalho é Ctrl+F** dentro do Alt+3, e Enter na lista de candidatos aplica o escolhido: quem
 está no teclado não precisa do mouse para a operação inteira.
+
+## D-142 — O lote do autotag roda em rodadas de 250, e o excedente fica na fila
+
+Um pedido de busca em lote sobre a biblioteca inteira pode passar de mil faixas. Duas coisas
+não combinam com isso: o MusicBrainz pede **uma requisição por segundo**, então mil faixas são
+~17 minutos de rede; e a máquina do usuário não precisa segurar mil resultados na memória para
+mostrar três listas. A rodada existe por isso — o trabalho é dividido, e cada pedaço tem fim.
+
+**A regra é dita antes de começar**, com os números reais daquele pedido: "Serão buscadas 250 de
+678 faixas selecionadas; as próximas serão enfileiradas para serem buscadas em sequência." O
+excedente vai para a tabela `autotag_queue` **antes** da primeira consulta: se o app fechar no
+meio, a próxima abertura sabe o que falta, sem depender de a seleção continuar existindo. O que
+a rodada processou sai da fila; o que sobrou continua lá para a próxima.
+
+**O que a rodada grava** segue a régua do D-139/140, sem exceção para "lote": só campo vazio,
+só com score ≥ 0,90 e margem ≥ 0,15, e cada gravação entra no diário antes do commit final do
+lote. Quando nada passa da régua, a rodada termina sem gravar nada e diz isso — "0 gravada(s),
+N para revisar" é resposta, não falha. Desfazer restaura os valores do último lote gravado;
+rodadas sem gravação não deixam diário, e por isso o botão fica desligado.
+
+**Cada faixa aparece na lista com o veredito**: gravada, revisar (com o motivo e a nota) ou sem
+resultado. A revisão faixa a faixa é o próximo passo; esta rodada entrega o que grava sozinho e
+o que precisa de olho humano, que é a parte que não pode errar em silêncio.

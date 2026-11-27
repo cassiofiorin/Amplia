@@ -121,6 +121,10 @@ bool TagCache::ensureSchema(std::string* error) {
       ");"
       // Removido da biblioteca pelo usuário: a varredura respeita esta lista, senão a
       // faixa voltaria no próximo Atualizar e pareceria que a remoção não funcionou.
+      // Fila do autotag: o que passou do limite da rodada fica aqui e volta na próxima.
+      "CREATE TABLE IF NOT EXISTS autotag_queue ("
+      " path TEXT PRIMARY KEY, added_at INTEGER NOT NULL"
+      ");"
       "CREATE TABLE IF NOT EXISTS ignored ("
       " path TEXT PRIMARY KEY, ignored_at INTEGER NOT NULL"
       ");";
@@ -213,6 +217,78 @@ void TagCache::queueScan(const std::vector<std::string>& paths) {
   }
   sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr);
   sqlite3_finalize(statement);
+}
+
+void TagCache::enqueueAutotag(const std::vector<std::string>& paths) {
+  if (db_ == nullptr || paths.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(
+          db_,
+          "INSERT OR IGNORE INTO autotag_queue (path, added_at)"
+          " VALUES (?, CAST(strftime('%s','now') AS INTEGER));",
+          -1, &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, nullptr);
+  for (const auto& path : paths) {
+    bindText(statement, 1, path);
+    sqlite3_step(statement);
+    sqlite3_reset(statement);
+  }
+  sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr);
+  sqlite3_finalize(statement);
+}
+
+std::vector<std::string> TagCache::autotagQueue(int limit, std::string* error) {
+  std::vector<std::string> paths;
+  if (db_ == nullptr) {
+    if (error != nullptr) *error = "A biblioteca não está aberta.";
+    return paths;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_,
+                         "SELECT path FROM autotag_queue ORDER BY added_at, rowid LIMIT ?;", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    if (error != nullptr) *error = "Não deu para ler a fila do autotag.";
+    return paths;
+  }
+  sqlite3_bind_int(statement, 1, limit > 0 ? limit : -1);
+  while (sqlite3_step(statement) == SQLITE_ROW) {
+    const auto* text = sqlite3_column_text(statement, 0);
+    if (text != nullptr) paths.emplace_back(reinterpret_cast<const char*>(text));
+  }
+  sqlite3_finalize(statement);
+  return paths;
+}
+
+void TagCache::dropAutotagPaths(const std::vector<std::string>& paths) {
+  if (db_ == nullptr || paths.empty()) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "DELETE FROM autotag_queue WHERE path = ?;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    return;
+  }
+  sqlite3_exec(db_, "BEGIN;", nullptr, nullptr, nullptr);
+  for (const auto& path : paths) {
+    bindText(statement, 1, path);
+    sqlite3_step(statement);
+    sqlite3_reset(statement);
+  }
+  sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr);
+  sqlite3_finalize(statement);
+}
+
+int TagCache::autotagQueueSize() {
+  if (db_ == nullptr) return 0;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT count(*) FROM autotag_queue;", -1, &statement, nullptr) !=
+      SQLITE_OK) {
+    return 0;
+  }
+  int count = 0;
+  if (sqlite3_step(statement) == SQLITE_ROW) count = sqlite3_column_int(statement, 0);
+  sqlite3_finalize(statement);
+  return count;
 }
 
 std::vector<std::string> TagCache::scanQueue(std::string* error) {

@@ -120,6 +120,11 @@ class TagCache final {
   /// Fila de indexação persistida: os pendentes entram aqui antes de a leitura começar e
   /// saem quando a tag é gravada. Se o app morrer no meio, a próxima execução retoma.
   void queueScan(const std::vector<std::string>& paths);
+  /// Fila do autotag: o excedente da rodada fica guardado e volta na próxima abertura.
+  void enqueueAutotag(const std::vector<std::string>& paths);
+  std::vector<std::string> autotagQueue(int limit, std::string* error);
+  void dropAutotagPaths(const std::vector<std::string>& paths);
+  int autotagQueueSize();
   std::vector<std::string> scanQueue(std::string* error);
   /// Tira um caminho da fila sem gravar tag (arquivo ilegível/sumido): não insiste para sempre.
   void dropFromScanQueue(const std::string& path);

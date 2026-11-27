@@ -16,6 +16,8 @@ add_executable(wamp
   round_button.cpp
   eq_curve_view.h
   file_info_dialog.cpp
+  batch_tag_dialog.cpp
+  batch_tag_dialog.h
   tag_search_dialog.cpp
   tag_search_dialog.h
   musicbrainz.cpp

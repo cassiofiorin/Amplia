@@ -294,6 +294,7 @@ void warnAboutNetworkDrop(QWidget* parent, const QList<QUrl>& urls, int rejected
 #include "file_info_dialog.h"
 #include "jump_dialog.h"
 #include "confirm_dialog.h"
+#include "batch_tag_dialog.h"
 #include "library_window.h"
 #include "playlist_delegate.h"
 #include "preferences_dialog.h"
@@ -660,6 +661,28 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
       qInfo("amplia: teste fila com %zu item(s)", pathQueue_.size());
       if (queuePanel_ != nullptr) queuePanel_->setVisible(true);
       refreshQueuePanel();
+    });
+  }
+  // Gancho de teste: abre o lote do autotag com os áudios de uma pasta, sem passar pela
+  // Biblioteca (que mexeria na configuração do usuário).
+  if (qEnvironmentVariableIsSet("AMPLIA_BATCH_TAGS")) {
+    const QString folder = qEnvironmentVariable("AMPLIA_BATCH_TAGS");
+    QTimer::singleShot(600, this, [this, folder] {
+      QStringList paths;
+      QDirIterator it(folder, QDir::Files);
+      while (it.hasNext()) {
+        const QString file = it.next();
+        const QString suffix = QFileInfo(file).suffix().toLower();
+        if (suffix == QStringLiteral("mp3") || suffix == QStringLiteral("flac") ||
+            suffix == QStringLiteral("m4a")) {
+          paths.append(file);
+        }
+      }
+      wamp::ui::BatchTagDialog dialog(cache_.get(), paths, this);
+      if (qEnvironmentVariableIsSet("AMPLIA_BATCH_AUTOSTART")) {
+        QTimer::singleShot(200, &dialog, &wamp::ui::BatchTagDialog::start);
+      }
+      dialog.exec();
     });
   }
   if (qEnvironmentVariableIsSet("AMPLIA_OPEN_LIBRARY")) {
@@ -4573,6 +4596,12 @@ void MainWindow::openLibrary() {
             &MainWindow::openFileInfoFor);
     connect(library_.get(), &wamp::ui::LibraryWindow::tagRefreshRequested, this,
             &MainWindow::refreshTags);
+    connect(library_.get(), &wamp::ui::LibraryWindow::batchTagRequested, this,
+            [this](const QStringList& paths) {
+              wamp::ui::BatchTagDialog dialog(cache_.get(), paths, this);
+              dialog.exec();
+              refreshLibrary();
+            });
     connect(library_.get(), &wamp::ui::LibraryWindow::humorPointChanged, this,
             &MainWindow::onHumorPointChanged);
     connect(library_.get(), &wamp::ui::LibraryWindow::humorApplyRequested, this,

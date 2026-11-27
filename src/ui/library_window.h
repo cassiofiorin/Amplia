@@ -109,6 +109,8 @@ class LibraryWindow final : public QWidget {
   void tagInfoRequested(const QString& path);
   /// "Atualizar tag": relê as tags do arquivo e atualiza a biblioteca e a playlist.
   void tagRefreshRequested(const QStringList& paths);
+  /// Autotag em lote para as faixas escolhidas (o diálogo do lote cuida do limite de 250).
+  void batchTagRequested(const QStringList& paths);
   /// O slider da semente mudou: a MainWindow guarda e refaz a prévia.
   void seedBlendChanged(int blend);
   /// Sliders do humor mudaram (ou outro preset foi escolhido): a MainWindow refaz a prévia.
