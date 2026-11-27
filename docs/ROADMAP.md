@@ -345,6 +345,16 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       ≥ 0,90. O que foi preenchido por consenso entra no diário com `source: consensus`, para o
       desfazer alcançar do mesmo jeito.
 
+      *O ano é a exceção combinada com o autor.* Edições diferentes nunca concordam no ano (1973
+      original × 2013 deluxe), então exigir consenso deixaria o ano sempre vazio. Regra: entre os
+      candidatos plausíveis, vale o **ano mais antigo** — que é também o bibliograficamente certo,
+      o ano do lançamento original, e é o que a maioria dos taggers espera. Três guardas: (1) só
+      quando a faixa não tem marca do usuário; (2) o candidato que doa o ano precisa ter o **mesmo
+      álbum** do consenso, para não pegar ano de outra obra; (3) se a diferença entre o mais antigo
+      e o mais novo passar de **20 anos**, não preenche nada — essa não é uma edição levemente
+      defasada, é outra coisa, e vai para revisão. Número de faixa e de disco **não** entram nessa
+      exceção: só por consenso exato.
+
       *Paginação de 20.* Cada página é uma fatia da lista; "Próxima"/"Anterior" mudam a fatia e
       **salvam o estado antes de virar a página** — marcados e pulados ficam no banco, junto do
       número da página. Quem fecha no meio e volta depois cai na mesma página, com as mesmas
