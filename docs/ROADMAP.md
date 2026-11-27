@@ -329,9 +329,21 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       checkbox ao lado do valor encontrado, e o checkbox da linha marca "aplicar esta faixa".
       Campos iguais aparecem em texto normal, sem caixa: não há o que decidir.
 
-      *Padrão das caixas.* Vem marcado o que preenche campo **vazio**; campo que **já tem valor**
-      vem desmarcado e só muda se a pessoa marcar. É a mesma régua do autotag (só campo vazio),
-      com a porta aberta para sobrescrever de propósito.
+      *Padrão das caixas (decisão do autor).* **Campo com valor nunca muda sem marca explícita** —
+      nada é salvo por omissão. O que fica de fora da marca é só o campo **vazio**, e mesmo assim
+      com uma condição: quando os candidatos plausíveis concordam naquele campo (ver "consenso"
+      abaixo). A tela avisa, em texto fixo: "Faixas sem tags terão os dados preenchidos mesmo que
+      não estejam marcadas — apenas quando a compatibilidade da tag for alta." Marcar a **linha**
+      marca todos os campos daquela faixa; os checkboxes por campo existem para o caso de querer
+      só um deles.
+
+      *Consenso (o que "compatibilidade alta" quer dizer na revisão).* Olhando os até **3**
+      candidatos com nota ≥ 0,55: se **todos** têm o mesmo valor não vazio para um campo, aquele
+      campo está fora de dúvida e pode preencher o vazio do arquivo — mesmo que a faixa tenha ido
+      para revisão por empate de nota (caso comum: várias edições do mesmo disco, todas com o
+      mesmo álbum e o mesmo título). Com menos de 3 candidatos, vale o candidato único com nota
+      ≥ 0,90. O que foi preenchido por consenso entra no diário com `source: consensus`, para o
+      desfazer alcançar do mesmo jeito.
 
       *Paginação de 20.* Cada página é uma fatia da lista; "Próxima"/"Anterior" mudam a fatia e
       **salvam o estado antes de virar a página** — marcados e pulados ficam no banco, junto do
@@ -349,9 +361,17 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       entra no diário normal (D-140) com `source: user`, então o "Desfazer último lote" alcança a
       revisão também.
 
-      *O onde.* O botão "Revisar (N)" fica no diálogo do lote, ao lado de "Desfazer último lote";
-      quando há revisão pendente salva, a Biblioteca também oferece "Continuar revisão (N)" no
-      menu de contexto.
+      *Avançar.* Dois botões no rodapé: **"Avançar"** (sai da página sem gravar nada — serve para
+      adiar) e **"Salvar e avançar"** (grava as marcadas e as de consenso, e marca as demais como
+      vistas). O que foi visto em "Salvar e avançar" **não volta** na próxima atuação; o que foi
+      adiado continua pendente. Interromper no meio não perde nada: a página e as marcas estão no
+      banco a cada virada.
+
+      *Onde mora.* O botão "Revisar (N)" fica no **rodapé do diálogo do lote**, junto de "Desfazer
+      último lote". O retomar **não** fica no rodapé (seria um "clique em mim" para iniciante):
+      ganha um menu de topo **"Tags"**, ao lado de "Opções", com as operações do ramo — "Buscar
+      tags nesta faixa…", "Buscar tags em lote…", "Continuar revisão (N)" e "Desfazer último
+      lote".
 - [ ] **Buscar o disco inteiro**: `searchReleases` existe no cliente, sem botão no lote.
 - [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
