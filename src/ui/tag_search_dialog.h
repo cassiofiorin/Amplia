@@ -7,6 +7,7 @@
 
 #include <QDialog>
 #include <QString>
+#include <utility>
 #include <vector>
 
 #include "wamp/autotag.h"
@@ -14,6 +15,7 @@
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QTableWidget;
 class QPushButton;
 
 namespace wamp::ui {
@@ -34,10 +36,18 @@ class TagSearchDialog final : public QDialog {
   /// Número de campos que a escolha preencheria (para a mensagem no Alt+3).
   static int fillableFields(const TagQuery& query, const TagCandidate& candidate);
 
+  /// Campos escolhidos a dedo, na ordem em que aparecem: nome do campo em `TagFields` e valor.
+  /// A decisão é por campo porque a comparação é por campo — corrigir o álbum não deve obrigar
+  /// a aceitar o título de uma edição duvidosa.
+  const std::vector<std::pair<std::string, std::string>>& chosenFields() const {
+    return chosenFields_;
+  }
+
  private:
   void startSearch();
   void showCandidates(std::vector<TagCandidate> candidates, const QString& error);
   void updateSelection();
+  void fillFieldTable();
   void acceptChoice();
 
   MusicBrainzClient* client_ = nullptr;
@@ -54,6 +64,8 @@ class TagSearchDialog final : public QDialog {
   QLabel* statusLabel_ = nullptr;
   QLabel* reasonsLabel_ = nullptr;
   QListWidget* results_ = nullptr;
+  QTableWidget* fields_ = nullptr;
+  std::vector<std::pair<std::string, std::string>> chosenFields_;
 };
 
 }  // namespace wamp::ui

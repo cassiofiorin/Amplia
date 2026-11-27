@@ -166,6 +166,73 @@ std::vector<TagCandidate> parseReleaseSearch(const QByteArray& json, QString* er
   return out;
 }
 
+std::vector<TagCandidate> parseReleaseTracks(const QByteArray& json, QString* error) {
+  std::vector<TagCandidate> out;
+  QJsonParseError parseError{};
+  const QJsonDocument document = QJsonDocument::fromJson(json, &parseError);
+  if (parseError.error != QJsonParseError::NoError) {
+    if (error != nullptr) *error = parseError.errorString();
+    return out;
+  }
+  if (!document.isObject()) {
+    if (error != nullptr) *error = QStringLiteral("resposta inesperada");
+    return out;
+  }
+  if (error != nullptr) error->clear();
+
+  const QJsonObject release = document.object();
+  const std::string album = release.value(QStringLiteral("title")).toString().toStdString();
+  const std::string releaseId = release.value(QStringLiteral("id")).toString().toStdString();
+  const int year = yearOf(release.value(QStringLiteral("date")).toString());
+  std::string albumArtist;
+  const QJsonArray credits = release.value(QStringLiteral("artist-credit")).toArray();
+  if (!credits.isEmpty()) {
+    albumArtist = credits.first().toObject().value(QStringLiteral("name")).toString().toStdString();
+  }
+
+  const QJsonArray media = release.value(QStringLiteral("media")).toArray();
+  for (const QJsonValue& mediumValue : media) {
+    const QJsonObject medium = mediumValue.toObject();
+    const int discNo = medium.value(QStringLiteral("position")).toInt();
+    const QJsonArray tracks = medium.value(QStringLiteral("tracks")).toArray();
+    for (const QJsonValue& trackValue : tracks) {
+      const QJsonObject track = trackValue.toObject();
+      TagCandidate candidate;
+      candidate.releaseId = releaseId;
+      candidate.album = album;
+      candidate.albumArtist = albumArtist;
+      candidate.artist = albumArtist;
+      candidate.year = year;
+      candidate.discNo = discNo;
+      // `number` pode ser "3" ou "A1"; o número útil é o que vem no começo.
+      const QString number = track.value(QStringLiteral("number")).toString();
+      bool numberOk = false;
+      const int trackNo = number.left(3).toInt(&numberOk);
+      candidate.trackNo = numberOk ? trackNo : 0;
+      candidate.title = track.value(QStringLiteral("title")).toString().toStdString();
+      candidate.id = track.value(QStringLiteral("recording"))
+                         .toObject()
+                         .value(QStringLiteral("id"))
+                         .toString()
+                         .toStdString();
+      // A duração da faixa do lançamento é a que vale para casar com o arquivo; quando falta,
+      // a da gravação serve.
+      const QJsonObject recording = track.value(QStringLiteral("recording")).toObject();
+      candidate.durationMs = track.value(QStringLiteral("length")).toVariant().toLongLong();
+      if (candidate.durationMs == 0) {
+        candidate.durationMs = recording.value(QStringLiteral("length")).toVariant().toLongLong();
+      }
+      const QJsonArray trackCredits = recording.value(QStringLiteral("artist-credit")).toArray();
+      if (!trackCredits.isEmpty()) {
+        const QString name = trackCredits.first().toObject().value(QStringLiteral("name")).toString();
+        if (!name.isEmpty()) candidate.artist = name.toStdString();
+      }
+      if (!candidate.title.empty()) out.push_back(std::move(candidate));
+    }
+  }
+  return out;
+}
+
 MusicBrainzClient::MusicBrainzClient(QObject* parent) : QObject(parent) {
   network_ = new QNetworkAccessManager(this);
   timer_.setInterval(kRequestIntervalMs);
@@ -190,6 +257,16 @@ void MusicBrainzClient::searchReleases(const QString& artist, const QString& alb
   if (!album.trimmed().isEmpty()) terms << QStringLiteral("release:\"%1\"").arg(album.trimmed());
   if (terms.isEmpty()) return;
   enqueue(luceneUrl(QStringLiteral("release"), terms, 15));
+}
+
+void MusicBrainzClient::lookupRelease(const QString& releaseId) {
+  if (releaseId.trimmed().isEmpty()) return;
+  QUrl url(QStringLiteral("https://musicbrainz.org/ws/2/release/") + releaseId.trimmed());
+  QUrlQuery params;
+  params.addQueryItem(QStringLiteral("inc"), QStringLiteral("recordings+artist-credits"));
+  params.addQueryItem(QStringLiteral("fmt"), QStringLiteral("json"));
+  url.setQuery(params);
+  enqueue(url);
 }
 
 void MusicBrainzClient::enqueue(const QUrl& url) {
@@ -252,9 +329,16 @@ void MusicBrainzClient::handleReply(QNetworkReply* reply) {
   QString error;
   // O caminho da URL diz qual analisador usar.
   const QString path = reply->url().path();
-  std::vector<TagCandidate> candidates = path.contains(QStringLiteral("/release"))
-                                             ? parseReleaseSearch(body, &error)
-                                             : parseRecordingSearch(body, &error);
+  // Três rotas caem aqui: busca por gravação, busca por lançamento e abertura de um
+  // lançamento pelo id (`/release/<id>`, com as faixas todas).
+  std::vector<TagCandidate> candidates;
+  if (path.contains(QStringLiteral("/release/"))) {
+    candidates = parseReleaseTracks(body, &error);
+  } else if (path.contains(QStringLiteral("/release"))) {
+    candidates = parseReleaseSearch(body, &error);
+  } else {
+    candidates = parseRecordingSearch(body, &error);
+  }
   emit finished(std::move(candidates), error);
   if (!queue_.isEmpty() && !timer_.isActive()) timer_.start();
 }

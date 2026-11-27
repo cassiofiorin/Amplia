@@ -9,6 +9,8 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QHeaderView>
+#include <QTableWidget>
 #include <QVBoxLayout>
 #include <algorithm>
 
@@ -63,6 +65,16 @@ TagSearchDialog::TagSearchDialog(const TagQuery& query, QWidget* parent)
   results_ = new QListWidget(this);
   results_->setUniformItemSizes(true);
   layout->addWidget(results_, 1);
+
+  fields_ = new QTableWidget(this);
+  fields_->setColumnCount(3);
+  fields_->setHorizontalHeaderLabels({tr("Campo"), tr("No arquivo"), tr("Encontrado")});
+  fields_->verticalHeader()->setVisible(false);
+  fields_->horizontalHeader()->setStretchLastSection(true);
+  fields_->setSelectionMode(QAbstractItemView::NoSelection);
+  fields_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  fields_->setMinimumHeight(150);
+  layout->addWidget(fields_, 1);
 
   reasonsLabel_ = new QLabel(this);
   reasonsLabel_->setObjectName(QStringLiteral("hint"));
@@ -200,6 +212,7 @@ void TagSearchDialog::updateSelection() {
     detail += QStringLiteral("  ·  ");
     detail += reasons.join(QStringLiteral(", "));
   }
+  fillFieldTable();
   const int fillable = fillableFields(query_, item.candidate);
   detail += QStringLiteral("  ·  ");
   detail += fillable == 0 ? tr("nenhum campo vazio para preencher")
@@ -207,11 +220,79 @@ void TagSearchDialog::updateSelection() {
   reasonsLabel_->setText(detail);
 }
 
+void TagSearchDialog::fillFieldTable() {
+  const int row = results_->currentRow();
+  if (row < 0 || static_cast<std::size_t>(row) >= scored_.size()) {
+    fields_->setRowCount(0);
+    return;
+  }
+  const wamp::TagCandidate& candidate = scored_.at(static_cast<std::size_t>(row)).candidate;
+  struct Row {
+    const char* field;
+    QString label;
+    QString current;
+    QString found;
+    bool numeric;
+  };
+  const auto asText = [](const std::string& value) { return QString::fromStdString(value); };
+  const std::vector<Row> rows = {
+      {"title", tr("Título"), asText(query_.title), asText(candidate.title), false},
+      {"artist", tr("Artista"), asText(query_.artist), asText(candidate.artist), false},
+      {"album", tr("Álbum"), asText(query_.album), asText(candidate.album), false},
+      {"albumartist", tr("Artista do álbum"), {}, asText(candidate.albumArtist), false},
+      {"track", tr("Faixa"), query_.trackNo > 0 ? QString::number(query_.trackNo) : QString(),
+       candidate.trackNo > 0 ? QString::number(candidate.trackNo) : QString(), true},
+      {"disc", tr("Disco"), query_.discNo > 0 ? QString::number(query_.discNo) : QString(),
+       candidate.discNo > 0 ? QString::number(candidate.discNo) : QString(), true},
+      {"year", tr("Ano"), query_.year > 0 ? QString::number(query_.year) : QString(),
+       candidate.year > 0 ? QString::number(candidate.year) : QString(), true},
+  };
+
+  fields_->setRowCount(static_cast<int>(rows.size()));
+  int visible = 0;
+  for (std::size_t i = 0; i < rows.size(); ++i) {
+    const Row& rowData = rows[i];
+    const int line = static_cast<int>(i);
+    auto* check = new QTableWidgetItem(rowData.label);
+    check->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
+    // Marcado por padrão só quando o arquivo não tem nada ali: preencher o vazio é seguro;
+    // trocar o que existe é decisão de quem está olhando.
+    check->setCheckState(rowData.found.isEmpty() ? Qt::Unchecked
+                                                 : (rowData.current.trimmed().isEmpty()
+                                                        ? Qt::Checked
+                                                        : Qt::Unchecked));
+    fields_->setItem(line, 0, check);
+    fields_->setItem(line, 1, new QTableWidgetItem(rowData.current));
+    fields_->setItem(line, 2, new QTableWidgetItem(rowData.found));
+    if (!rowData.found.isEmpty()) ++visible;
+  }
+  fields_->resizeColumnsToContents();
+  Q_UNUSED(visible);
+}
+
 void TagSearchDialog::acceptChoice() {
   const int row = results_->currentRow();
   if (row < 0 || static_cast<std::size_t>(row) >= scored_.size()) return;
   chosen_ = scored_.at(static_cast<std::size_t>(row)).candidate;
   hasChoice_ = true;
+
+  // O que sai daqui é a lista de campos marcados, não o bloco inteiro.
+  static const char* const kFieldNames[] = {"title",  "artist", "album", "albumartist",
+                                            "track", "disc",   "year"};
+  const QStringList values = {QString::fromStdString(chosen_.title),
+                              QString::fromStdString(chosen_.artist),
+                              QString::fromStdString(chosen_.album),
+                              QString::fromStdString(chosen_.albumArtist),
+                              chosen_.trackNo > 0 ? QString::number(chosen_.trackNo) : QString(),
+                              chosen_.discNo > 0 ? QString::number(chosen_.discNo) : QString(),
+                              chosen_.year > 0 ? QString::number(chosen_.year) : QString()};
+  chosenFields_.clear();
+  for (int i = 0; i < fields_->rowCount() && i < 7; ++i) {
+    const QTableWidgetItem* item = fields_->item(i, 0);
+    if (item == nullptr || item->checkState() != Qt::Checked) continue;
+    if (values.at(i).isEmpty()) continue;
+    chosenFields_.emplace_back(kFieldNames[i], values.at(i).toStdString());
+  }
   accept();
 }
 

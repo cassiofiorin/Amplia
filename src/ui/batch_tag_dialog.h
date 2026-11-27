@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QHash>
 #include <QString>
 #include <QSet>
 #include <QStringList>
@@ -15,6 +16,7 @@
 #include "tag_journal.h"
 #include "wamp/autotag.h"
 
+class QCheckBox;
 class QLabel;
 class QListWidget;
 class QProgressBar;
@@ -44,6 +46,14 @@ class BatchTagDialog final : public QDialog {
 
  private:
   void buildUi(int total, int sliceSize, int restSize);
+
+  /// Caminho do disco inteiro: uma consulta por pasta, em vez de uma por faixa.
+  void startAlbumPass();
+  void lookupNextAlbum();
+  void tryNextRelease();
+  void commitAlbumTracks();
+  void finishAlbumPass();
+  static QString folderOf(const QString& path);
   void stop();
   void processNext();
   void handleCandidates(std::vector<wamp::TagCandidate> candidates, const QString& error);
@@ -65,12 +75,28 @@ class BatchTagDialog final : public QDialog {
   int deferred_ = 0;
   QSet<QString> deferredPaths_;
   bool running_ = false;
+  bool albumMode_ = false;
+  bool albumPass_ = false;      ///< true enquanto estamos consultando discos, não faixas
+  bool expectingTracks_ = false;  ///< true quando o pedido pendente é a abertura de um disco
+  QStringList albumReleaseIds_;   ///< lançamentos candidatos da pasta atual, do melhor palpite
+  int albumTrial_ = 0;            ///< quantos já foram abertos para comparar as faixas
+  int albumBestScore_ = -1;       ///< quantas faixas da pasta casaram com o melhor até agora
+  std::vector<wamp::TagCandidate> albumBestTracks_;
+  QStringList folderTitles_;      ///< títulos da pasta, normalizados, para medir o casamento
+  QStringList albumFolders_;
+  int albumCursor_ = 0;
+  QString currentFolder_;
+  QString currentAlbumArtist_;
+  QString currentAlbumName_;
+  int currentAlbumYear_ = 0;
+  QHash<QString, std::vector<wamp::TagCandidate>> folderTracks_;
   wamp::ui::JournalBatch journal_;
 
   QLabel* summary_ = nullptr;
   QLabel* status_ = nullptr;
   QProgressBar* progress_ = nullptr;
   QListWidget* rows_ = nullptr;
+  QCheckBox* albumBox_ = nullptr;
   QPushButton* startButton_ = nullptr;
   QPushButton* stopButton_ = nullptr;
   QPushButton* undoButton_ = nullptr;

@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QCheckBox>
 #include <QLabel>
 #include <QListWidget>
 #include <QProgressBar>
@@ -24,6 +25,7 @@
 #include "musicbrainz.h"
 #include "wamp/tag_cache.h"
 #include "wamp/tag_editor.h"
+#include "wamp/work_key.h"
 
 namespace wamp::ui {
 namespace {
@@ -153,6 +155,14 @@ void BatchTagDialog::buildUi(int total, int sliceSize, int restSize) {
   }
   layout->addWidget(summary_);
 
+  // Desligado por padrão enquanto a escolha do lançamento não estiver confiável: o caminho de
+  // uma faixa por vez já foi validado e não depende de acertar qual edição é a certa.
+  albumBox_ = new QCheckBox(tr("Buscar o disco inteiro — uma consulta por pasta (em teste)"), this);
+  albumBox_->setChecked(false);
+  albumBox_->setToolTip(tr("Lê o disco uma vez no MusicBrainz e usa as faixas dele para casar "
+                          "com as da pasta. Uma consulta por pasta em vez de uma por faixa."));
+  layout->addWidget(albumBox_);
+
   progress_ = new QProgressBar(this);
   progress_->setRange(0, std::max(1, sliceSize));
   progress_->setValue(0);
@@ -224,17 +234,153 @@ void BatchTagDialog::start() {
   stopButton_->setEnabled(true);
   closeButton_->setEnabled(false);
   progress_->setValue(0);
-  processNext();
+  folderTracks_.clear();
+  albumMode_ = albumBox_ != nullptr && albumBox_->isChecked();
+  if (albumMode_) {
+    startAlbumPass();
+  } else {
+    processNext();
+  }
 }
 
 void BatchTagDialog::stop() {
   if (!running_) return;
   running_ = false;
+  albumPass_ = false;
+  expectingTracks_ = false;
   client_->cancel();
   status_->setText(tr("Parado. O que já foi gravado ficou registrado no diário."));
   startButton_->setEnabled(true);
   stopButton_->setEnabled(false);
   closeButton_->setEnabled(true);
+}
+
+QString BatchTagDialog::folderOf(const QString& path) {
+  return QFileInfo(path).absolutePath();
+}
+
+// O nome da pasta costuma carregar o álbum ("2005 - Analogue", "Analogue (Deluxe)"), e o arquivo
+// sem tag de álbum não tem outro lugar de onde tirar isso. Sem esse palpite, a busca por disco
+// vira "todas as gravações do artista" e traz reedição recente no lugar da original.
+static QString albumHintFromFolder(const QString& folder) {
+  QString name = QFileInfo(folder).fileName().trimmed();
+  if (name.isEmpty()) return name;
+  // "2005 - Analogue", "2005-Analogue", "2005 Analogue"
+  int i = 0;
+  while (i < name.size() && name.at(i).isDigit()) ++i;
+  if (i == 4) {
+    int j = i;
+    while (j < name.size() && (name.at(j) == QLatin1Char(' ') || name.at(j) == QLatin1Char('-') ||
+                               name.at(j) == QLatin1Char('.'))) {
+      ++j;
+    }
+    if (j > i && j < name.size()) name = name.mid(j);
+  }
+  // Parênteses de edição no fim: "(Deluxe Edition)", "(Remastered 2011)".
+  const int open = name.lastIndexOf(QLatin1Char('('));
+  if (open > 0 && name.endsWith(QLatin1Char(')'))) name = name.left(open).trimmed();
+  return name;
+}
+
+void BatchTagDialog::startAlbumPass() {
+  albumFolders_.clear();
+  for (const QString& path : slice_) {
+    const QString folder = folderOf(path);
+    if (!albumFolders_.contains(folder)) albumFolders_.append(folder);
+  }
+  albumCursor_ = 0;
+  albumPass_ = true;
+  lookupNextAlbum();
+}
+
+void BatchTagDialog::lookupNextAlbum() {
+  if (!running_) return;
+  while (albumCursor_ < albumFolders_.size()) {
+    const QString folder = albumFolders_.at(albumCursor_);
+    // A pasta fala pelo arquivo com mais informação: o primeiro que tiver artista e álbum.
+    QString artist;
+    QString album;
+    for (const QString& path : slice_) {
+      if (folderOf(path) != folder) continue;
+      wamp::TagFields fields;
+      std::string readError;
+      if (!wamp::TagEditor::read(path.toStdString(), &fields, nullptr, nullptr, &readError)) continue;
+      if (!fields.artist.empty() && !fields.album.empty()) {
+        artist = fromStd(fields.artist);
+        album = fromStd(fields.album);
+        break;
+      }
+    }
+    if (album.isEmpty()) album = albumHintFromFolder(folder);
+    if (artist.isEmpty() && album.isEmpty()) {
+      // Pasta sem artista nem álbum: não há o que consultar; as faixas vão pelo caminho de
+      // uma por uma, que ainda acha por título.
+      ++albumCursor_;
+      continue;
+    }
+    currentFolder_ = folder;
+    folderTitles_.clear();
+    for (const QString& path : slice_) {
+      if (folderOf(path) != folder) continue;
+      wamp::TagFields fields;
+      if (!wamp::TagEditor::read(path.toStdString(), &fields, nullptr, nullptr, nullptr)) continue;
+      if (!fields.title.empty()) {
+        folderTitles_.append(fromStd(wamp::normalizeWorkField(wamp::WorkField::Title, fields.title)));
+      }
+    }
+    albumBestTracks_.clear();
+    albumBestScore_ = -1;
+    wamp::TagFields representative;
+    for (const QString& path : slice_) {
+      if (folderOf(path) != folder) continue;
+      if (wamp::TagEditor::read(path.toStdString(), &representative, nullptr, nullptr, nullptr)) break;
+    }
+    currentAlbumArtist_ = fromStd(representative.artist);
+    currentAlbumName_ = fromStd(representative.album);
+    if (currentAlbumName_.isEmpty()) currentAlbumName_ = albumHintFromFolder(folder);
+    currentAlbumYear_ = representative.year;
+    status_->setText(tr("Consultando o disco de %1").arg(QFileInfo(folder).fileName()));
+    client_->searchReleases(artist, album);
+    return;
+  }
+  finishAlbumPass();
+}
+
+void BatchTagDialog::tryNextRelease() {
+  if (!running_) return;
+  // Quatro tentativas por pasta é o teto: cobre edições comuns sem transformar uma pasta em
+  // uma fila de consultas.
+  constexpr int kMaxTrials = 4;
+  if (albumTrial_ < std::min(kMaxTrials, static_cast<int>(albumReleaseIds_.size()))) {
+    const QString id = albumReleaseIds_.at(albumTrial_++);
+    expectingTracks_ = true;
+    status_->setText(tr("Abrindo o disco %1 (%2)…").arg(currentAlbumName_).arg(albumTrial_));
+    client_->lookupRelease(id);
+    return;
+  }
+  commitAlbumTracks();
+}
+
+void BatchTagDialog::commitAlbumTracks() {
+  if (!albumBestTracks_.empty() && albumBestScore_ > 0) {
+    qInfo("amplia: disco de '%s' aceito com %d de %d título(s)",
+          qPrintable(currentAlbumName_), albumBestScore_, static_cast<int>(folderTitles_.size()));
+    folderTracks_.insert(currentFolder_, albumBestTracks_);
+  } else {
+    qInfo("amplia: nenhum lançamento casou com a pasta de '%s'", qPrintable(currentAlbumName_));
+  }
+  albumBestTracks_.clear();
+  albumBestScore_ = -1;
+  ++albumCursor_;
+  lookupNextAlbum();
+}
+
+void BatchTagDialog::finishAlbumPass() {
+  albumPass_ = false;
+  albumFolders_.clear();
+  status_->setText(tr("Discos consultados: %1. Agora as faixas.")
+                       .arg(static_cast<int>(folderTracks_.size())));
+  processNext();
 }
 
 void BatchTagDialog::processNext() {
@@ -280,12 +426,98 @@ void BatchTagDialog::processNext() {
   }
 
   currentPath_ = path;
+
+  if (albumMode_) {
+    const auto found = folderTracks_.constFind(folderOf(path));
+    if (found != folderTracks_.constEnd() && !found->empty()) {
+      // As faixas do disco já estão em memória: decide como se a busca tivesse voltado agora,
+      // e o casamento por título/duração escolhe a certa dentro do álbum.
+      status_->setText(tr("Casando %1 de %2 — %3")
+                           .arg(static_cast<int>(index_) + 1)
+                           .arg(slice_.size())
+                           .arg(QFileInfo(path).fileName()));
+      handleCandidates(*found, QString());
+      return;
+    }
+  }
   client_->searchRecordings(query);
 }
 
 void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates,
                                       const QString& error) {
   if (!running_) return;
+
+  // Duas respostas passam por aqui durante a varredura de discos: a lista de lançamentos e,
+  // depois, as faixas do lançamento escolhido.
+  if (albumPass_) {
+    if (expectingTracks_) {
+      expectingTracks_ = false;
+      if (error.isEmpty() && !candidates.empty()) {
+        std::vector<std::string> titles;
+        titles.reserve(candidates.size());
+        for (const auto& candidate : candidates) {
+          titles.push_back(wamp::normalizeWorkField(wamp::WorkField::Title, candidate.title));
+        }
+        int matched = 0;
+        for (const QString& title : folderTitles_) {
+          const std::string wanted = title.toStdString();
+          for (const std::string& have : titles) {
+            if (!wanted.empty() && have == wanted) {
+              ++matched;
+              break;
+            }
+          }
+        }
+        qInfo("amplia: disco '%s' tem %d faixa(s), %d de %d título(s) da pasta casaram",
+              qPrintable(currentAlbumName_), static_cast<int>(candidates.size()), matched,
+              static_cast<int>(folderTitles_.size()));
+        if (matched > albumBestScore_) {
+          albumBestScore_ = matched;
+          albumBestTracks_ = candidates;
+        }
+        if (matched > 0 && matched >= folderTitles_.size()) {
+          commitAlbumTracks();
+          return;
+        }
+      }
+      tryNextRelease();
+      return;
+    }
+    if (!error.isEmpty() || candidates.empty()) {
+      ++albumCursor_;
+      lookupNextAlbum();
+      return;
+    }
+    // Abrir um palpite só não basta: o serviço devolve edições, remasters e até disco homônimo de
+    // outro artista, e o "primeiro" ou o "mais antigo" erram com facilidade. A escolha é feita
+    // **comparando as faixas**: abre até quatro candidatos de mesmo álbum e fica com o que mais
+    // casar com os títulos da pasta.
+    const std::string wantedAlbum =
+        wamp::normalizeWorkField(wamp::WorkField::Album, currentAlbumName_.toStdString());
+    albumReleaseIds_.clear();
+    for (const auto& candidate : candidates) {
+      if (candidate.releaseId.empty()) continue;
+      if (!wantedAlbum.empty() &&
+          wamp::normalizeWorkField(wamp::WorkField::Album, candidate.album) != wantedAlbum) {
+        continue;
+      }
+      albumReleaseIds_.append(fromStd(candidate.releaseId));
+    }
+    if (albumReleaseIds_.isEmpty()) {
+      for (const auto& candidate : candidates) {
+        if (!candidate.releaseId.empty()) albumReleaseIds_.append(fromStd(candidate.releaseId));
+      }
+    }
+    if (albumReleaseIds_.isEmpty()) {
+      ++albumCursor_;
+      lookupNextAlbum();
+      return;
+    }
+    albumTrial_ = 0;
+    tryNextRelease();
+    return;
+  }
+
   const QString path = currentPath_;
   if (!error.isEmpty()) {
     // Falha de serviço ou de rede não é resposta: a faixa volta para a fila e é tentada de

@@ -3198,3 +3198,18 @@ manifesto, mais chave de API do AcoustID) por algo que já está na tela e funci
 A função fica registrada em **"Funções desejadas, mas ainda fora de planejamento"** no
 `ROADMAP.md`, com o ponto de encaixe (`autotagScore`/`rankCandidates`) e a nota de que também
 serviria à F5 — qualquer pessoa, inclusive de fora do projeto, pode retomá-la sem arqueologia.
+
+## D-151 — No Alt+3 a escolha é por campo; o disco inteiro espera a escolha do lançamento
+
+A busca do Alt+3 passa a devolver **campos escolhidos a dedo**, não o candidato inteiro: a
+tabela mostra `Campo | No arquivo | Encontrado` com uma caixa por linha, marcada de saída só
+quando o arquivo não tem nada ali. Aplicar é por campo — corrigir o álbum não obriga a aceitar
+o título de uma edição duvidosa —, e o que já existia só muda com marcação explícita.
+
+A busca do **disco inteiro** no lote está implementada na mecânica: uma consulta de lançamentos
+por pasta, abertura do lançamento, faixas em memória casadas por título e o mesmo caminho de
+consenso/revisão. Mas a escolha de **qual** lançamento é o certo ainda erra: no teste de 27/11
+(pasta `2005 - Analogue`, arquivos sem álbum) os quatro candidatos abertos acusaram
+`0 de N título(s) da pasta casaram`, nenhum foi aceito e nada foi gravado. Por isso a caixa
+entra **desligada por padrão e marcada "(em teste)"**: o caminho de uma faixa por vez é o que
+está validado, e recurso que erra não vira padrão.

@@ -451,26 +451,28 @@ void FileInfoDialog::searchTags() {
   wamp::ui::TagSearchDialog dialog(query, this);
   if (dialog.exec() != QDialog::Accepted || !dialog.hasChoice()) return;
 
-  // Só o que está vazio: o que a pessoa já escreveu é dela.
-  const wamp::TagCandidate& candidate = dialog.chosen();
-  const wamp::TagFill fill = wamp::planTagFill(query, candidate);
-  const auto put = [](QLineEdit* edit, bool wanted, const std::string& value) {
-    if (wanted && !value.empty() && edit->text().trimmed().isEmpty()) {
-      edit->setText(QString::fromStdString(value));
+  // Campo a campo: o diálogo devolve só o que foi marcado, e cada escolha vale por si. O que
+  // estava vazio entra sem discussão; trocar o que já existia é permitido porque a marcação é
+  // explícita — nunca por omissão.
+  const auto& picks = dialog.chosenFields();
+  if (picks.empty()) return;
+  for (const auto& pick : picks) {
+    const QString value = QString::fromStdString(pick.second);
+    if (pick.first == "title") {
+      titleEdit_->setText(value);
+    } else if (pick.first == "artist") {
+      artistEdit_->setText(value);
+    } else if (pick.first == "album") {
+      albumEdit_->setText(value);
+    } else if (pick.first == "albumartist") {
+      albumArtistEdit_->setText(value);
+    } else if (pick.first == "track") {
+      trackEdit_->setText(value);
+    } else if (pick.first == "disc") {
+      discEdit_->setText(value);
+    } else if (pick.first == "year") {
+      yearEdit_->setText(value);
     }
-  };
-  put(artistEdit_, fill.artist, candidate.artist);
-  put(albumEdit_, fill.album, candidate.album);
-  put(albumArtistEdit_, fill.albumArtist, candidate.albumArtist);
-  put(titleEdit_, fill.title, candidate.title);
-  if (fill.year && candidate.year > 0 && yearEdit_->text().trimmed().isEmpty()) {
-    yearEdit_->setText(QString::number(candidate.year));
-  }
-  if (fill.trackNo && candidate.trackNo > 0 && trackEdit_->text().trimmed().isEmpty()) {
-    trackEdit_->setText(QString::number(candidate.trackNo));
-  }
-  if (fill.discNo && candidate.discNo > 0 && discEdit_->text().trimmed().isEmpty()) {
-    discEdit_->setText(QString::number(candidate.discNo));
   }
   markDirty();
 }

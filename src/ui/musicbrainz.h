@@ -32,6 +32,11 @@ std::vector<TagCandidate> parseRecordingSearch(const QByteArray& json, QString* 
 /// primeira faixa como referência de duração e número).
 std::vector<TagCandidate> parseReleaseSearch(const QByteArray& json, QString* error);
 
+/// Converte a resposta de `release/<id>?inc=recordings` em candidatos: **uma faixa por
+/// posição** do disco, com álbum, disco, número, título e duração. É o que permite preencher
+/// uma pasta inteira com uma consulta só.
+std::vector<TagCandidate> parseReleaseTracks(const QByteArray& json, QString* error);
+
 class MusicBrainzClient final : public QObject {
   Q_OBJECT
 
@@ -43,6 +48,9 @@ class MusicBrainzClient final : public QObject {
 
   /// Busca lançamentos por artista e álbum — o caminho do disco inteiro.
   void searchReleases(const QString& artist, const QString& album);
+
+  /// Abre um lançamento pelo id e devolve todas as faixas dele (resposta em `finished`).
+  void lookupRelease(const QString& releaseId);
 
   /// Descarta o que estiver na fila (o diálogo fechou, por exemplo).
   void cancel();
