@@ -3141,3 +3141,23 @@ intervalo) **sem emitir** `finished` — antes ele avisava "tentando de novo…"
 resposta, e o lote marcava a faixa como processada e ia para a próxima. Esgotadas as tentativas,
 o lote conta a faixa em "para depois", **devolve o caminho para a fila persistida** e só tira da
 fila o que foi resolvido. "Sem resultado" passou a significar só o que o catálogo não tem.
+
+## D-147 — Quando o TagLib não grava, o arquivo é reescrito por remuxagem
+
+O TagLib do runtime (2.1.1) falha em dois casos reais: nos `.m4a` o `save()` volta verdadeiro e
+**nada é escrito**, e no MP3 que também tem ID3v1 a remoção de um quadro do ID3v2 não apaga o
+campo — a releitura volta a ver o valor antigo na ID3v1. Os dois sintomas eram "a gravação não
+bateu", com o original intacto (o que já era o desenho certo).
+
+A saída é o fallback por remuxagem (`src/tags/src/remux_writer.cpp`): quando a escrita pelo
+TagLib falha na conferência, o arquivo é copiado com `libavformat` — fluxos copiados, sem
+recodificar — para um temporário com o cabeçalho de metadados montado a partir de `TagFields`
+(título, artista, álbum, artista do álbum, gênero, comentário, compositor, gravadora, ano,
+faixa, disco e BPM; capa preservada como `attached_pic`). O temporário é conferido relendo com
+o TagLib e só então trocado pelo original com `std::rename`.
+
+Três consequências que valem registrar: (1) campo vazio significa "sem a chave" no cabeçalho
+novo, então **apagar funciona** — e o desfazer restaura um campo criado; (2) o arquivo é
+reconstruído, não editado no lugar: as tags ficam exatamente as pedidas, sem sobra de quadro
+antigo; (3) áudio não é recodificado, então o resultado é bit a bit o mesmo fluxo, com outra
+caixa em volta. O custo é reescrever o arquivo inteiro — só acontece no caminho de falha.

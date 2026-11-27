@@ -1,3 +1,4 @@
+#include "wamp/remux_writer.h"
 #include "wamp/tag_editor.h"
 
 #include <algorithm>
@@ -380,7 +381,21 @@ bool TagEditor::write(const std::string& path, const TagFields& fields, bool saf
     }
     return true;
   };
-  return guardedSave(path, safeSave, error, work);
+  std::string firstError;
+  if (guardedSave(path, safeSave, &firstError, work)) return true;
+
+  // O TagLib do runtime não escreve em MP4 e não apaga campo de ID3 com ID3v1 ao lado.
+  // Nesses casos a escrita vai por remuxagem: arquivo novo, conferido e trocado.
+  if (remuxCanWrite(path)) {
+    std::string remuxError;
+    if (remuxWrite(path, fields, &remuxError)) return true;
+    if (error != nullptr) {
+      *error = firstError.empty() ? remuxError : firstError + " (tentativa por cópia: " + remuxError + ")";
+    }
+    return false;
+  }
+  if (error != nullptr) *error = firstError;
+  return false;
 }
 
 // A troca é por *tipo* (cover, back, artist…), não por posição: assim a imagem nova
