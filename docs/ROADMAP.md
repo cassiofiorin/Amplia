@@ -320,8 +320,38 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       amarrado ao diário. O excedente vai para `autotag_queue` antes da primeira consulta e volta
       na rodada seguinte; o que foi processado sai da fila. Testado com 4 cópias e limite
       reduzido (`AMPLIA_BATCH_LIMIT=2`): 2 processadas, 2 na fila, nenhuma gravada sem régua.
-- [ ] **Revisão faixa a faixa dentro do lote**: hoje o veredito "revisar" só aparece na lista; a
-      comparação campo a campo com caixa por campo usa o mesmo diálogo do Alt+3.
+- [ ] **Revisão faixa a faixa dentro do lote** (mapeamento fechado, sem código ainda): hoje o
+      veredito "revisar" só aparece na lista. O desenho combinado:
+
+      *Lista, não diálogo.* Uma janela "Revisar lote" com uma linha por faixa em revisão, cada
+      linha aberta em duas colunas — **No arquivo** (esquerda) e **Encontrado no MusicBrainz**
+      (direita). Cada par de células mostra o valor de um campo; quando os dois diferem, nasce um
+      checkbox ao lado do valor encontrado, e o checkbox da linha marca "aplicar esta faixa".
+      Campos iguais aparecem em texto normal, sem caixa: não há o que decidir.
+
+      *Padrão das caixas.* Vem marcado o que preenche campo **vazio**; campo que **já tem valor**
+      vem desmarcado e só muda se a pessoa marcar. É a mesma régua do autotag (só campo vazio),
+      com a porta aberta para sobrescrever de propósito.
+
+      *Paginação de 20.* Cada página é uma fatia da lista; "Próxima"/"Anterior" mudam a fatia e
+      **salvam o estado antes de virar a página** — marcados e pulados ficam no banco, junto do
+      número da página. Quem fecha no meio e volta depois cai na mesma página, com as mesmas
+      marcas; é o "terminar depois" sem depender de a janela seguir aberta.
+
+      *Estados por faixa.* `pendente` (ainda não olhada), `marcada` (vai gravar), `pulada`
+      (decidido não mexer) e `gravada` (já foi). A lista mostra "revisar 12 · marcadas 5 ·
+      puladas 3 · gravadas 4" e o botão "Aplicar marcadas (5)" age só nas marcadas — gravar é
+      ato explícito, nunca efeito de virar página.
+
+      *Persistência.* Tabela `autotag_review (path, lote, candidato_json, estado, pagina,
+      atualizado_em)`; o candidato fica congelado com a resposta da busca, senão retomar depois
+      exigiria consultar o MusicBrainz de novo para mostrar a mesma comparação. Cada gravação
+      entra no diário normal (D-140) com `source: user`, então o "Desfazer último lote" alcança a
+      revisão também.
+
+      *O onde.* O botão "Revisar (N)" fica no diálogo do lote, ao lado de "Desfazer último lote";
+      quando há revisão pendente salva, a Biblioteca também oferece "Continuar revisão (N)" no
+      menu de contexto.
 - [ ] **Buscar o disco inteiro**: `searchReleases` existe no cliente, sem botão no lote.
 - [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
