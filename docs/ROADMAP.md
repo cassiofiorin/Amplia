@@ -315,8 +315,14 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       valores anteriores de cada campo, e a capa é copiada ao lado quando o lote mexeu nela.
       Cinco lotes ficam disponíveis; `readLatestJournal` acha o mais recente pelo carimbo e
       `pruneJournals` apaga o resto. Testado em `tests/tag_journal_test.cpp`.
-- [ ] **Tela do lote**: as pilhas "prontas / revisar / ignoradas", execução de 250, retomada de
-      onde parou e o botão de desfazer amarrado ao diário (o motor existe; falta a janela).
+- [x] **Tela do lote**: `BatchTagDialog` com o aviso combinado ("Serão buscadas 250 de 678…"),
+      barra de progresso, lista com o veredito por faixa, Começar/Parar e "Desfazer último lote"
+      amarrado ao diário. O excedente vai para `autotag_queue` antes da primeira consulta e volta
+      na rodada seguinte; o que foi processado sai da fila. Testado com 4 cópias e limite
+      reduzido (`AMPLIA_BATCH_LIMIT=2`): 2 processadas, 2 na fila, nenhuma gravada sem régua.
+- [ ] **Revisão faixa a faixa dentro do lote**: hoje o veredito "revisar" só aparece na lista; a
+      comparação campo a campo com caixa por campo usa o mesmo diálogo do Alt+3.
+- [ ] **Buscar o disco inteiro**: `searchReleases` existe no cliente, sem botão no lote.
 - [ ] **Desempate de gravação** por fingerprint, consumido pela F5 quando o fingerprint existir
 
 **Regras do autotag (o arquivo do autor é o caso de teste).** O acervo oficial não cobre
