@@ -60,6 +60,9 @@ class MusicBrainzClient final : public QObject {
   QQueue<QUrl> queue_;
   QTimer timer_;
   bool busy_ = false;
+  static constexpr int kMaxRetries = 2;
+  static constexpr int kRetryDelayMs = 3000;
+  int retries_ = 0;
 };
 
 }  // namespace wamp::ui

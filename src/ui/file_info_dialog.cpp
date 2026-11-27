@@ -5,6 +5,7 @@
 
 #include <QCheckBox>
 #include <QFile>
+#include <QKeySequence>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -225,6 +226,8 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   searchButton_ = new QPushButton(tr("Buscar tags…"), this);
   searchButton_->setToolTip(
       tr("Procura esta faixa no MusicBrainz e preenche só os campos que estão vazios."));
+  // Ctrl+F é o atalho de busca em qualquer lugar; aqui ele abre o MusicBrainz pela tag.
+  searchButton_->setShortcut(QKeySequence(QStringLiteral("Ctrl+F")));
   connect(searchButton_, &QPushButton::clicked, this, &FileInfoDialog::searchTags);
   footer->addWidget(searchButton_);
   footer->addStretch(1);

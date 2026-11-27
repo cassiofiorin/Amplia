@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE TS>
+<?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="en_US">
 <context>
     <name>MainWindow</name>
@@ -42,6 +41,10 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
     <message>
         <source>Mostrar / ocultar a playlist</source>
         <translation>Show / hide the playlist</translation>
+    </message>
+    <message>
+        <source>Equalizador (Alt+G) — acende quando o equalizador está ligado</source>
+        <translation>Equalizer (Alt+G) — lit while the equalizer is on</translation>
     </message>
     <message>
         <source>Faixa anterior (Z)</source>
@@ -144,10 +147,6 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
         <translation>Library</translation>
     </message>
     <message>
-        <source>Equalizador (Alt+G)</source>
-        <translation>Equalizer (Alt+G)</translation>
-    </message>
-    <message>
         <source>Remover da fila</source>
         <translation>Remove from queue</translation>
     </message>
@@ -240,8 +239,8 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
         <translation>Limit of %1 custom themes reached. Delete one first.</translation>
     </message>
     <message>
-        <source>Tema &quot;%1&quot; salvo</source>
-        <translation>Theme &quot;%1&quot; saved</translation>
+        <source>Tema "%1" salvo</source>
+        <translation>Theme "%1" saved</translation>
     </message>
     <message>
         <source>Importar temas</source>
@@ -272,8 +271,8 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
         <translation>Delete theme</translation>
     </message>
     <message>
-        <source>Excluir o tema &quot;%1&quot;? O arquivo CSV será apagado.</source>
-        <translation>Delete the theme &quot;%1&quot;? The CSV file will be removed.</translation>
+        <source>Excluir o tema "%1"? O arquivo CSV será apagado.</source>
+        <translation>Delete the theme "%1"? The CSV file will be removed.</translation>
     </message>
     <message>
         <source>Modelo de CSV</source>
@@ -321,7 +320,7 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
     </message>
     <message>
         <source>Vou parar no fim desta faixa</source>
-        <translation>I&apos;ll stop at the end of this track</translation>
+        <translation>I'll stop at the end of this track</translation>
     </message>
     <message>
         <source>Sigo para a próxima</source>
@@ -1097,8 +1096,8 @@ The files stay on disk.</numerusform>
         <translation>Playback</translation>
     </message>
     <message>
-        <source>Anunciar &quot;ouvindo agora&quot; quando a faixa começa</source>
-        <translation>Announce &quot;now playing&quot; when a track starts</translation>
+        <source>Anunciar "ouvindo agora" quando a faixa começa</source>
+        <translation>Announce "now playing" when a track starts</translation>
     </message>
     <message>
         <source>Enviar scrobbles para o Last.fm</source>
@@ -1197,8 +1196,8 @@ The files stay on disk.</numerusform>
         <translation>I authorized — finish</translation>
     </message>
     <message>
-        <source>Autorize no navegador que abriu e clique de novo em &quot;Já autorizei&quot;.</source>
-        <translation>Authorize in the browser that opened, then click &quot;I authorized&quot; again.</translation>
+        <source>Autorize no navegador que abriu e clique de novo em "Já autorizei".</source>
+        <translation>Authorize in the browser that opened, then click "I authorized" again.</translation>
     </message>
     <message>
         <source>Autorização não concluída: %1</source>
@@ -1471,8 +1470,8 @@ The files stay on disk.</numerusform>
         <translation>Languages: %1</translation>
     </message>
     <message>
-        <source>Lançamentos: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</source>
-        <translation>Releases: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</translation>
+        <source>Lançamentos: &lt;a href="https://github.com/cassiofiorin/Amplia/releases"&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</source>
+        <translation>Releases: &lt;a href="https://github.com/cassiofiorin/Amplia/releases"&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</translation>
     </message>
     <message>
         <source>Fechar</source>
@@ -1698,6 +1697,14 @@ The files stay on disk.</numerusform>
     <message>
         <source>Grava numa cópia, confere o resultado e só então troca o arquivo.</source>
         <translation>Writes to a copy, checks the result and only then replaces the file.</translation>
+    </message>
+    <message>
+        <source>Buscar tags…</source>
+        <translation>Search tags…</translation>
+    </message>
+    <message>
+        <source>Procura esta faixa no MusicBrainz e preenche só os campos que estão vazios.</source>
+        <translation>Looks this track up on MusicBrainz and fills only the empty fields.</translation>
     </message>
     <message>
         <source>Cancelar</source>
@@ -2248,6 +2255,104 @@ Album gain: %2</translation>
     <message>
         <source>%1 caminhos copiados.</source>
         <translation>%1 paths copied.</translation>
+    </message>
+    <message>
+        <source>Carregando a capa…</source>
+        <translation>Loading the cover…</translation>
+    </message>
+</context>
+<context>
+    <name>wamp::ui::MusicBrainzClient</name>
+    <message>
+        <source>O MusicBrainz está ocupado agora; tentando de novo…</source>
+        <translation>MusicBrainz is busy right now; trying again…</translation>
+    </message>
+    <message>
+        <source>O MusicBrainz está ocupado agora. Tente de novo em alguns segundos.</source>
+        <translation>MusicBrainz is busy right now. Try again in a few seconds.</translation>
+    </message>
+</context>
+<context>
+    <name>wamp::ui::TagSearchDialog</name>
+    <message>
+        <source>Buscar tags — Amplia</source>
+        <translation>Search tags — Amplia</translation>
+    </message>
+    <message>
+        <source>Procure por texto no MusicBrainz. Nada é gravado aqui: a escolha volta para o Alt+3, que preenche só os campos vazios e grava do jeito de sempre.</source>
+        <translation>Search MusicBrainz by text. Nothing is written here: your choice goes back to the Alt+3 window, which fills only the empty fields and saves the usual way.</translation>
+    </message>
+    <message>
+        <source>Artista:</source>
+        <translation>Artist:</translation>
+    </message>
+    <message>
+        <source>Título:</source>
+        <translation>Title:</translation>
+    </message>
+    <message>
+        <source>Álbum:</source>
+        <translation>Album:</translation>
+    </message>
+    <message>
+        <source>Buscar</source>
+        <translation>Search</translation>
+    </message>
+    <message>
+        <source>Cancelar</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Usar selecionada</source>
+        <translation>Use selected</translation>
+    </message>
+    <message>
+        <source>Ajuste os campos e clique em Buscar.</source>
+        <translation>Adjust the fields and click Search.</translation>
+    </message>
+    <message>
+        <source>Preencha o artista ou o título.</source>
+        <translation>Fill in the artist or the title.</translation>
+    </message>
+    <message>
+        <source>Consultando o MusicBrainz…</source>
+        <translation>Querying MusicBrainz…</translation>
+    </message>
+    <message>
+        <source>Não deu para consultar: %1</source>
+        <translation>Could not query: %1</translation>
+    </message>
+    <message>
+        <source>Nada encontrado. Isso é resposta: a faixa fica como está.</source>
+        <translation>Nothing found. That is an answer: the track stays as it is.</translation>
+    </message>
+    <message>
+        <source>sem motivo isolado</source>
+        <translation>no single reason</translation>
+    </message>
+    <message>
+        <source>%1 resultado(s).</source>
+        <translation>%1 result(s).</translation>
+    </message>
+    <message>
+        <source>O primeiro bate o suficiente para preencher sem dúvida.</source>
+        <translation>The first one matches well enough to fill without doubt.</translation>
+    </message>
+    <message>
+        <source>Confira antes de usar: há mais de um parecido.</source>
+        <translation>Check before using: more than one looks alike.</translation>
+    </message>
+    <message>
+        <source>Margem sobre o segundo: %1</source>
+        <translation>Margin over the second: %1</translation>
+    </message>
+    <message>
+        <source>nenhum campo vazio para preencher</source>
+        <translation>no empty field to fill</translation>
+    </message>
+    <message>
+        <source>%1 campo(s) vazio(s) a preencher</source>
+        <translation>%1 empty field(s) to fill</translation>
     </message>
 </context>
 </TS>

@@ -72,7 +72,7 @@ TagSearchDialog::TagSearchDialog(const TagQuery& query, QWidget* parent)
   auto* footer = new QHBoxLayout();
   footer->addStretch(1);
   auto* cancel = new QPushButton(tr("Cancelar"), this);
-  useButton_ = new QPushButton(tr("Usar esta"), this);
+  useButton_ = new QPushButton(tr("Usar selecionada"), this);
   useButton_->setEnabled(false);
   footer->addWidget(cancel);
   footer->addWidget(useButton_);
@@ -90,19 +90,26 @@ TagSearchDialog::TagSearchDialog(const TagQuery& query, QWidget* parent)
   connect(results_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem*) {
     if (useButton_->isEnabled()) acceptChoice();
   });
+  // Enter na lista confirma a escolha: o diálogo inteiro serve para escolher um candidato.
+  connect(results_, &QListWidget::itemActivated, this, [this](QListWidgetItem*) {
+    if (useButton_->isEnabled()) acceptChoice();
+  });
   connect(useButton_, &QPushButton::clicked, this, [this] { acceptChoice(); });
   connect(cancel, &QPushButton::clicked, this, &QDialog::reject);
 
   // Abre já buscando: quem chegou aqui veio atrás do resultado, não de um formulário.
-  startSearch();
+  // A busca só acontece quando o botão é acionado: abrir a janela não gasta requisição
+  // do MusicBrainz (a API responde 503 quando recebe pedidos em sequência).
+  statusLabel_->setText(tr("Ajuste os campos e clique em Buscar."));
 }
 
 int TagSearchDialog::fillableFields(const TagQuery& query, const TagCandidate& candidate) {
-  int count = 0;
-  if (query.title.empty() && !candidate.title.empty()) ++count;
-  if (query.artist.empty() && !candidate.artist.empty()) ++count;
-  if (query.album.empty() && !candidate.album.empty()) ++count;
-  return count;
+  // A conta sai do mesmo plano que preenche: se um dia o plano mudar, o número muda junto.
+  const wamp::TagFill fill = wamp::planTagFill(query, candidate);
+  return static_cast<int>(fill.title) + static_cast<int>(fill.artist) +
+         static_cast<int>(fill.album) + static_cast<int>(fill.albumArtist) +
+         static_cast<int>(fill.trackNo) + static_cast<int>(fill.discNo) +
+         static_cast<int>(fill.year);
 }
 
 void TagSearchDialog::startSearch() {

@@ -3055,3 +3055,28 @@ acabou de ser gravado.
 **JSON com `QSaveFile`.** O diário é lido e escrito com o Qt: `QSaveFile` troca o arquivo de uma
 vez, então um desligamento no meio da escrita não deixa um diário pela metade — ele deixa o
 anterior intacto. O teste cobre ida e volta, lote mais recente, poda e JSON quebrado.
+
+## D-141 — A busca de tags só sai quando pedem, e 503 é espera, não erro
+
+Abrir o "Buscar tags…" não consulta mais nada: o diálogo abre com os campos preenchidos e o
+convite "Ajuste os campos e clique em Buscar". O usuário testou e a conclusão foi direta — a
+busca automática "parece causar menos erros"… ao contrário: ela gerava mais, porque cada abertura
+de janela gastava uma requisição e o MusicBrainz respondia 503 (o teste real viu o 503 duas
+vezes). Menos pedidos automáticos, menos 503.
+
+**503 e 429 são espera, não erro.** O cliente tenta de novo duas vezes, três segundos entre
+elas, e só então desiste com "O MusicBrainz está ocupado agora. Tente de novo em alguns
+segundos." Enquanto espera, a interface mostra "tentando de novo…" em vez de um erro que parece
+definitivo. A fila continua a 1,1 s por pedido; a nova tentativa volta para a frente da fila.
+
+**"Usar selecionada" em vez de "Usar esta".** O botão age sobre a linha marcada na lista; o nome
+antigo deixava dúvida sobre qual candidato seria aplicado, principalmente quando há vários
+empatados (a margem 0,00 é comum em discos com muitas edições).
+
+**A contagem vem do plano.** O rodapé dizia "1 campo vazio" e o preenchimento mexia em cinco
+(título, artista, álbum, artista do álbum, faixa, disco e ano). Agora `fillableFields` soma
+exatamente o que `planTagFill` faria — se um dia o plano mudar, o número muda junto, sem
+duplicar a regra em dois lugares.
+
+**O atalho é Ctrl+F** dentro do Alt+3, e Enter na lista de candidatos aplica o escolhido: quem
+está no teclado não precisa do mouse para a operação inteira.

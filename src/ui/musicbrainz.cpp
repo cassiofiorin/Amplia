@@ -224,9 +224,26 @@ void MusicBrainzClient::handleReply(QNetworkReply* reply) {
   const QByteArray body = reply->readAll();
 
   if (reply->error() != QNetworkReply::NoError) {
-    emit finished({}, reply->errorString());
+    // 503/429 é o MusicBrainz pedindo calma, não erro de verdade: tenta de novo depois.
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if ((status == 503 || status == 429) && retries_ < kMaxRetries) {
+      ++retries_;
+      const QUrl url = reply->url();
+      QTimer::singleShot(kRetryDelayMs, this, [this, url] {
+        queue_.prepend(url);
+        pump();
+      });
+      emit finished({}, tr("O MusicBrainz está ocupado agora; tentando de novo…"));
+      return;
+    }
+    retries_ = 0;
+    const QString reason = (status == 503 || status == 429)
+                               ? tr("O MusicBrainz está ocupado agora. Tente de novo em alguns segundos.")
+                               : reply->errorString();
+    emit finished({}, reason);
     return;
   }
+  retries_ = 0;
 
   QString error;
   // O caminho da URL diz qual analisador usar.
