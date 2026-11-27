@@ -65,7 +65,6 @@ class BatchTagDialog final : public QDialog {
   wamp::ui::JournalBatch journal_;
 
   QLabel* summary_ = nullptr;
-  QLabel* queueLabel_ = nullptr;
   QLabel* status_ = nullptr;
   QProgressBar* progress_ = nullptr;
   QListWidget* rows_ = nullptr;

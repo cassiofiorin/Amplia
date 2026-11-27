@@ -1479,6 +1479,121 @@ The files stay on disk.</numerusform>
     </message>
 </context>
 <context>
+    <name>wamp::ui::BatchTagDialog</name>
+    <message>
+        <source>Buscar tags em lote</source>
+        <translation>Search tags in batch</translation>
+    </message>
+    <message>
+        <source>Buscar tags no MusicBrainz</source>
+        <translation>Search tags on MusicBrainz</translation>
+    </message>
+    <message>
+        <source>Cada faixa é procurada por artista e título, uma consulta por vez. Nada é gravado sem confiança: campos vazios podem ser preenchidos, o que já existe fica como está.</source>
+        <translation>Each track is looked up by artist and title, one query at a time. Nothing is written without confidence: empty fields may be filled, what already exists stays as it is.</translation>
+    </message>
+    <message>
+        <source>O processamento busca %1 de %2 faixas.</source>
+        <translation>This batch looks up %1 of %2 tracks.</translation>
+    </message>
+    <message>
+        <source>A 1 faixa restante será processada no próximo lote.</source>
+        <translation>The remaining track will be processed in the next batch.</translation>
+    </message>
+    <message>
+        <source>As %1 faixas restantes serão processadas no próximo lote.</source>
+        <translation>The remaining %1 tracks will be processed in the next batch.</translation>
+    </message>
+    <message>
+        <source>Pronto para começar.</source>
+        <translation>Ready to start.</translation>
+    </message>
+    <message>
+        <source>Começar</source>
+        <translation>Start</translation>
+    </message>
+    <message>
+        <source>Parar</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Desfazer último lote</source>
+        <translation>Undo last batch</translation>
+    </message>
+    <message>
+        <source>Fechar</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Parado. O que já foi gravado ficou registrado no diário.</source>
+        <translation>Stopped. Whatever was already written is recorded in the journal.</translation>
+    </message>
+    <message>
+        <source>Consultando %1 de %2 — %3</source>
+        <translation>Looking up %1 of %2 — %3</translation>
+    </message>
+    <message>
+        <source>não deu para ler as tags</source>
+        <translation>could not read the tags</translation>
+    </message>
+    <message>
+        <source>já tem artista e título — não precisa</source>
+        <translation>already has artist and title — nothing to do</translation>
+    </message>
+    <message>
+        <source>nada encontrado</source>
+        <translation>nothing found</translation>
+    </message>
+    <message>
+        <source>revisar — melhor %1 (%2)</source>
+        <translation>review — best %1 (%2)</translation>
+    </message>
+    <message>
+        <source>sem confiança — nada foi gravado</source>
+        <translation>not confident — nothing was written</translation>
+    </message>
+    <message>
+        <source>nada a preencher</source>
+        <translation>nothing to fill</translation>
+    </message>
+    <message>
+        <source>falhou ao gravar: %1</source>
+        <translation>failed to write: %1</translation>
+    </message>
+    <message>
+        <source>gravada</source>
+        <translation>written</translation>
+    </message>
+    <message>
+        <source>Terminou com %1 gravada(s), mas o diário falhou: %2</source>
+        <translation>Finished with %1 written, but the journal failed: %2</translation>
+    </message>
+    <message>
+        <source>Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado.</source>
+        <translation>Finished: %1 written, %2 to review, %3 with no result.</translation>
+    </message>
+    <message>
+        <source>Desfazer</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>Não há lote para desfazer: %1</source>
+        <translation>There is no batch to undo: %1</translation>
+    </message>
+    <message>
+        <source>Devolver as tags de %1 faixa(s) ao que eram antes?</source>
+        <translation>Restore the tags of %1 track(s) to what they were before?</translation>
+    </message>
+    <message>
+        <source>Desfeito: %1 faixa(s) voltaram ao que eram.</source>
+        <translation>Undone: %1 track(s) went back to what they were.</translation>
+    </message>
+    <message>
+        <source>Desfeito em %1 faixa(s); %2 não puderam ser restauradas.</source>
+        <translation>Undone on %1 track(s); %2 could not be restored.</translation>
+    </message>
+</context>
+<context>
     <name>wamp::ui::EqCurveView</name>
     <message>
         <source>Arraste um ponto para ajustar a banda</source>
@@ -2239,6 +2354,14 @@ Album gain: %2</translation>
     <message>
         <source>Atualizar tags</source>
         <translation>Refresh tags</translation>
+    </message>
+    <message>
+        <source>Buscar tags no MusicBrainz…</source>
+        <translation>Search tags on MusicBrainz…</translation>
+    </message>
+    <message>
+        <source>Buscar tags no MusicBrainz em lote…</source>
+        <translation>Search tags on MusicBrainz in batch…</translation>
     </message>
     <message>
         <source>Copiar caminho</source>

@@ -135,25 +135,21 @@ void BatchTagDialog::buildUi(int total, int sliceSize, int restSize) {
   hint->setWordWrap(true);
   layout->addWidget(hint);
 
-  // A frase combinada com o usuário: quantas vão nesta rodada e o que acontece com o resto.
+  // A frase combinada com o usuário: quantas entram neste lote e o que acontece com o resto.
+  // Duas linhas porque são duas informações; "lote" é a palavra que o resto da janela usa.
   summary_ = new QLabel(this);
   summary_->setWordWrap(true);
+  const QString head = tr("O processamento busca %1 de %2 faixas.").arg(sliceSize).arg(total);
   if (restSize > 0) {
-    summary_->setText(tr("Serão buscadas %1 de %2 faixas selecionadas; as próximas serão "
-                         "enfileiradas para serem buscadas em sequência.")
-                          .arg(sliceSize)
-                          .arg(total));
+    const QString restLine =
+        restSize == 1
+            ? tr("A 1 faixa restante será processada no próximo lote.")
+            : tr("As %1 faixas restantes serão processadas no próximo lote.").arg(restSize);
+    summary_->setText(head + QLatin1Char('\n') + restLine);
   } else {
-    summary_->setText(tr("%1 faixa(s) selecionada(s) — todas cabem nesta rodada.").arg(total));
+    summary_->setText(head);
   }
   layout->addWidget(summary_);
-
-  queueLabel_ = new QLabel(this);
-  queueLabel_->setObjectName(QStringLiteral("hint"));
-  if (restSize > 0) {
-    queueLabel_->setText(tr("%1 faixa(s) na fila para as próximas rodadas.").arg(restSize));
-  }
-  layout->addWidget(queueLabel_);
 
   progress_ = new QProgressBar(this);
   progress_->setRange(0, std::max(1, sliceSize));
