@@ -9,8 +9,10 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QBrush>
 #include <QHeaderView>
 #include <QTableWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <algorithm>
 
@@ -29,7 +31,7 @@ TagSearchDialog::TagSearchDialog(const TagQuery& query, QWidget* parent)
     : QDialog(parent), query_(query) {
   setWindowTitle(tr("Buscar tags — Amplia"));
   setModal(true);
-  resize(620, 460);
+  resize(680, 520);
 
   auto* layout = new QVBoxLayout(this);
   layout->setSpacing(8);
@@ -73,7 +75,12 @@ TagSearchDialog::TagSearchDialog(const TagQuery& query, QWidget* parent)
   fields_->horizontalHeader()->setStretchLastSection(true);
   fields_->setSelectionMode(QAbstractItemView::NoSelection);
   fields_->setEditTriggers(QAbstractItemView::NoEditTriggers);
-  fields_->setMinimumHeight(150);
+  // A tabela mostra as sete linhas de uma vez: é uma comparação, não uma lista para rolar.
+  fields_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  fields_->verticalHeader()->setDefaultSectionSize(24);
+  fields_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  fields_->setToolTip(tr("Marque os campos que devem ir para o arquivo. Campo vazio entra "
+                         "marcado; o que já existe só muda se você marcar."));
   layout->addWidget(fields_, 1);
 
   reasonsLabel_ = new QLabel(this);
@@ -113,6 +120,11 @@ TagSearchDialog::TagSearchDialog(const TagQuery& query, QWidget* parent)
   // A busca só acontece quando o botão é acionado: abrir a janela não gasta requisição
   // do MusicBrainz (a API responde 503 quando recebe pedidos em sequência).
   statusLabel_->setText(tr("Ajuste os campos e clique em Buscar."));
+
+  // Gancho de teste: sem clique em diálogo modal, a busca não teria como ser fotografada.
+  if (qEnvironmentVariableIsSet("AMPLIA_TAG_SEARCH_GO")) {
+    QTimer::singleShot(400, this, [this] { startSearch(); });
+  }
 }
 
 int TagSearchDialog::fillableFields(const TagQuery& query, const TagCandidate& candidate) {
@@ -262,11 +274,33 @@ void TagSearchDialog::fillFieldTable() {
                                                         ? Qt::Checked
                                                         : Qt::Unchecked));
     fields_->setItem(line, 0, check);
-    fields_->setItem(line, 1, new QTableWidgetItem(rowData.current));
-    fields_->setItem(line, 2, new QTableWidgetItem(rowData.found));
+    const auto cellText = [](const QString& value) {
+      return value.trimmed().isEmpty() ? tr("(vazio)") : value;
+    };
+    auto* currentItem = new QTableWidgetItem(cellText(rowData.current));
+    auto* foundItem = new QTableWidgetItem(cellText(rowData.found));
+    if (rowData.current.trimmed().isEmpty()) {
+      currentItem->setForeground(QBrush(QColor(0x8a, 0x8a, 0x8a)));
+    }
+    // O que difere fica em negrito: a comparação é sobre a diferença, não sobre a lista.
+    if (!rowData.found.isEmpty() && rowData.current.trimmed() != rowData.found.trimmed()) {
+      QFont bold = foundItem->font();
+      bold.setBold(true);
+      foundItem->setFont(bold);
+    }
+    currentItem->setTextAlignment(rowData.numeric ? Qt::AlignCenter : Qt::AlignLeft | Qt::AlignVCenter);
+    foundItem->setTextAlignment(rowData.numeric ? Qt::AlignCenter : Qt::AlignLeft | Qt::AlignVCenter);
+    fields_->setItem(line, 1, currentItem);
+    fields_->setItem(line, 2, foundItem);
     if (!rowData.found.isEmpty()) ++visible;
   }
-  fields_->resizeColumnsToContents();
+  fields_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+  fields_->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+  fields_->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+  // Altura = cabeçalho + as sete linhas, para o rótulo de motivos não cobrir a última.
+  int height = fields_->horizontalHeader()->sizeHint().height();
+  for (int line = 0; line < fields_->rowCount(); ++line) height += fields_->rowHeight(line);
+  fields_->setFixedHeight(height + 8);
   Q_UNUSED(visible);
 }
 

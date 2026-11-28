@@ -6,6 +6,7 @@
 #include <QCheckBox>
 #include <QFile>
 #include <QKeySequence>
+#include <QTimer>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -229,6 +230,11 @@ FileInfoDialog::FileInfoDialog(std::vector<std::string> paths, std::size_t index
   // Ctrl+F é o atalho de busca em qualquer lugar; aqui ele abre o MusicBrainz pela tag.
   searchButton_->setShortcut(QKeySequence(QStringLiteral("Ctrl+F")));
   connect(searchButton_, &QPushButton::clicked, this, &FileInfoDialog::searchTags);
+  // Gancho de teste: clique sintético não chega a diálogo modal, então a busca é aberta
+  // por variável de ambiente quando o teste precisa fotografar a comparação campo a campo.
+  if (qEnvironmentVariableIsSet("AMPLIA_OPEN_TAG_SEARCH")) {
+    QTimer::singleShot(600, this, [this] { searchTags(); });
+  }
   footer->addWidget(searchButton_);
   footer->addStretch(1);
 
