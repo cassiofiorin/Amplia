@@ -72,6 +72,7 @@ class BatchTagDialog final : public QDialog {
   int ready_ = 0;
   int review_ = 0;
   int ignored_ = 0;
+  int fixed_ = 0;
   int deferred_ = 0;
   QSet<QString> deferredPaths_;
   bool running_ = false;

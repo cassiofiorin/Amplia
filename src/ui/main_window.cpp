@@ -2330,7 +2330,12 @@ void MainWindow::onFileSaved(const QString& path) {
     return;
   }
   metadata_[native] = info;
-  if (cache_) cache_->store(info);
+  if (cache_) {
+    cache_->store(info);
+    // Carimba o estado em que o app deixou o arquivo: a fila do autotag pula esta faixa
+    // enquanto o disco estiver igual (D-153).
+    cache_->markTagFixed(native, wamp::fileMtimeMs(native));
+  }
 
   const bool current = playlist_->hasCurrent() && playlist_->at(playlist_->currentIndex()) == native;
   for (int row = 0; row < list_->count(); ++row) {

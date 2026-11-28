@@ -225,6 +225,23 @@ QString BatchTagDialog::cacheDirectory() const {
 
 void BatchTagDialog::start() {
   if (running_ || slice_.isEmpty()) return;
+  // Faixa que o app já corrigiu e que não mudou desde então não volta para a fila: sem isso,
+  // rodar o lote duas vezes na mesma seleção gasta as mesmas 250 consultas de novo.
+  if (cache_ != nullptr) {
+    std::vector<std::string> paths;
+    paths.reserve(slice_.size());
+    for (const QString& path : slice_) paths.push_back(path.toStdString());
+    const std::vector<std::string> eligible = cache_->notFixedByApp(paths);
+    fixed_ = static_cast<int>(paths.size() - eligible.size());
+    slice_.clear();
+    for (const std::string& path : eligible) slice_ << QString::fromStdString(path);
+    if (slice_.isEmpty()) {
+      status_->setText(tr("Todas as %1 faixa(s) já foram corrigidas pelo app e não mudaram "
+                          "desde então. Nada a fazer.")
+                           .arg(fixed_));
+      return;
+    }
+  }
   running_ = true;
   index_ = 0;
   ready_ = 0;
@@ -585,8 +602,9 @@ void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates
         QStringList filled;
         if (consensus.any()) {
           wamp::TagFields incoming;
-          incoming.artist = ranked.front().candidate.artist;
-          incoming.albumArtist = ranked.front().candidate.albumArtist;
+          // O catálogo usa hífen tipográfico no nome do artista; o arquivo usa o comum.
+          incoming.artist = wamp::asciiDashes(ranked.front().candidate.artist);
+          incoming.albumArtist = wamp::asciiDashes(ranked.front().candidate.albumArtist);
           incoming.album = ranked.front().candidate.album;
           incoming.title = ranked.front().candidate.title;
           incoming.track = ranked.front().candidate.trackNo;
@@ -597,6 +615,10 @@ void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates
           std::string writeError;
           if (!changes.empty() &&
               wamp::TagEditor::write(path.toStdString(), mergedFields, true, &writeError)) {
+            if (cache_ != nullptr) {
+              cache_->markTagFixed(path.toStdString(),
+                                   wamp::fileMtimeMs(path.toStdString()));
+            }
             JournalEntry entry;
             entry.path = path;
             entry.fields = std::move(changes);
@@ -656,8 +678,8 @@ void BatchTagDialog::applyCandidate(const QString& path, const wamp::TagCandidat
   }
 
   wamp::TagFields incoming;
-  incoming.artist = candidate.artist;
-  incoming.albumArtist = candidate.albumArtist;
+  incoming.artist = wamp::asciiDashes(candidate.artist);
+  incoming.albumArtist = wamp::asciiDashes(candidate.albumArtist);
   incoming.album = candidate.album;
   incoming.title = candidate.title;
   incoming.track = candidate.trackNo;
@@ -675,6 +697,9 @@ void BatchTagDialog::applyCandidate(const QString& path, const wamp::TagCandidat
     addRow(path, tr("falhou ao gravar: %1").arg(fromStd(error)));
     ++ignored_;
     return;
+  }
+  if (cache_ != nullptr) {
+    cache_->markTagFixed(path.toStdString(), wamp::fileMtimeMs(path.toStdString()));
   }
 
   JournalEntry entry;
@@ -720,12 +745,17 @@ void BatchTagDialog::finish() {
     cache_->dropAutotagPaths(done);
   }
 
-  status_->setText(tr("Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado, %4 para "
-                      "depois.")
-                       .arg(ready_)
-                       .arg(review_)
-                       .arg(ignored_)
-                       .arg(deferred_));
+  QString done = tr("Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado, %4 para "
+                    "depois.")
+                    .arg(ready_)
+                    .arg(review_)
+                    .arg(ignored_)
+                    .arg(deferred_);
+  if (fixed_ > 0) {
+    done += QStringLiteral(" ");
+    done += tr("%1 ignorada(s) (tag corrigida pelo app).").arg(fixed_);
+  }
+  status_->setText(done);
 }
 
 void BatchTagDialog::undoLast() {
@@ -762,6 +792,10 @@ void BatchTagDialog::undoLast() {
     }
     std::string writeError;
     if (wamp::TagEditor::write(entry.path.toStdString(), fields, true, &writeError)) {
+      if (cache_ != nullptr) {
+        cache_->markTagFixed(entry.path.toStdString(),
+                             wamp::fileMtimeMs(entry.path.toStdString()));
+      }
       ++restored;
     } else {
       ++failed;

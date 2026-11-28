@@ -139,6 +139,13 @@ class TagCache final {
   std::vector<std::string> autotagQueue(int limit, std::string* error);
   void dropAutotagPaths(const std::vector<std::string>& paths);
   int autotagQueueSize();
+
+  /// Carimba o `mtime` com que o app deixou o arquivo. A fila do autotag ignora a faixa
+  /// enquanto o disco estiver igual a este carimbo: tag escrita pelo app não se reescreve.
+  void markTagFixed(const std::string& path, std::int64_t mtimeMs);
+
+  /// Filtra os caminhos que o app já corrigiu e que não mudaram desde então.
+  std::vector<std::string> notFixedByApp(const std::vector<std::string>& paths);
   std::vector<std::string> scanQueue(std::string* error);
   /// Tira um caminho da fila sem gravar tag (arquivo ilegível/sumido): não insiste para sempre.
   void dropFromScanQueue(const std::string& path);
@@ -187,5 +194,8 @@ class TagCache final {
   bool inTransaction_ = false;
   int pending_ = 0;
 };
+
+/// `mtime` do arquivo em milissegundos desde a época; 0 quando o arquivo não existe.
+std::int64_t fileMtimeMs(const std::string& path);
 
 }  // namespace wamp

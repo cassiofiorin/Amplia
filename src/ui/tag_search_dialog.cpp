@@ -2,6 +2,8 @@
 
 #include "musicbrainz.h"
 
+#include "wamp/work_key.h"
+
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -176,7 +178,8 @@ void TagSearchDialog::showCandidates(std::vector<TagCandidate> candidates, const
   results_->blockSignals(true);
   for (const ScoredCandidate& item : scored_) {
     const TagCandidate& candidate = item.candidate;
-    QString text = QStringLiteral("%1 — %2").arg(QString::fromStdString(candidate.artist),
+    QString text = QStringLiteral("%1 — %2").arg(
+        QString::fromStdString(wamp::asciiDashes(candidate.artist)),
                                                 QString::fromStdString(candidate.title));
     if (!candidate.album.empty()) {
       text += QStringLiteral("  ·  %1").arg(QString::fromStdString(candidate.album));
@@ -314,9 +317,9 @@ void TagSearchDialog::acceptChoice() {
   static const char* const kFieldNames[] = {"title",  "artist", "album", "albumartist",
                                             "track", "disc",   "year"};
   const QStringList values = {QString::fromStdString(chosen_.title),
-                              QString::fromStdString(chosen_.artist),
+                              QString::fromStdString(wamp::asciiDashes(chosen_.artist)),
                               QString::fromStdString(chosen_.album),
-                              QString::fromStdString(chosen_.albumArtist),
+                              QString::fromStdString(wamp::asciiDashes(chosen_.albumArtist)),
                               chosen_.trackNo > 0 ? QString::number(chosen_.trackNo) : QString(),
                               chosen_.discNo > 0 ? QString::number(chosen_.discNo) : QString(),
                               chosen_.year > 0 ? QString::number(chosen_.year) : QString()};

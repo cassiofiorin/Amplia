@@ -481,4 +481,26 @@ std::string sha1Hex(const std::string& data) {
   return hex;
 }
 
+std::string asciiDashes(const std::string& value) {
+  std::string out;
+  out.reserve(value.size());
+  std::size_t i = 0;
+  while (i < value.size()) {
+    // Os quatro hífens tipográficos vivem no BMP: 3 bytes em UTF-8, prefixo E2 80.
+    const unsigned char first = static_cast<unsigned char>(value[i]);
+    if (first == 0xE2 && i + 2 < value.size() &&
+        static_cast<unsigned char>(value[i + 1]) == 0x80) {
+      const unsigned char third = static_cast<unsigned char>(value[i + 2]);
+      if (third == 0x90 || third == 0x91 || third == 0x92 || third == 0x93 || third == 0x94) {
+        out.push_back('-');
+        i += 3;
+        continue;
+      }
+    }
+    out.push_back(value[i]);
+    ++i;
+  }
+  return out;
+}
+
 }  // namespace wamp

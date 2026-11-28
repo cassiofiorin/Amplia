@@ -3227,3 +3227,20 @@ catálogo casa com `Don't` do arquivo —, porque sem isso nenhum título casa e
 pasta, e até quatro são abertos até um casar por inteiro; (3) só entra o lançamento em que todos
 os títulos da pasta aparecem, e o que o casamento não cobre fica para a revisão. O recurso segue
 **opt-in**: em pasta parcial o palpite por tamanho aponta para o single e nada casa.
+
+## D-153 — O app carimba a tag que escreveu, e o hífen do catálogo vira o comum
+
+**Carimbo.** Toda gravação feita pelo app (Alt+3, lote, revisão, desfazer) grava em
+`tracks.tag_fixed_at` o `mtime` do arquivo naquele instante (esquema sobe para a versão 2). A
+fila do autotag ignora a faixa enquanto o `mtime` do disco for igual ao carimbo: sem isso, rodar
+o lote duas vezes na mesma seleção gasta as mesmas 250 consultas para redescobrir o que o app
+acabou de gravar. Arquivo mexido por fora muda o `mtime`, a varredura incremental relê e a faixa
+volta a ser elegível — o carimbo não é uma lista de exclusão, é uma fotografia. Verificado com um
+teste de banco: nunca corrigida → elegível; corrigida e intacta → fora da fila; `touch` → volta.
+
+**Hífen.** O MusicBrainz grava `a‑ha` com hífen tipográfico (U+2010). Mesmo desenho, byte
+diferente — e o byte diferente quebra busca, filtro e comparação. Na hora de escrever, nome de
+artista e de artista do álbum passam por `wamp::asciiDashes`, que troca U+2010–U+2014 pelo hífen
+comum. **Título fica de fora**: ali a pontuação é escolha editorial do catálogo, e normalizar
+apóstrofo ou travessão de título seria inventar. O `norm/v1` continua dobrando pontuação para
+**comparar**; essa troca é para **gravar**, e são coisas diferentes.

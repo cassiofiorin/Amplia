@@ -24,6 +24,7 @@
 #include "tag_journal.h"
 #include "translator.h"
 #include "wamp/tag_cache.h"
+#include "wamp/work_key.h"
 #include "wamp/tag_editor.h"
 
 namespace wamp::ui {
@@ -58,9 +59,9 @@ QString text(const wamp::TagFields& fields, const QString& key) {
 
 QString candidateText(const wamp::TagCandidate& candidate, const QString& key) {
   if (key == "title") return QString::fromStdString(candidate.title);
-  if (key == "artist") return QString::fromStdString(candidate.artist);
+  if (key == "artist") return QString::fromStdString(wamp::asciiDashes(candidate.artist));
   if (key == "album") return QString::fromStdString(candidate.album);
-  if (key == "albumartist") return QString::fromStdString(candidate.albumArtist);
+  if (key == "albumartist") return QString::fromStdString(wamp::asciiDashes(candidate.albumArtist));
   if (key == "track") return candidate.trackNo > 0 ? QString::number(candidate.trackNo) : QString();
   if (key == "disc") return candidate.discNo > 0 ? QString::number(candidate.discNo) : QString();
   if (key == "year") return candidate.year > 0 ? QString::number(candidate.year) : QString();
@@ -295,15 +296,16 @@ void BatchReviewDialog::applyPage(bool advance) {
         change(QString::fromStdString(out.title), QString::fromStdString(candidate.title));
         out.title = candidate.title;
       } else if (key == "artist") {
-        change(QString::fromStdString(out.artist), QString::fromStdString(candidate.artist));
-        out.artist = candidate.artist;
+        change(QString::fromStdString(out.artist),
+               QString::fromStdString(wamp::asciiDashes(candidate.artist)));
+        out.artist = wamp::asciiDashes(candidate.artist);
       } else if (key == "album") {
         change(QString::fromStdString(out.album), QString::fromStdString(candidate.album));
         out.album = candidate.album;
       } else if (key == "albumartist") {
         change(QString::fromStdString(out.albumArtist),
-               QString::fromStdString(candidate.albumArtist));
-        out.albumArtist = candidate.albumArtist;
+               QString::fromStdString(wamp::asciiDashes(candidate.albumArtist)));
+        out.albumArtist = wamp::asciiDashes(candidate.albumArtist);
       } else if (key == "track") {
         change(QString::number(out.track), QString::number(candidate.trackNo));
         out.track = candidate.trackNo;
@@ -317,7 +319,12 @@ void BatchReviewDialog::applyPage(bool advance) {
     }
     if (changes.empty()) continue;
     std::string writeError;
-    if (!wamp::TagEditor::write(card.path.toStdString(), out, true, &writeError)) {
+    if (wamp::TagEditor::write(card.path.toStdString(), out, true, &writeError)) {
+      if (cache_ != nullptr) {
+        cache_->markTagFixed(card.path.toStdString(),
+                             wamp::fileMtimeMs(card.path.toStdString()));
+      }
+    } else {
       failures.append(QFileInfo(card.path).fileName());
       qInfo("amplia: falha ao gravar %s: %s", qPrintable(QFileInfo(card.path).fileName()),
             writeError.c_str());

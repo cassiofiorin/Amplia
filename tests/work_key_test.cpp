@@ -93,5 +93,12 @@ int main() {
          "apóstrofo tipográfico casa com o reto");
   expect(norm(wamp::WorkField::Title, "Rock \u2013 Roll") == "rock - roll",
          "travessão vira hífen");
+
+  // Hífen tipográfico do MusicBrainz (U+2010) contra o comum do arquivo: é o caso real do
+  // "a‐ha" e o motivo de a tag gravada sair errada sem essa troca.
+  expect(wamp::asciiDashes("a‐ha") == "a-ha", "U+2010 vira hífen comum");
+  expect(wamp::asciiDashes("a–b") == "a-b", "travessão vira hífen comum");
+  expect(wamp::asciiDashes("a-ha") == "a-ha", "hífen comum fica como está");
+  expect(wamp::asciiDashes("Elá") == "Elá", "acento não é tocado");
   return 0;
 }

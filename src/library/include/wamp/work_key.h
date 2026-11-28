@@ -28,6 +28,12 @@ std::string normalizeWorkField(WorkField field, const std::string& value);
 /// A duração fica **fora** da chave: ela entra no casamento, não na identidade.
 std::string workKey(const std::string& artist, const std::string& album, const std::string& title);
 
+/// Troca os hífens tipográficos (U+2010..U+2014) pelo hífen comum. Vale para nome de artista e
+/// de artista do álbum: o MusicBrainz grava `a‐ha`, o arquivo e o resto do mundo usam
+/// `a-ha`, e o byte diferente quebra busca, filtro e comparação. Título fica de fora — ali a
+/// pontuação é escolha editorial e não se mexe.
+std::string asciiDashes(const std::string& value);
+
 /// Duração em segundos cheios, como sai no arquivo compartilhado.
 int workDurationSeconds(std::int64_t durationMs);
 

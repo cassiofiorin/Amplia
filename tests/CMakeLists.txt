@@ -34,3 +34,8 @@ target_include_directories(amplia-tag-journal-test PRIVATE ${CMAKE_SOURCE_DIR}/s
 target_link_libraries(amplia-tag-journal-test PRIVATE Qt6::Core)
 target_compile_options(amplia-tag-journal-test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME tag_journal COMMAND amplia-tag-journal-test)
+
+# O carimbo de "tag corrigida pelo app" (D-153) precisa de banco de verdade: abre um temporário.
+add_executable(amplia-tag-fixed-test tag_fixed_at_test.cpp)
+target_link_libraries(amplia-tag-fixed-test PRIVATE wamp-library)
+add_test(NAME tag_fixed_at COMMAND amplia-tag-fixed-test)

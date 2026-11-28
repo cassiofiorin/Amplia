@@ -5,6 +5,8 @@
 #include <map>
 #include <set>
 
+#include <sys/stat.h>
+
 #include <sqlite3.h>
 
 #include <utility>
@@ -76,7 +78,7 @@ namespace {
 /// Versão do esquema desta biblioteca. Subir de versão = acrescentar um passo em
 /// `ensureSchema` que leve um banco antigo até aqui, sem perder linha nenhuma.
 /// 1 = tudo o que existia até a 0.9.6 (tracks + raízes + fila + ignorados + presets).
-constexpr int kSchemaVersion = 1;
+constexpr int kSchemaVersion = 2;
 
 int readUserVersion(sqlite3* db) {
   int version = 0;
@@ -158,6 +160,8 @@ bool TagCache::ensureSchema(std::string* error) {
       "ALTER TABLE tracks ADD COLUMN bpm_tag REAL NOT NULL DEFAULT 0;",
       "ALTER TABLE tracks ADD COLUMN key_pc_tag INTEGER NOT NULL DEFAULT -1;",
       "ALTER TABLE tracks ADD COLUMN key_major_tag INTEGER NOT NULL DEFAULT 0;",
+      // Versão 2 (D-153): carimbo de "o app já corrigiu esta tag". Zero = nunca.
+      "ALTER TABLE tracks ADD COLUMN tag_fixed_at INTEGER NOT NULL DEFAULT 0;",
   };
   for (const char* alter : columns) {
     sqlite3_exec(db_, alter, nullptr, nullptr, nullptr);  // erro = coluna já existe
@@ -1265,6 +1269,47 @@ void TagCache::recordRadioEvent(const std::string& path, int kind,
     sqlite3_step(statement);
     sqlite3_finalize(statement);
   }
+}
+
+std::int64_t fileMtimeMs(const std::string& path) {
+  struct stat info {};
+  if (::stat(path.c_str(), &info) != 0) return 0;
+  return static_cast<std::int64_t>(info.st_mtime) * 1000;
+}
+
+void TagCache::markTagFixed(const std::string& path, std::int64_t mtimeMs) {
+  if (db_ == nullptr || mtimeMs <= 0) return;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "UPDATE tracks SET tag_fixed_at = ?2 WHERE path = ?1;", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    return;
+  }
+  bindText(statement, 1, path);
+  sqlite3_bind_int64(statement, 2, mtimeMs);
+  sqlite3_step(statement);
+  sqlite3_finalize(statement);
+}
+
+std::vector<std::string> TagCache::notFixedByApp(const std::vector<std::string>& paths) {
+  std::vector<std::string> kept;
+  kept.reserve(paths.size());
+  if (db_ == nullptr) return paths;
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(db_, "SELECT tag_fixed_at FROM tracks WHERE path = ?1;", -1, &statement,
+                         nullptr) != SQLITE_OK) {
+    return paths;
+  }
+  for (const std::string& path : paths) {
+    const std::int64_t stamp = fileMtimeMs(path);
+    sqlite3_reset(statement);
+    bindText(statement, 1, path);
+    const bool hasRow = sqlite3_step(statement) == SQLITE_ROW;
+    const auto fixed = hasRow ? sqlite3_column_int64(statement, 0) : 0;
+    // Sem linha no banco, ou arquivo diferente do que o app deixou: entra na fila.
+    if (!hasRow || fixed == 0 || stamp == 0 || fixed != stamp) kept.push_back(path);
+  }
+  sqlite3_finalize(statement);
+  return kept;
 }
 
 }  // namespace wamp
