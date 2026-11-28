@@ -382,8 +382,12 @@ QString styleSheet(const Theme& t) {
   // Caixa desligada tem de parecer desligada: o indicador vem do CheckStyle, então o que dá
   // para marcar aqui é o texto (era o que fazia uma opção indisponível parecer ativa).
   s += "QCheckBox:disabled { color: " % hex(t.textMuted) % "; }\n";
+  // Grade de controle (QoL 27): botão, campo e combo com a mesma altura e a mesma folga
+  // horizontal. Sem isso, cada diálogo herda uma altura diferente e a impressão é de descuido.
   s += "QLineEdit, QComboBox, QSpinBox { background: " % hex(t.controlBg) % "; color: " %
-       hex(t.windowText) % "; border: 1px solid " % hex(t.border) % "; border-radius: 3px; padding: 3px 6px; }\n";
+       hex(t.windowText) % "; border: 1px solid " % hex(t.border) %
+       "; border-radius: 3px; padding: 3px 6px; min-height: 20px; }\n";
+  s += "QDialog QPushButton, QDialog QToolButton { min-height: 20px; padding: 3px 10px; }\n";
   s += "QComboBox QAbstractItemView { background: " % hex(t.controlBg) % "; color: " %
        hex(t.windowText) % "; selection-background-color: " % hex(t.controlCheckedBg) % "; }\n";
   s += "QSlider::groove:horizontal { height: 4px; background: " % hex(t.groove) %

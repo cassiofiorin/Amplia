@@ -122,4 +122,6 @@ class PreferencesDialog final : public QDialog {
   double costP95Ms_ = 0.0;
 
   std::unique_ptr<wamp::Scrobbler> net_;  // só para autenticar/testar, não envia scrobbles
+  /// Última escolha de "anunciar ouvindo agora", mesmo com a caixa desabilitada.
+  bool announceWanted_ = false;
 };

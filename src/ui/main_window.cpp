@@ -704,6 +704,15 @@ MainWindow::MainWindow(QWidget* parent, bool restoreSession)
       dialog.exec();
     });
   }
+  // Ganchos de teste do QoL: menu/popup não recebe clique sintético, então o estado é posto
+  // por variável de ambiente para a captura.
+  if (qEnvironmentVariableIsSet("AMPLIA_SLEEP_MINUTES")) {
+    const int minutes = qEnvironmentVariableIntValue("AMPLIA_SLEEP_MINUTES");
+    QTimer::singleShot(600, this, [this, minutes] { setSleepTimer(minutes); });
+  }
+  if (qEnvironmentVariableIsSet("AMPLIA_OPEN_PREFERENCES")) {
+    QTimer::singleShot(600, this, [this] { openPreferences(); });
+  }
   if (qEnvironmentVariableIsSet("AMPLIA_OPEN_LIBRARY")) {
     QTimer::singleShot(0, this, [this] { openLibrary(); });
   }
@@ -1711,6 +1720,21 @@ void MainWindow::buildMenus() {
                                 : tr("Sigo para a próxima"), 2500);
   });
   playMenu->addAction(stopAfterAction_);
+
+  // Dormir (QoL 24): prazo em minutos; a reprodução termina no fim da faixa que estiver
+  // tocando quando o prazo chegar — não corta música no meio.
+  auto* sleepMenu = playMenu->addMenu(tr("Dormir"));
+  for (int minutes : {15, 30, 45, 60, 90}) {
+    auto* action = sleepMenu->addAction(tr("%1 minutos").arg(minutes));
+    connect(action, &QAction::triggered, this, [this, minutes] { setSleepTimer(minutes); });
+  }
+  sleepMenu->addSeparator();
+  sleepAction_ = sleepMenu->addAction(tr("Cancelar o dormir"));
+  sleepAction_->setEnabled(false);
+  connect(sleepAction_, &QAction::triggered, this, [this, sleepMenu] {
+    Q_UNUSED(sleepMenu);
+    setSleepTimer(0);
+  });
   playMenu->addSeparator();
 
   auto* prevAction = new QAction(tr("Faixa anterior"), this);
@@ -3281,7 +3305,67 @@ void MainWindow::playPrevious() {
   playIndex(playlist_->previousIndex());
 }
 
+void MainWindow::setSleepTimer(int minutes) {
+  if (minutes <= 0) {
+    sleepStopPending_ = false;
+    sleepDeadline_ = QDateTime();
+    if (sleepTimer_ != nullptr) sleepTimer_->stop();
+    if (sleepTick_ != nullptr) sleepTick_->stop();
+    if (sleepAction_ != nullptr) sleepAction_->setEnabled(false);
+    statusBar()->showMessage(tr("Dormir cancelado"), 2500);
+    return;
+  }
+
+  sleepDeadline_ = QDateTime::currentDateTime().addSecs(minutes * 60);
+  sleepStopPending_ = false;
+  if (sleepTimer_ == nullptr) {
+    sleepTimer_ = new QTimer(this);
+    sleepTimer_->setSingleShot(true);
+    connect(sleepTimer_, &QTimer::timeout, this, &MainWindow::sleepDeadlineReached);
+  }
+  if (sleepTick_ == nullptr) {
+    sleepTick_ = new QTimer(this);
+    sleepTick_->setInterval(30000);
+    connect(sleepTick_, &QTimer::timeout, this, &MainWindow::refreshSleepLabel);
+  }
+  sleepTimer_->start(static_cast<int>(minutes) * 60 * 1000);
+  sleepTick_->start();
+  if (sleepAction_ != nullptr) sleepAction_->setEnabled(true);
+  statusBar()->showMessage(
+      tr("Dormindo em %1 minuto(s): a reprodução para no fim da faixa de então").arg(minutes),
+      4000);
+  refreshSleepLabel();
+}
+
+void MainWindow::sleepDeadlineReached() {
+  // O prazo venceu: a faixa atual termina normalmente e a próxima não começa.
+  if (engine_->state() != wamp::PlaybackState::Playing) {
+    setSleepTimer(0);
+    return;
+  }
+  sleepStopPending_ = true;
+  if (sleepTick_ != nullptr) sleepTick_->stop();
+  statusBar()->showMessage(tr("Dormir: paro no fim desta faixa"), 4000);
+}
+
+void MainWindow::refreshSleepLabel() {
+  if (!sleepDeadline_.isValid() || sleepAction_ == nullptr) return;
+  const qint64 seconds = QDateTime::currentDateTime().secsTo(sleepDeadline_);
+  if (seconds <= 0) {
+    sleepAction_->setText(tr("Dormir: paro no fim desta faixa"));
+    return;
+  }
+  const int minutesLeft = static_cast<int>((seconds + 59) / 60);
+  sleepAction_->setText(tr("Dormir: faltam %1 minuto(s)").arg(minutesLeft));
+}
+
 void MainWindow::onTrackEnded() {
+  if (sleepStopPending_) {
+    sleepStopPending_ = false;
+    setSleepTimer(0);
+    statusBar()->showMessage(tr("Parado pelo dormir"), 4000);
+    return;
+  }
   if (stopAfterCurrent_) {
     stopAfterCurrent_ = false;
     if (stopAfterAction_ != nullptr) stopAfterAction_->setChecked(false);

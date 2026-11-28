@@ -2,7 +2,10 @@
 
 #include <chrono>
 
+#include <QAction>
 #include <QColor>
+#include <QDateTime>
+#include <QTimer>
 #include <QVector>
 #include <QMainWindow>
 
@@ -160,6 +163,11 @@ class MainWindow final : public QMainWindow {
   std::size_t nextTrackIndex();
   /// Decide a próxima faixa uma vez por troca e entrega ao engine (gapless).
   void updateNextUp();
+
+  /// Dormir: encerra no fim da faixa que estiver tocando quando o prazo chegar (0 = cancelar).
+  void setSleepTimer(int minutes);
+  void sleepDeadlineReached();
+  void refreshSleepLabel();
   /// Transição gapless já audível: acompanha a playlist sem recarregar nada.
   void applyGaplessTrackChange(const QString& path);
   void toggleShuffle();
@@ -502,4 +510,11 @@ class MainWindow final : public QMainWindow {
   bool shuffle_ = false;
   /// Nível do sorteio, 0..1 (o "morph rate" do Winamp).
   double shuffleLevel_ = 0.5;
+
+  // Dormir (QoL 24): o prazo é absoluto; o aviso é dado no fim da faixa, não no meio dela.
+  QDateTime sleepDeadline_;
+  QTimer* sleepTimer_ = nullptr;
+  QTimer* sleepTick_ = nullptr;
+  bool sleepStopPending_ = false;
+  QAction* sleepAction_ = nullptr;
 };

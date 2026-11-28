@@ -1,4 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
     <name>MainWindow</name>
@@ -239,8 +240,8 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
         <translation>Limit of %1 custom themes reached. Delete one first.</translation>
     </message>
     <message>
-        <source>Tema "%1" salvo</source>
-        <translation>Theme "%1" saved</translation>
+        <source>Tema &quot;%1&quot; salvo</source>
+        <translation>Theme &quot;%1&quot; saved</translation>
     </message>
     <message>
         <source>Importar temas</source>
@@ -271,8 +272,8 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
         <translation>Delete theme</translation>
     </message>
     <message>
-        <source>Excluir o tema "%1"? O arquivo CSV será apagado.</source>
-        <translation>Delete the theme "%1"? The CSV file will be removed.</translation>
+        <source>Excluir o tema &quot;%1&quot;? O arquivo CSV será apagado.</source>
+        <translation>Delete the theme &quot;%1&quot;? The CSV file will be removed.</translation>
     </message>
     <message>
         <source>Modelo de CSV</source>
@@ -320,11 +321,23 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
     </message>
     <message>
         <source>Vou parar no fim desta faixa</source>
-        <translation>I'll stop at the end of this track</translation>
+        <translation>I&apos;ll stop at the end of this track</translation>
     </message>
     <message>
         <source>Sigo para a próxima</source>
         <translation>Moving on to the next</translation>
+    </message>
+    <message>
+        <source>Dormir</source>
+        <translation>Sleep</translation>
+    </message>
+    <message>
+        <source>%1 minutos</source>
+        <translation>%1 minutes</translation>
+    </message>
+    <message>
+        <source>Cancelar o dormir</source>
+        <translation>Cancel sleep</translation>
     </message>
     <message>
         <source>Faixa anterior</source>
@@ -357,6 +370,38 @@ To play: mount the share (or copy the files to disk) and drag from the mounted f
     <message>
         <source>Preferências…</source>
         <translation>Preferences…</translation>
+    </message>
+    <message>
+        <source>&amp;Tags</source>
+        <translation>&amp;Tags</translation>
+    </message>
+    <message>
+        <source>Buscar tags nesta faixa…</source>
+        <translation>Search tags for this track…</translation>
+    </message>
+    <message>
+        <source>Nenhuma faixa tocando para buscar tags.</source>
+        <translation>Nothing playing to search tags for.</translation>
+    </message>
+    <message>
+        <source>Buscar tags em lote…</source>
+        <translation>Search tags in batch…</translation>
+    </message>
+    <message>
+        <source>A playlist está vazia — nada para buscar em lote.</source>
+        <translation>The playlist is empty — nothing to search in batch.</translation>
+    </message>
+    <message>
+        <source>Continuar revisão…</source>
+        <translation>Continue review…</translation>
+    </message>
+    <message>
+        <source>Desfazer último lote</source>
+        <translation>Undo last batch</translation>
+    </message>
+    <message>
+        <source>Continuar revisão (%1)…</source>
+        <translation>Continue review (%1)…</translation>
     </message>
     <message>
         <source>Abrir arquivo de áudio</source>
@@ -683,6 +728,26 @@ Amplia — %2</translation>
     <message>
         <source>%1 scrobble(s) na fila</source>
         <translation>%1 scrobble(s) in the queue</translation>
+    </message>
+    <message>
+        <source>Dormir cancelado</source>
+        <translation>Sleep cancelled</translation>
+    </message>
+    <message>
+        <source>Dormindo em %1 minuto(s): a reprodução para no fim da faixa de então</source>
+        <translation>Sleeping in %1 minute(s): playback stops at the end of the track playing then</translation>
+    </message>
+    <message>
+        <source>Dormir: paro no fim desta faixa</source>
+        <translation>Sleep: stopping at the end of this track</translation>
+    </message>
+    <message>
+        <source>Dormir: faltam %1 minuto(s)</source>
+        <translation>Sleep: %1 minute(s) left</translation>
+    </message>
+    <message>
+        <source>Parado pelo dormir</source>
+        <translation>Stopped by the sleep timer</translation>
     </message>
     <message>
         <source>Parado no fim da faixa</source>
@@ -1096,8 +1161,8 @@ The files stay on disk.</numerusform>
         <translation>Playback</translation>
     </message>
     <message>
-        <source>Anunciar "ouvindo agora" quando a faixa começa</source>
-        <translation>Announce "now playing" when a track starts</translation>
+        <source>Anunciar &quot;ouvindo agora&quot; quando a faixa começa</source>
+        <translation>Announce &quot;now playing&quot; when a track starts</translation>
     </message>
     <message>
         <source>Enviar scrobbles para o Last.fm</source>
@@ -1188,6 +1253,14 @@ The files stay on disk.</numerusform>
         <translation>Level %1%</translation>
     </message>
     <message>
+        <source>O Last.fm não tem como encerrar o anúncio: ele fica no perfil até outro scrobble chegar.</source>
+        <translation>Last.fm cannot withdraw the announcement: it stays on the profile until another scrobble arrives.</translation>
+    </message>
+    <message>
+        <source>Ligue o Last.fm ou o ListenBrainz para anunciar &quot;ouvindo agora&quot;.</source>
+        <translation>Turn on Last.fm or ListenBrainz to announce &amp;quot;now playing&amp;quot;.</translation>
+    </message>
+    <message>
         <source>Não deu para pedir o token: %1</source>
         <translation>Could not request the token: %1</translation>
     </message>
@@ -1196,8 +1269,8 @@ The files stay on disk.</numerusform>
         <translation>I authorized — finish</translation>
     </message>
     <message>
-        <source>Autorize no navegador que abriu e clique de novo em "Já autorizei".</source>
-        <translation>Authorize in the browser that opened, then click "I authorized" again.</translation>
+        <source>Autorize no navegador que abriu e clique de novo em &quot;Já autorizei&quot;.</source>
+        <translation>Authorize in the browser that opened, then click &quot;I authorized&quot; again.</translation>
     </message>
     <message>
         <source>Autorização não concluída: %1</source>
@@ -1470,12 +1543,119 @@ The files stay on disk.</numerusform>
         <translation>Languages: %1</translation>
     </message>
     <message>
-        <source>Lançamentos: &lt;a href="https://github.com/cassiofiorin/Amplia/releases"&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</source>
-        <translation>Releases: &lt;a href="https://github.com/cassiofiorin/Amplia/releases"&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</translation>
+        <source>Lançamentos: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</source>
+        <translation>Releases: &lt;a href=&quot;https://github.com/cassiofiorin/Amplia/releases&quot;&gt;github.com/cassiofiorin/Amplia/releases&lt;/a&gt;</translation>
     </message>
     <message>
         <source>Fechar</source>
         <translation>Close</translation>
+    </message>
+</context>
+<context>
+    <name>wamp::ui::BatchReviewDialog</name>
+    <message>
+        <source>Revisar lote</source>
+        <translation>Review batch</translation>
+    </message>
+    <message>
+        <source>Faixas sem tags terão os dados preenchidos mesmo que não estejam marcadas — apenas quando a compatibilidade da tag for alta.</source>
+        <translation>Tracks without tags get filled in even when they are not checked — only when the tag match is confident.</translation>
+    </message>
+    <message>
+        <source>Anterior</source>
+        <translation>Previous</translation>
+    </message>
+    <message>
+        <source>Próxima</source>
+        <translation>Next</translation>
+    </message>
+    <message>
+        <source>Aplicar marcadas</source>
+        <translation>Apply checked</translation>
+    </message>
+    <message>
+        <source>Salvar e avançar</source>
+        <translation>Save and continue</translation>
+    </message>
+    <message>
+        <source>Fechar</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Marcar esta faixa marca todos os campos abaixo.</source>
+        <translation>Checking this track checks every field below.</translation>
+    </message>
+    <message>
+        <source>marcada</source>
+        <translation>checked</translation>
+    </message>
+    <message>
+        <source>pendente</source>
+        <translation>pending</translation>
+    </message>
+    <message>
+        <source>No arquivo</source>
+        <translation>In the file</translation>
+    </message>
+    <message>
+        <source>Encontrado no MusicBrainz</source>
+        <translation>Found on MusicBrainz</translation>
+    </message>
+    <message>
+        <source>(vazio)</source>
+        <translation>(empty)</translation>
+    </message>
+    <message>
+        <source>Só grava se você marcar.</source>
+        <translation>Writes only what you check.</translation>
+    </message>
+    <message>
+        <source>Nada para revisar.</source>
+        <translation>Nothing to review.</translation>
+    </message>
+    <message>
+        <source>página %1 de %2 · %3 faixa(s) em revisão</source>
+        <translation>page %1 of %2 · %3 track(s) under review</translation>
+    </message>
+    <message>
+        <source>Gravou %1 faixa(s), mas o diário falhou: %2</source>
+        <translation>Wrote %1 track(s), but the journal failed: %2</translation>
+    </message>
+    <message>
+        <source>%1 faixa(s) gravadas.</source>
+        <translation>%1 track(s) written.</translation>
+    </message>
+    <message>
+        <source>Nada marcado nesta página — nada foi gravado.</source>
+        <translation>Nothing checked on this page — nothing was written.</translation>
+    </message>
+    <message>
+        <source>%1 faixa(s) não puderam ser gravadas: %2</source>
+        <translation>%1 track(s) could not be written: %2</translation>
+    </message>
+    <message>
+        <source>Desfazer</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>Não há lote para desfazer: %1</source>
+        <translation>There is no batch to undo: %1</translation>
+    </message>
+    <message>
+        <source>Desfazer último lote</source>
+        <translation>Undo last batch</translation>
+    </message>
+    <message>
+        <source>Devolver as tags de %1 faixa(s) ao que eram antes?</source>
+        <translation>Restore the tags of %1 track(s) to what they were before?</translation>
+    </message>
+    <message>
+        <source>Desfeito: %1 faixa(s) voltaram ao que eram.</source>
+        <translation>Undone: %1 track(s) are back to what they were.</translation>
+    </message>
+    <message>
+        <source>Desfeito em %1 faixa(s); %2 não puderam ser restauradas.</source>
+        <translation>Undone on %1 track(s); %2 could not be restored.</translation>
     </message>
 </context>
 <context>
@@ -1505,6 +1685,14 @@ The files stay on disk.</numerusform>
         <translation>The remaining %1 tracks will be processed in the next batch.</translation>
     </message>
     <message>
+        <source>Buscar o disco inteiro — uma consulta por pasta (em teste)</source>
+        <translation>Search the whole album — one query per folder (testing)</translation>
+    </message>
+    <message>
+        <source>Lê o disco uma vez no MusicBrainz e usa as faixas dele para casar com as da pasta. Uma consulta por pasta em vez de uma por faixa.</source>
+        <translation>Reads the album once from MusicBrainz and uses its tracks to match the ones in the folder. One query per folder instead of one per track.</translation>
+    </message>
+    <message>
         <source>Pronto para começar.</source>
         <translation>Ready to start.</translation>
     </message>
@@ -1521,12 +1709,36 @@ The files stay on disk.</numerusform>
         <translation>Undo last batch</translation>
     </message>
     <message>
+        <source>Revisar</source>
+        <translation>Review</translation>
+    </message>
+    <message>
         <source>Fechar</source>
         <translation>Close</translation>
     </message>
     <message>
+        <source>Revisar (%1)</source>
+        <translation>Review (%1)</translation>
+    </message>
+    <message>
+        <source>Todas as %1 faixa(s) já foram corrigidas pelo app e não mudaram desde então. Nada a fazer.</source>
+        <translation>All %1 track(s) were already fixed by the app and have not changed since. Nothing to do.</translation>
+    </message>
+    <message>
         <source>Parado. O que já foi gravado ficou registrado no diário.</source>
         <translation>Stopped. Whatever was already written is recorded in the journal.</translation>
+    </message>
+    <message>
+        <source>Consultando o disco de %1</source>
+        <translation>Looking up the album of %1</translation>
+    </message>
+    <message>
+        <source>Abrindo o disco %1 (%2)…</source>
+        <translation>Opening release %1 (%2)…</translation>
+    </message>
+    <message>
+        <source>Discos consultados: %1. Agora as faixas.</source>
+        <translation>Releases checked: %1. Now the tracks.</translation>
     </message>
     <message>
         <source>Consultando %1 de %2 — %3</source>
@@ -1541,12 +1753,24 @@ The files stay on disk.</numerusform>
         <translation>already has artist and title — nothing to do</translation>
     </message>
     <message>
+        <source>Casando %1 de %2 — %3</source>
+        <translation>Matching %1 of %2 — %3</translation>
+    </message>
+    <message>
+        <source>%1 — fica para a próxima</source>
+        <translation>%1 — left for the next batch</translation>
+    </message>
+    <message>
         <source>nada encontrado</source>
         <translation>nothing found</translation>
     </message>
     <message>
         <source>revisar — melhor %1 (%2)</source>
         <translation>review — best %1 (%2)</translation>
+    </message>
+    <message>
+        <source>revisar — melhor %1 (%2) · preenchido por consenso: %3</source>
+        <translation>review — best %1 (%2) · filled by consensus: %3</translation>
     </message>
     <message>
         <source>sem confiança — nada foi gravado</source>
@@ -1569,8 +1793,12 @@ The files stay on disk.</numerusform>
         <translation>Finished with %1 written, but the journal failed: %2</translation>
     </message>
     <message>
-        <source>Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado.</source>
-        <translation>Finished: %1 written, %2 to review, %3 with no result.</translation>
+        <source>Terminou: %1 gravada(s), %2 para revisar, %3 sem resultado, %4 para depois.</source>
+        <translation>Finished: %1 written, %2 to review, %3 with no result, %4 for later.</translation>
+    </message>
+    <message>
+        <source>%1 ignorada(s) (tag corrigida pelo app).</source>
+        <translation>%1 skipped (tag fixed by the app).</translation>
     </message>
     <message>
         <source>Desfazer</source>
@@ -2395,10 +2623,6 @@ Album gain: %2</translation>
 <context>
     <name>wamp::ui::MusicBrainzClient</name>
     <message>
-        <source>O MusicBrainz está ocupado agora; tentando de novo…</source>
-        <translation>MusicBrainz is busy right now; trying again…</translation>
-    </message>
-    <message>
         <source>O MusicBrainz está ocupado agora. Tente de novo em alguns segundos.</source>
         <translation>MusicBrainz is busy right now. Try again in a few seconds.</translation>
     </message>
@@ -2428,6 +2652,22 @@ Album gain: %2</translation>
     <message>
         <source>Buscar</source>
         <translation>Search</translation>
+    </message>
+    <message>
+        <source>Campo</source>
+        <translation>Field</translation>
+    </message>
+    <message>
+        <source>No arquivo</source>
+        <translation>In the file</translation>
+    </message>
+    <message>
+        <source>Encontrado</source>
+        <translation>Found</translation>
+    </message>
+    <message>
+        <source>Marque os campos que devem ir para o arquivo. Campo vazio entra marcado; o que já existe só muda se você marcar.</source>
+        <translation>Check the fields that go into the file. Empty fields start checked; what already exists changes only if you check it.</translation>
     </message>
     <message>
         <source>Cancelar</source>
@@ -2484,6 +2724,38 @@ Album gain: %2</translation>
     <message>
         <source>%1 campo(s) vazio(s) a preencher</source>
         <translation>%1 empty field(s) to fill</translation>
+    </message>
+    <message>
+        <source>Título</source>
+        <translation>Title</translation>
+    </message>
+    <message>
+        <source>Artista</source>
+        <translation>Artist</translation>
+    </message>
+    <message>
+        <source>Álbum</source>
+        <translation>Album</translation>
+    </message>
+    <message>
+        <source>Artista do álbum</source>
+        <translation>Album artist</translation>
+    </message>
+    <message>
+        <source>Faixa</source>
+        <translation>Track</translation>
+    </message>
+    <message>
+        <source>Disco</source>
+        <translation>Disc</translation>
+    </message>
+    <message>
+        <source>Ano</source>
+        <translation>Year</translation>
+    </message>
+    <message>
+        <source>(vazio)</source>
+        <translation>(empty)</translation>
     </message>
 </context>
 </TS>

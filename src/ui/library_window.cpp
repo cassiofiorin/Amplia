@@ -630,6 +630,14 @@ LibraryWindow::LibraryWindow(QWidget* parent) : QWidget(parent, Qt::Tool) {
   footer->addWidget(stationButton_);
   rightLayout->addLayout(footer);
 
+  // QoL 28: botão que não encolhe abaixo do próprio texto. Sem isso, janela estreita corta
+  // o rótulo ("onar à pl") em vez de o layout ceder espaço — e a janela tem tamanho mínimo
+  // que comporta o rodapé inteiro, então não existe estado em que o texto suma.
+  for (QPushButton* button : {playButton_, queueButton_, addButton_, stationButton_}) {
+    button->setMinimumWidth(button->sizeHint().width());
+  }
+  setMinimumWidth(std::max(880, footer->sizeHint().width() + 60));
+
   status_ = new QLabel(right);
   status_->setObjectName(QStringLiteral("hint"));
   status_->hide();

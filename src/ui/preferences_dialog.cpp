@@ -286,6 +286,11 @@ PreferencesDialog::PreferencesDialog(bool shuffle, int level, bool closeToTray,
   visualLayout->addWidget(visualHint);
   visualLayout->addStretch(1);
   tabs->addTab(visual, tr("Visualização"));
+  // Gancho de captura: a aba escolhida por variável de ambiente, porque clique sintético não
+  // chega a diálogo modal no XWayland.
+  if (qEnvironmentVariableIsSet("AMPLIA_PREFERENCES_TAB")) {
+    tabs->setCurrentIndex(qEnvironmentVariableIntValue("AMPLIA_PREFERENCES_TAB"));
+  }
 
   connect(fpsSlider_, &QSlider::valueChanged, this, [this](int value) {
     fpsLabel_->setText(tr("%1 fps").arg(value));
@@ -417,7 +422,8 @@ wamp::ScrobbleConfig PreferencesDialog::scrobbleConfig() const {
   config.lastfmSessionKey = lastfmSession_;
   config.listenbrainzEnabled = listenbrainzBox_->isChecked();
   config.listenbrainzToken = listenbrainzToken_->text().trimmed().toStdString();
-  config.announceNowPlaying = nowPlayingBox_->isChecked();
+  config.announceNowPlaying = nowPlayingBox_->isEnabled() ? nowPlayingBox_->isChecked()
+                                                        : announceWanted_;
   return config;
 }
 
@@ -448,7 +454,21 @@ void PreferencesDialog::updateScrobbleState() {
   const bool listenbrainz = listenbrainzBox_->isChecked();
   listenbrainzToken_->setEnabled(listenbrainz);
 
-  nowPlayingBox_->setEnabled(lastfm || listenbrainz);
+  // Desmarcado de verdade quando não há para onde anunciar: caixa cinza marcada parecia
+  // dizer que o anúncio vale. A preferência fica guardada em announceWanted_ e volta quando
+  // um dos dois serviços for ligado.
+  const bool canAnnounce = lastfm || listenbrainz;
+  if (canAnnounce && !nowPlayingBox_->isEnabled()) {
+    nowPlayingBox_->setChecked(announceWanted_);
+  } else if (!canAnnounce) {
+    announceWanted_ = nowPlayingBox_->isChecked();
+    nowPlayingBox_->setChecked(false);
+  }
+  nowPlayingBox_->setEnabled(canAnnounce);
+  nowPlayingBox_->setToolTip(
+      canAnnounce ? tr("O Last.fm não tem como encerrar o anúncio: ele fica no perfil até outro "
+                       "scrobble chegar.")
+                  : tr("Ligue o Last.fm ou o ListenBrainz para anunciar \"ouvindo agora\"."));
 }
 
 void PreferencesDialog::connectLastfm() {

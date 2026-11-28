@@ -3244,3 +3244,21 @@ artista e de artista do álbum passam por `wamp::asciiDashes`, que troca U+2010�
 comum. **Título fica de fora**: ali a pontuação é escolha editorial do catálogo, e normalizar
 apóstrofo ou travessão de título seria inventar. O `norm/v1` continua dobrando pontuação para
 **comparar**; essa troca é para **gravar**, e são coisas diferentes.
+
+## D-154 — O QoL entrega quatro coisas pequenas e visíveis
+
+A rodada de qualidade de uso (itens 24, 27, 28 e 29 do `BACKLOG.md`) fecha em quatro
+mudanças, todas de superfície:
+
+- **Dormir** é um prazo absoluto no menu Reprodução (15, 30, 45, 60, 90 minutos). Ao vencer,
+  a faixa atual **termina** e a próxima não começa — cortar música no meio não é dormir, é
+  interromper. O item de menu mostra quanto falta ("faltam N minuto(s)") e vira "paro no fim
+  desta faixa" quando o prazo chega.
+- **"Anunciar ouvindo agora"** fica **desmarcado e desabilitado** quando não há Last.fm nem
+  ListenBrainz: caixa cinza marcada dizia o contrário do que acontece. A escolha anterior é
+  guardada em memória e volta quando um serviço é ligado.
+- **Grade de controle**: campos, combos e botões de diálogo compartilham `min-height: 20px` e a
+  mesma folga horizontal. Alturas diferentes por diálogo lêem como descuido.
+- **Janela que não corta botão**: os botões do rodapé da Biblioteca recebem a própria largura
+  preferida e a janela um mínimo que comporta o rodapé inteiro. Entre cortar o rótulo e não
+  deixar encolher, a segunda opção é a que o usuário entende.
