@@ -308,11 +308,12 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       `src/ui/musicbrainz.cpp` (analisador de resposta testado com JSON gravado). A primeira
       consulta real devolveu 15 candidatos para Foo Fighters — "All My Life", com margem 0,00,
       ou seja: caso de revisão, não de gravação automática.
-- [ ] **Diálogo "Buscar tags…" (refino)**: hoje ele já abre no Alt+3, consulta, lista os
-      candidatos com pontuação e motivo, e devolve a escolha preenchendo só os campos vazios.
-      Falta a comparação **campo a campo** dentro do próprio diálogo (a revisão do lote já tem
-      isso; o Alt+3 ainda aplica em bloco o que está vazio) — com caixa por campo, para corrigir
-      um campo errado sem mexer nos outros.
+- [x] **Diálogo "Buscar tags…" (refino)**: a comparação **campo a campo** está no próprio
+      diálogo — sete linhas (título, artista, álbum, artista do álbum, faixa, disco, ano), valor
+      atual × encontrado, `(vazio)` em cinza, o encontrado em negrito quando difere, e **caixa por
+      campo** (campo vazio entra marcado; o que já existe só muda se for marcado). A tabela mostra
+      as sete linhas de uma vez, ocupa a largura da janela (680×520) e a dica explica a regra da
+      marca. O que sai dali é a lista de campos marcados, não o bloco inteiro.
 - [x] **Capa de álbum**: embutida (`APIC`) e `folder.jpg`/`cover.jpg` da pasta, cache por álbum
       com limite de tamanho, mostrada no painel do player, no Alt+3 e na lista — `CoverCache`
       por álbum (chave `norm/v1`, extração fora da thread da interface, nunca amplia arte
