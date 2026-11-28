@@ -3208,8 +3208,22 @@ o título de uma edição duvidosa —, e o que já existia só muda com marcaç
 
 A busca do **disco inteiro** no lote está implementada na mecânica: uma consulta de lançamentos
 por pasta, abertura do lançamento, faixas em memória casadas por título e o mesmo caminho de
-consenso/revisão. Mas a escolha de **qual** lançamento é o certo ainda erra: no teste de 27/11
-(pasta `2005 - Analogue`, arquivos sem álbum) os quatro candidatos abertos acusaram
-`0 de N título(s) da pasta casaram`, nenhum foi aceito e nada foi gravado. Por isso a caixa
-entra **desligada por padrão e marcada "(em teste)"**: o caminho de uma faixa por vez é o que
-está validado, e recurso que erra não vira padrão.
+consenso/revisão.
+
+O primeiro teste falhou por dois motivos, os dois consertados em **D-152**: o MusicBrainz escreve
+`Don’t` com apóstrofo curvo e o arquivo tem o reto — sem dobrar pontuação tipográfica no `norm/v1`,
+nenhum título casa; e a ordem dos candidatos trazia o single de 2 faixas antes do disco de 13 —
+agora a ordem é pela distância entre o `track-count` e o número de arquivos da pasta, com até
+quatro aberturas até um casar por inteiro. Com os dois, o teste deu `13 de 13 título(s) casaram`,
+álbum e ano de 2005 gravados. A caixa segue **desligada por padrão e marcada "(em teste)"**: em
+pasta parcial (2 de 13) o palpite por tamanho aponta para o single e nada casa, então o recurso
+ainda não é o padrão.
+
+## D-152 — A busca por disco escolhe o lançamento pelo tamanho e confere pelos títulos
+
+Três regras fecham o disco inteiro: (1) o `norm/v1` dobra pontuação tipográfica — `Don’t` do
+catálogo casa com `Don't` do arquivo —, porque sem isso nenhum título casa e a falha é silenciosa;
+(2) os candidatos são ordenados pela distância entre o `track-count` e o número de arquivos da
+pasta, e até quatro são abertos até um casar por inteiro; (3) só entra o lançamento em que todos
+os títulos da pasta aparecem, e o que o casamento não cobre fica para a revisão. O recurso segue
+**opt-in**: em pasta parcial o palpite por tamanho aponta para o single e nada casa.

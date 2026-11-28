@@ -393,7 +393,13 @@ uma identidade de faixa que sobrevive a mudar de máquina.
       ganha um menu de topo **"Tags"**, ao lado de "Opções", com as operações do ramo — "Buscar
       tags nesta faixa…", "Buscar tags em lote…", "Continuar revisão (N)" e "Desfazer último
       lote".
-- [ ] **Buscar o disco inteiro**: `searchReleases` existe no cliente, sem botão no lote.
+- [x] **Buscar o disco inteiro**: funciona com **pasta completa** — uma consulta de lançamentos
+      por pasta, ordem pela distância entre o `track-count` e o número de arquivos (a pasta de 13
+      arquivos é o lançamento de 13 faixas, não o single de 2), abertura do lançamento escolhido,
+      casamento por título e o mesmo caminho de consenso/revisão. Medido em 27/11 com
+      `2005 - Analogue` (13 arquivos sem álbum): `13 de 13 título(s) casaram`, álbum e ano de 2005
+      gravados. Segue **opt-in**: em pasta parcial (2 de 13) o palpite por tamanho aponta para o
+      single e nada casa, e aí vale mais a busca faixa a faixa.
 
 **Regras do autotag (o arquivo do autor é o caso de teste).** O acervo oficial não cobre
 gravação não oficial: um rip de transmissão de TV (o Lollapalooza do Foo Fighters do autor, que

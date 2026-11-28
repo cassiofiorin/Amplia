@@ -14,6 +14,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QStandardPaths>
+#include <QtGlobal>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -159,6 +160,9 @@ void BatchTagDialog::buildUi(int total, int sliceSize, int restSize) {
   // uma faixa por vez já foi validado e não depende de acertar qual edição é a certa.
   albumBox_ = new QCheckBox(tr("Buscar o disco inteiro — uma consulta por pasta (em teste)"), this);
   albumBox_->setChecked(false);
+  // Gancho de teste: a caixa nasce desligada, e clique sintético em diálogo modal não chega
+  // (o XWayland entrega ao diálogo só com foco real). A variável liga a caixa para o teste.
+  if (qEnvironmentVariableIsSet("AMPLIA_BATCH_ALBUM")) albumBox_->setChecked(true);
   albumBox_->setToolTip(tr("Lê o disco uma vez no MusicBrainz e usa as faixas dele para casar "
                           "com as da pasta. Uma consulta por pasta em vez de uma por faixa."));
   layout->addWidget(albumBox_);
@@ -468,6 +472,11 @@ void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates
             }
           }
         }
+        if (albumTrial_ == 1) {
+          qInfo("amplia: pasta=[%s] disco=[%s]",
+                qPrintable(folderTitles_.join(QStringLiteral(" | "))),
+                qPrintable(fromStd(candidates.front().title)));
+        }
         qInfo("amplia: disco '%s' tem %d faixa(s), %d de %d título(s) da pasta casaram",
               qPrintable(currentAlbumName_), static_cast<int>(candidates.size()), matched,
               static_cast<int>(folderTitles_.size()));
@@ -494,15 +503,30 @@ void BatchTagDialog::handleCandidates(std::vector<wamp::TagCandidate> candidates
     // casar com os títulos da pasta.
     const std::string wantedAlbum =
         wamp::normalizeWorkField(wamp::WorkField::Album, currentAlbumName_.toStdString());
-    albumReleaseIds_.clear();
+    // A ordem importa: abrir até quatro lançamentos só serve se os prováveis vierem primeiro.
+    // O tamanho do disco é o melhor palpite barato — uma pasta de 13 arquivos é o lançamento de
+    // 13 faixas, não o single de 2 nem a edição de 15 com bônus.
+    struct Try {
+      QString id;
+      int trackCount;
+    };
+    std::vector<Try> tries;
     for (const auto& candidate : candidates) {
       if (candidate.releaseId.empty()) continue;
       if (!wantedAlbum.empty() &&
           wamp::normalizeWorkField(wamp::WorkField::Album, candidate.album) != wantedAlbum) {
         continue;
       }
-      albumReleaseIds_.append(fromStd(candidate.releaseId));
+      tries.push_back({fromStd(candidate.releaseId), candidate.trackCount});
     }
+    const int wantedSize = static_cast<int>(folderTitles_.size());
+    std::stable_sort(tries.begin(), tries.end(), [wantedSize](const Try& a, const Try& b) {
+      const int da = a.trackCount > 0 ? std::abs(a.trackCount - wantedSize) : 1000;
+      const int db = b.trackCount > 0 ? std::abs(b.trackCount - wantedSize) : 1000;
+      return da < db;
+    });
+    albumReleaseIds_.clear();
+    for (const Try& attempt : tries) albumReleaseIds_.append(attempt.id);
     if (albumReleaseIds_.isEmpty()) {
       for (const auto& candidate : candidates) {
         if (!candidate.releaseId.empty()) albumReleaseIds_.append(fromStd(candidate.releaseId));

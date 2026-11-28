@@ -80,6 +80,22 @@ bool isCombiningMark(char32_t code) {
          (code >= 0xFE20 && code <= 0xFE2F);
 }
 
+/// Pontuação "de teclado de editor" → ASCII.
+///
+/// O MusicBrainz escreve `Don’t Do Me Any Favours` com apóstrofo tipográfico, e o arquivo costuma
+/// ter o reto: sem dobrar isso, dois títulos iguais não casam e a busca por disco falha em
+/// silêncio. Vale para aspas, travessões e reticências — todos com o mesmo som.
+bool foldPunctuation(char32_t code, std::string& out) {
+  switch (code) {
+    case 0x2018: case 0x2019: case 0x201A: case 0x201B: case 0x2032: out += '\''; return true;
+    case 0x201C: case 0x201D: case 0x201E: case 0x2033: out += '"'; return true;
+    case 0x2013: case 0x2014: case 0x2015: case 0x2212: out += '-'; return true;
+    case 0x2026: out += "..."; return true;
+    case 0x00AB: case 0x00BB: out += '"'; return true;
+    default: return false;
+  }
+}
+
 /// Letra precomposta (Latin-1 Supplement e Latin Extended-A) → letra base.
 ///
 /// É o pedido do `norm/v1` ("NFD, sem acentos") sem arrastar ICU: cobre o latim que aparece em
@@ -148,6 +164,7 @@ std::string lowerWithoutAccents(const std::string& text) {
   for (const char32_t code : decodeUtf8(text)) {
     if (isCombiningMark(code)) continue;
     if (decomposeLatin(code, flat)) continue;
+    if (foldPunctuation(code, flat)) continue;
     if (code >= 'A' && code <= 'Z') {
       flat.push_back(static_cast<char>(code - 'A' + 'a'));
       continue;

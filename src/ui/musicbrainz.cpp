@@ -99,6 +99,7 @@ std::vector<TagCandidate> parseRecordingSearch(const QByteArray& json, QString* 
       candidate.album = release.value(QStringLiteral("title")).toString().toStdString();
       candidate.releaseId = release.value(QStringLiteral("id")).toString().toStdString();
       candidate.year = yearOf(release.value(QStringLiteral("date")).toString());
+    candidate.trackCount = release.value(QStringLiteral("track-count")).toInt();
       const QJsonObject credit = release.value(QStringLiteral("artist-credit")).toArray().isEmpty()
                                      ? QJsonObject()
                                      : release.value(QStringLiteral("artist-credit")).toArray().first().toObject();
@@ -141,6 +142,7 @@ std::vector<TagCandidate> parseReleaseSearch(const QByteArray& json, QString* er
     candidate.releaseId = candidate.id;
     candidate.album = release.value(QStringLiteral("title")).toString().toStdString();
     candidate.year = yearOf(release.value(QStringLiteral("date")).toString());
+    candidate.trackCount = release.value(QStringLiteral("track-count")).toInt();
     const QJsonArray credits = release.value(QStringLiteral("artist-credit")).toArray();
     if (!credits.isEmpty()) {
       const QJsonObject credit = credits.first().toObject();

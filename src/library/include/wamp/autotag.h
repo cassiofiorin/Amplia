@@ -38,6 +38,9 @@ struct TagCandidate {
   int year = 0;
   int trackNo = 0;
   int discNo = 0;
+  /// Quantas faixas o lançamento tem; só a busca por releases preenche. Serve para preferir a
+  /// edição do tamanho da pasta antes de abrir uma por uma.
+  int trackCount = 0;
   std::int64_t durationMs = 0;
   /// Release de onde veio (um mesmo candidato pode aparecer em várias edições).
   std::string releaseId;

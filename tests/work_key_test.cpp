@@ -85,5 +85,13 @@ int main() {
     return 1;
   }
   std::printf("\ntudo ok\n");
+
+  // Apóstrofo tipográfico do catálogo contra o reto do arquivo: é o caso real do MusicBrainz
+  // ("Don’t Do Me Any Favours"), e sem isso a busca por disco não casa título nenhum.
+  expect(norm(wamp::WorkField::Title, "Don\u2019t Do Me Any Favours") ==
+             norm(wamp::WorkField::Title, "Don't Do Me Any Favours"),
+         "apóstrofo tipográfico casa com o reto");
+  expect(norm(wamp::WorkField::Title, "Rock \u2013 Roll") == "rock - roll",
+         "travessão vira hífen");
   return 0;
 }
